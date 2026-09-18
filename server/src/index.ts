@@ -5,6 +5,8 @@ import { config } from "./config";
 import { passport } from "./auth/passport";
 import { authRouter } from "./auth/routes";
 import { steamRouter } from "./steam/routes";
+import { xboxAuthRouter } from "./xbox/authRoutes";
+import { xboxRouter } from "./xbox/routes";
 import { scoreRouter } from "./scoring/routes";
 
 const app = express();
@@ -22,7 +24,9 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use("/auth", authRouter);
+app.use("/auth/xbox", xboxAuthRouter);
 app.use("/api/steam", steamRouter);
+app.use("/api/xbox", xboxRouter);
 app.use("/api/me", scoreRouter);
 
 app.use(express.static(path.join(__dirname, "..", "public")));

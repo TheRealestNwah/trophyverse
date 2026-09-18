@@ -153,6 +153,11 @@
     .achievement-rarity { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
 
     .loading-note { color: var(--text-dim); font-size: 13px; padding: 16px; }
+
+    .platform-section { margin-bottom: 32px; }
+    #connect-more { margin-bottom: 8px; }
+    #connect-more a { text-decoration: none; }
+    #connect-more button { margin-right: 8px; }
 </style>
 </head>
 <body>
@@ -164,8 +169,9 @@
 
 <main>
     <section id="signin-view" class="hidden">
-        <p>Connect your Steam account to see your achievements in one place.</p>
+        <p>Connect a platform account to see your achievements in one place.</p>
         <a href="/auth/steam"><button>Sign in with Steam</button></a>
+        <a href="/auth/xbox"><button class="secondary" style="margin-left: 8px;">Sign in with Xbox</button></a>
     </section>
 
     <section id="dashboard-view" class="hidden">
@@ -180,20 +186,16 @@
             </div>
         </div>
 
-        <div class="toolbar">
-            <h2 id="games-heading">Your games</h2>
-            <div>
-                <span id="sync-status"></span>
-                <button id="sync-btn">Sync Steam library</button>
-            </div>
-        </div>
-
-        <div id="games-list"></div>
+        <div id="connect-more"></div>
+        <div id="platform-sections"></div>
     </section>
 </main>
 
 <script>
-const state = { games: [] };
+const PLATFORMS = [
+    { id: "steam", label: "Steam" },
+    { id: "xbox", label: "Xbox" },
+];
 
 async function api(path, options) {
     const res = await fetch(path, { credentials: "same-origin", ...options });
@@ -229,11 +231,10 @@ function renderScore(score) {
     document.getElementById("progress-fill").style.width = `${pct}%`;
 }
 
-function renderGames(games) {
-    document.getElementById("games-heading").textContent =
-        `Your games (${games.length})`;
+function renderGames(platform, games) {
+    document.getElementById(`${platform}-heading`).textContent = `${games.length} games`;
 
-    const list = document.getElementById("games-list");
+    const list = document.getElementById(`${platform}-games-list`);
     list.innerHTML = "";
     for (const game of games) {
         const el = document.createElement("div");
@@ -245,12 +246,12 @@ function renderGames(games) {
                 <div class="game-progress-text">${game.unlocked_achievements}/${game.total_achievements}</div>
             </div>
         `;
-        el.querySelector(".game-row").addEventListener("click", () => toggleAchievements(el, game.id));
+        el.querySelector(".game-row").addEventListener("click", () => toggleAchievements(platform, el, game.id));
         list.appendChild(el);
     }
 }
 
-async function toggleAchievements(gameEl, gameId) {
+async function toggleAchievements(platform, gameEl, gameId) {
     const existing = gameEl.querySelector(".achievements");
     if (existing) {
         existing.remove();
@@ -261,7 +262,7 @@ async function toggleAchievements(gameEl, gameId) {
     panel.innerHTML = `<div class="loading-note">Loading achievements...</div>`;
     gameEl.appendChild(panel);
 
-    const achievements = await api(`/api/steam/games/${gameId}/achievements`);
+    const achievements = await api(`/api/${platform}/games/${gameId}/achievements`);
     panel.innerHTML = achievements
         .map(
             (a) => `
@@ -278,28 +279,55 @@ async function toggleAchievements(gameEl, gameId) {
         .join("");
 }
 
-async function refresh() {
-    const [score, games] = await Promise.all([api("/api/me/score"), api("/api/steam/games")]);
-    renderScore(score);
-    renderGames(games);
-}
-
-async function sync() {
-    const btn = document.getElementById("sync-btn");
-    const status = document.getElementById("sync-status");
+async function syncPlatform(platform) {
+    const btn = document.getElementById(`${platform}-sync-btn`);
+    const status = document.getElementById(`${platform}-sync-status`);
     btn.disabled = true;
     status.textContent = "Syncing... this can take a few minutes for a large library.";
     try {
-        const summary = await api("/api/steam/sync", { method: "POST" });
+        const summary = await api(`/api/${platform}/sync`, { method: "POST" });
         status.textContent = `Synced ${summary.gamesProcessed} games, ${summary.achievementsUnlocked} new unlocks.`;
         renderScore(summary.score);
-        await refresh();
+        await refreshPlatform(platform);
     } catch (err) {
         status.textContent = "Sync failed — check the server log.";
         console.error(err);
     } finally {
         btn.disabled = false;
     }
+}
+
+async function refreshPlatform(platform) {
+    renderGames(platform, await api(`/api/${platform}/games`));
+}
+
+function renderPlatformSection(platform, label) {
+    const section = document.createElement("div");
+    section.className = "platform-section";
+    section.innerHTML = `
+        <div class="toolbar">
+            <h2 id="${platform}-heading">${label}</h2>
+            <div>
+                <span id="${platform}-sync-status" style="font-size: 13px; color: var(--text-dim); margin-right: 8px;"></span>
+                <button id="${platform}-sync-btn">Sync ${label} library</button>
+            </div>
+        </div>
+        <div id="${platform}-games-list"></div>
+    `;
+    document.getElementById("platform-sections").appendChild(section);
+    document.getElementById(`${platform}-sync-btn`).addEventListener("click", () => syncPlatform(platform));
+}
+
+function renderConnectMore(linkedIds) {
+    const unlinked = PLATFORMS.filter((p) => !linkedIds.has(p.id));
+    const container = document.getElementById("connect-more");
+    if (unlinked.length === 0) {
+        container.innerHTML = "";
+        return;
+    }
+    container.innerHTML = unlinked
+        .map((p) => `<a href="/auth/${p.id}"><button class="secondary">+ Link ${p.label}</button></a>`)
+        .join("");
 }
 
 async function init() {
@@ -320,9 +348,16 @@ async function init() {
         await fetch("/auth/logout", { method: "POST" });
         location.reload();
     });
-    document.getElementById("sync-btn").addEventListener("click", sync);
 
-    await refresh();
+    const linkedIds = new Set(user.linkedPlatforms.map((p) => p.platform_id));
+    renderConnectMore(linkedIds);
+
+    await api("/api/me/score").then(renderScore);
+    for (const platform of PLATFORMS) {
+        if (!linkedIds.has(platform.id)) continue;
+        renderPlatformSection(platform.id, platform.label);
+        await refreshPlatform(platform.id);
+    }
 }
 
 init();

@@ -5,87 +5,7 @@ import {
     getPlayerAchievements,
     getGlobalAchievementPercentages,
 } from "./client";
-
-// No PSN match exists yet for a freshly-synced Steam achievement (that's a
-// later matching job's job), so tier is inferred from global unlock rarity.
-// See docs/data-model.md for why this is a distinct, revisitable tier_source.
-function resolveTierFromRarity(percent: number | undefined): { tier: string; points: number } {
-    const p = percent ?? 100; // unknown rarity: treat as common rather than over-crediting it
-    if (p < 5) return { tier: "platinum", points: 300 };
-    if (p < 15) return { tier: "gold", points: 90 };
-    if (p < 50) return { tier: "silver", points: 30 };
-    return { tier: "bronze", points: 15 };
-}
-
-async function getOrCreateCanonicalGame(appId: number, title: string): Promise<string> {
-    const existing = await pool.query(
-        "select game_id from game_platform_links where platform_id = 'steam' and platform_game_id = $1",
-        [String(appId)]
-    );
-    if (existing.rows[0]) return existing.rows[0].game_id;
-
-    const client = await pool.connect();
-    try {
-        await client.query("begin");
-        const game = await client.query("insert into games (title) values ($1) returning id", [title]);
-        await client.query(
-            `insert into game_platform_links (game_id, platform_id, platform_game_id, platform_title)
-             values ($1, 'steam', $2, $3)`,
-            [game.rows[0].id, String(appId), title]
-        );
-        await client.query("commit");
-        return game.rows[0].id;
-    } catch (err) {
-        await client.query("rollback");
-        throw err;
-    } finally {
-        client.release();
-    }
-}
-
-async function getOrCreateAchievementLink(
-    gameId: string,
-    appId: number,
-    apiName: string,
-    displayName: string,
-    description: string | undefined,
-    globalRarity: number | undefined
-): Promise<string> {
-    // Steam achievement API names are only unique within one app, so the
-    // lookup must be scoped by appid too - otherwise two games reusing a
-    // generic achievement name (common with shared engines/templates) get
-    // merged into a single canonical achievement.
-    const existing = await pool.query(
-        "select id from achievement_platform_links where platform_id = 'steam' and platform_game_id = $1 and platform_achievement_id = $2",
-        [String(appId), apiName]
-    );
-    if (existing.rows[0]) return existing.rows[0].id;
-
-    const { tier, points } = resolveTierFromRarity(globalRarity);
-
-    const client = await pool.connect();
-    try {
-        await client.query("begin");
-        const canonical = await client.query(
-            `insert into canonical_achievements (game_id, name, description, tier, tier_source, points)
-             values ($1, $2, $3, $4, 'rarity_fallback', $5) returning id`,
-            [gameId, displayName, description ?? null, tier, points]
-        );
-        const link = await client.query(
-            `insert into achievement_platform_links
-                (canonical_achievement_id, platform_id, platform_game_id, platform_achievement_id, platform_name, platform_description, global_unlock_rarity)
-             values ($1, 'steam', $2, $3, $4, $5, $6) returning id`,
-            [canonical.rows[0].id, String(appId), apiName, displayName, description ?? null, globalRarity ?? null]
-        );
-        await client.query("commit");
-        return link.rows[0].id;
-    } catch (err) {
-        await client.query("rollback");
-        throw err;
-    } finally {
-        client.release();
-    }
-}
+import { getOrCreateCanonicalGame, getOrCreateAchievementLink } from "../games/canonicalUpsert";
 
 export interface SyncSummary {
     gamesProcessed: number;
@@ -106,12 +26,13 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
         ]);
         const unlockedByName = new Map(playerAchievements.map((a) => [a.apiname, a]));
 
-        const gameId = await getOrCreateCanonicalGame(game.appid, game.name);
+        const gameId = await getOrCreateCanonicalGame("steam", String(game.appid), game.name);
 
         for (const achievement of schema) {
             const linkId = await getOrCreateAchievementLink(
+                "steam",
                 gameId,
-                game.appid,
+                String(game.appid),
                 achievement.name,
                 achievement.displayName,
                 achievement.description,

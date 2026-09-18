@@ -12,4 +12,8 @@ export const config = {
     databaseUrl: required("DATABASE_URL"),
     steamApiKey: required("STEAM_API_KEY"),
     sessionSecret: required("SESSION_SECRET"),
+    // Optional: the Steam-only setup keeps working without these. Only
+    // hitting an /auth/xbox route requires them to actually be set.
+    xboxClientId: process.env.XBOX_CLIENT_ID,
+    xboxClientSecret: process.env.XBOX_CLIENT_SECRET,
 };
