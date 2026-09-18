@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import { runMatching } from "./index";
 import { confirmMatchCandidate, rejectMatchCandidate } from "./achievementMatcher";
 import { recomputeUserScore } from "../scoring";
+import { normalizeRarityTiersForAllGames } from "../scoring/rarityNormalization";
 
 export const matchingRouter = Router();
 
@@ -50,6 +51,7 @@ matchingRouter.post("/candidates/:id/confirm", requireAuth, async (req, res, nex
         await confirmMatchCandidate(req.params.id);
         // Global data changed - the same recompute-everyone pass runMatching
         // does, since a merge can affect users other than whoever clicked.
+        await normalizeRarityTiersForAllGames();
         const users = await pool.query("select id from users");
         for (const user of users.rows) await recomputeUserScore(user.id);
         res.status(204).end();

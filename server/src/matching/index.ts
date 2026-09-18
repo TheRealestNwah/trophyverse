@@ -2,6 +2,7 @@ import { pool } from "../db";
 import { matchGames } from "./gameMatcher";
 import { matchAchievementsForAllGames } from "./achievementMatcher";
 import { recomputeUserScore } from "../scoring";
+import { normalizeRarityTiersForAllGames } from "../scoring/rarityNormalization";
 
 export interface MatchingSummary {
     gameGroupsMerged: number;
@@ -18,6 +19,12 @@ export interface MatchingSummary {
 export async function runMatching(): Promise<MatchingSummary> {
     const gameResult = await matchGames();
     const achievementResult = await matchAchievementsForAllGames();
+
+    // Merges can shift a game's rarity_fallback achievement set (fewer,
+    // combined rows), so re-check every game for the skew that drives
+    // per-game percentile tiering (see rarityNormalization.ts, issue #10)
+    // before scores are recomputed below.
+    await normalizeRarityTiersForAllGames();
 
     const users = await pool.query("select id from users");
     for (const user of users.rows) {

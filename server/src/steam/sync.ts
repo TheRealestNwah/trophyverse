@@ -6,6 +6,7 @@ import {
     getGlobalAchievementPercentages,
 } from "./client";
 import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
 export async function syncSteamAccount(userPlatformAccountId: string, steamId: string): Promise<SyncSummary> {
@@ -42,6 +43,11 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
             const isNew = await recordUnlock(userPlatformAccountId, linkId, new Date(unlock.unlocktime * 1000));
             if (isNew) achievementsUnlocked++;
         }
+
+        // This game's full achievement list (and thus its rarity
+        // distribution) is only known now that every achievement has been
+        // inserted - re-resolve tiers with that context (see issue #10).
+        await normalizeRarityTiersForGame(gameId);
     }
 
     await pool.query("update user_platform_accounts set last_synced_at = now() where id = $1", [
