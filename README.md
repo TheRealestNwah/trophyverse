@@ -17,7 +17,7 @@ See [ROADMAP.md](ROADMAP.md). Steam, Xbox, and PSN are all fully working end to 
 
 ## Getting started (server)
 
-Requires a local Postgres database and a [Steam Web API key](https://steamcommunity.com/dev/apikey).
+Requires a local Postgres database and a [Steam Web API key](https://steamcommunity.com/dev/apikey). By default every platform syncs on demand only (click Sync); set `SCHEDULER_ENABLED=true` in `.env` to also re-sync every linked account automatically on an interval (`SCHEDULER_INTERVAL_MINUTES`, default 360).
 
 ```bash
 cd server

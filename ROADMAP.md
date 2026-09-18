@@ -25,7 +25,7 @@
 
 | # | Component | Status | What it does |
 |---|---|---|---|
-| 12 | **Background job scheduler** | ⬜ Not started | Periodic re-sync per user instead of manual/on-demand only. |
+| 12 | **Background job scheduler** | ✅ Done | Periodic re-sync of every linked account (`server/src/scheduler.ts`), off by default (`SCHEDULER_ENABLED`/`SCHEDULER_INTERVAL_MINUTES`). One account's sync failing (expired PSN token, revoked key) is logged and skipped rather than aborting the run. Runs matching + rescores everyone once per pass if anything synced. |
 | 13 | **Rate-limit/caching layer** | ⬜ Not started | Needed once real users hit Steam/Xbox/PSN APIs regularly. (Xbox sync already has retry-with-backoff for transient 429s.) |
 | 14 | **Public shareable profiles** | ⬜ Not started | PSNProfiles-style public page per user. |
 | 15 | **Leaderboards / friend comparison** | ⬜ Not started | Social layer once solo profiles work. |

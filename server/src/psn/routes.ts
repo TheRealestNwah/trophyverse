@@ -1,18 +1,18 @@
 import { Router } from "express";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
-import { exchangeNpssoForAccessCode, exchangeAccessCodeForTokens, exchangeRefreshTokenForTokens, decodeIdToken, PsnApiError } from "./client";
-import { syncPsnAccount } from "./sync";
+import { exchangeNpssoForAccessCode, exchangeAccessCodeForTokens, decodeIdToken, PsnApiError } from "./client";
+import { runAccountSync, PlatformAccountRow } from "../sync/runAccountSync";
 import { recomputeUserScore } from "../scoring";
 
 export const psnRouter = Router();
 
 async function getPsnAccount(userId: string) {
     const result = await pool.query(
-        "select id, access_token, refresh_token from user_platform_accounts where user_id = $1 and platform_id = 'psn'",
+        "select id, user_id, platform_id, platform_account_id, access_token, refresh_token from user_platform_accounts where user_id = $1 and platform_id = 'psn'",
         [userId]
     );
-    return result.rows[0] as { id: string; access_token: string; refresh_token: string } | undefined;
+    return result.rows[0] as PlatformAccountRow | undefined;
 }
 
 // No OAuth redirect flow here - the user pastes an NPSSO token, retrieved by
@@ -57,16 +57,10 @@ psnRouter.post("/sync", requireAuth, async (req, res, next) => {
             return res.status(404).json({ error: "No linked PlayStation account" });
         }
 
-        // Access tokens last roughly an hour, so refresh unconditionally
-        // rather than tracking expiry ourselves.
-        const tokens = await exchangeRefreshTokenForTokens(account.refresh_token);
-        await pool.query("update user_platform_accounts set access_token = $1, refresh_token = $2 where id = $3", [
-            tokens.accessToken,
-            tokens.refreshToken,
-            account.id,
-        ]);
-
-        const summary = await syncPsnAccount(account.id, tokens.accessToken);
+        // runAccountSync refreshes the access token first - PSN's last
+        // roughly an hour, so every sync refreshes unconditionally rather
+        // than tracking expiry ourselves.
+        const summary = await runAccountSync(account);
         const score = await recomputeUserScore(req.user!.id);
         res.json({ ...summary, score });
     } catch (err) {
