@@ -1,6 +1,7 @@
 import { pool } from "../db";
 import { getTitles, getAchievementsForTitle, getX360AchievementsForTitle } from "./client";
 import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
 export async function syncXboxAccount(userPlatformAccountId: string, apiKey: string, xuid: string): Promise<SyncSummary> {
@@ -43,6 +44,8 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
             );
             if (isNew) achievementsUnlocked++;
         }
+
+        await normalizeRarityTiersForGame(gameId);
     }
 
     await pool.query("update user_platform_accounts set last_synced_at = now() where id = $1", [

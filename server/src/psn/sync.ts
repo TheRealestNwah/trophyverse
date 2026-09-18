@@ -1,6 +1,7 @@
 import { pool } from "../db";
 import { getUserTitles, getTitleTrophies, getUserTrophiesEarnedForTitle } from "./client";
 import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
 export async function syncPsnAccount(userPlatformAccountId: string, accessToken: string): Promise<SyncSummary> {
@@ -42,6 +43,11 @@ export async function syncPsnAccount(userPlatformAccountId: string, accessToken:
             );
             if (isNew) achievementsUnlocked++;
         }
+
+        // PSN's own trophies are all psn_native, so this is a no-op unless
+        // this merged game also has still-unmatched rarity_fallback
+        // achievements from another platform's copy.
+        await normalizeRarityTiersForGame(gameId);
     }
 
     await pool.query("update user_platform_accounts set last_synced_at = now() where id = $1", [

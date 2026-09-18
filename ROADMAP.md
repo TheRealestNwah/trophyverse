@@ -29,7 +29,7 @@
 | 13 | **Rate-limit/caching layer** | ⬜ Not started | Needed once real users hit Steam/Xbox/PSN APIs regularly. (Xbox sync already has retry-with-backoff for transient 429s.) |
 | 14 | **Public shareable profiles** | ⬜ Not started | PSNProfiles-style public page per user. |
 | 15 | **Leaderboards / friend comparison** | ⬜ Not started | Social layer once solo profiles work. |
-| 16 | **Per-game relative rarity tiering** | ⬜ Design question open | Fixed global rarity thresholds (e.g. <15% = gold) don't adapt to games with atypical achievement distributions — e.g. Payday 2's median achievement rarity is 5.7%, so 1254 of its 1342 achievements land in "gold" even though that's accurate to the underlying data. See [#10](https://github.com/TheRealestNwah/trophyverse/issues/10) for options considered (per-game percentile buckets, hybrid thresholds, etc.) — **research/design only, not yet implemented.** |
+| 16 | **Per-game relative rarity tiering** | ✅ Done | Fixed global rarity thresholds (e.g. <15% = gold) don't adapt to games with atypical achievement distributions — e.g. Payday 2 had 1254 of 1342 achievements land in "gold". Fixed with a hybrid: games stay on fixed thresholds by default, but ones where >50% of achievements would land in gold get re-tiered by rank within their own achievement list instead. See [#10](https://github.com/TheRealestNwah/trophyverse/issues/10) and `server/src/scoring/rarityNormalization.ts`. |
 
 ## Parked
 
@@ -37,4 +37,4 @@
 
 ## Suggested order
 
-~~Auth → Steam client → game matching → achievement matching → scoring engine → sync pipeline → API → dashboard → Xbox → RetroAchievements → PSN → everything else.~~ Everything through PSN (1–9, 11) is done, ahead of the original order (PSN before RetroAchievements) because it's the scoring source of truth. Next: RetroAchievements (10), then resolve the rarity-tiering design question (16) before it compounds further, then P2 polish/scale.
+~~Auth → Steam client → game matching → achievement matching → scoring engine → sync pipeline → API → dashboard → Xbox → RetroAchievements → PSN → everything else.~~ Everything through PSN (1–9, 11) plus the rarity-tiering fix (16) is done, ahead of the original order (PSN before RetroAchievements) because PSN is the scoring source of truth. Next: RetroAchievements (10), then P2 polish/scale.

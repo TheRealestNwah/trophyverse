@@ -54,9 +54,15 @@ The achievement-detail view (`/api/me/games/:gameId/achievements`) returns one r
 
 `level_thresholds` stores precomputed `(level, points_required)` pairs rather than a formula evaluated at query time, so the curve can be regenerated or tuned (e.g. `points_required(L) = round(A * L^p)`) without touching application code — see the earlier design discussion for why PSN's own curve can't be replicated exactly and this approximates its shape instead.
 
-## Open design question: fixed vs. per-game rarity thresholds
+## Per-game rarity tiering for skewed games
 
-`resolveTierFromRarity` (see `server/src/scoring/tier.ts`) uses fixed global thresholds (<15% unlock = gold, <50% = silver, else bronze) for the `rarity_fallback` case. This is accurate to the data but doesn't adapt to games with atypical achievement-rarity distributions — a game whose achievements are nearly all rare (e.g. one with a median unlock rate under 10%) will legitimately collapse most of its list into "gold" even though nothing is wrong. Tracked as [issue #10](https://github.com/TheRealestNwah/trophyverse/issues/10); not yet implemented.
+`resolveTierFromRarity` (see `server/src/scoring/tier.ts`) uses fixed global thresholds (<15% unlock = gold, <50% = silver, else bronze) for the `rarity_fallback` case, applied per-achievement at insert/merge time before a game's full achievement list is known. This is fine for most games, but some (Payday 2: 1254 of 1342 achievements under 15% global unlock) have such a skewed rarity distribution that fixed thresholds collapse nearly the entire list into "gold," making the tier meaningless for that game.
+
+`normalizeRarityTiersForGame`/`normalizeRarityTiersForAllGames` (`server/src/scoring/rarityNormalization.ts`) run after each game's achievements are fully synced (and again after matching, since merges can change a game's achievement set) to correct this. For each game's `rarity_fallback` achievements, it checks what fraction would land in "gold" under the fixed thresholds; if that share is implausibly high (>50%, tuned against real data — see below), it instead buckets that game's achievements by their own rank within the game (`planPercentileTiers`), using the same 15/50 percentile split so tier proportions stay roughly comparable across games even though rarity magnitudes aren't. Otherwise the game keeps the ordinary fixed-threshold tiers untouched.
+
+The 50%-gold-share trigger was tuned against real synced data, not guessed: a naive "median rarity below 15%" trigger was tried first and rejected because it fired for the *majority* of the library — Steam's overall completion rates run low across nearly every game (Half-Life 2's median achievement rarity is 7.1%, Portal's is 12%), not just true outliers. Measuring the actual gold share directly instead correctly separates Payday 2 (93% gold under fixed thresholds) from ordinary games like Half-Life 2/Portal (~14%, left on fixed thresholds). One-off correction for pre-existing data: `npm run fix:rarity-tiering`.
+
+This was tracked as [issue #10](https://github.com/TheRealestNwah/trophyverse/issues/10).
 
 ## Not yet modeled
 
