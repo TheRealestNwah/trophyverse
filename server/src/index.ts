@@ -12,6 +12,7 @@ import { psnRouter } from "./psn/routes";
 import { scoreRouter } from "./scoring/routes";
 import { gamesRouter } from "./games/routes";
 import { matchingRouter } from "./matching/routes";
+import { startScheduler } from "./scheduler";
 
 const app = express();
 
@@ -52,3 +53,7 @@ app.use(jsonErrorHandler);
 app.listen(config.port, () => {
     console.log(`Trophyverse server listening on ${config.baseUrl}`);
 });
+
+if (config.schedulerEnabled) {
+    startScheduler(config.schedulerIntervalMinutes);
+}
