@@ -1,0 +1,174 @@
+import { pool } from "../db";
+import { wordOverlapScore } from "./normalize";
+import { resolveTierFromRarity } from "../scoring/tier";
+
+const AUTO_MERGE_THRESHOLD = 1.0; // exact normalized name match, for now
+const CANDIDATE_THRESHOLD = 0.5; // below this isn't worth recording as a maybe
+
+interface AchievementRow {
+    canonicalId: string;
+    linkId: string;
+    platformId: string;
+    name: string;
+}
+
+export interface AchievementMatchResult {
+    gamesProcessed: number;
+    achievementsMerged: number;
+    candidatesRecorded: number;
+}
+
+// Runs after game matching, since achievements are only compared within a
+// single (already-merged) game.
+export async function matchAchievementsForAllGames(): Promise<AchievementMatchResult> {
+    const games = await pool.query(`
+        select ca.game_id
+        from canonical_achievements ca
+        join achievement_platform_links apl on apl.canonical_achievement_id = ca.id
+        group by ca.game_id
+        having count(distinct apl.platform_id) > 1
+    `);
+
+    let achievementsMerged = 0;
+    let candidatesRecorded = 0;
+
+    for (const row of games.rows) {
+        const result = await matchAchievementsForGame(row.game_id);
+        achievementsMerged += result.merged;
+        candidatesRecorded += result.candidates;
+    }
+
+    return { gamesProcessed: games.rows.length, achievementsMerged, candidatesRecorded };
+}
+
+async function getAchievements(gameId: string): Promise<AchievementRow[]> {
+    const result = await pool.query(
+        `select ca.id as canonical_id, apl.id as link_id, apl.platform_id, ca.name
+         from canonical_achievements ca
+         join achievement_platform_links apl on apl.canonical_achievement_id = ca.id
+         where ca.game_id = $1`,
+        [gameId]
+    );
+    return result.rows.map((r) => ({
+        canonicalId: r.canonical_id,
+        linkId: r.link_id,
+        platformId: r.platform_id,
+        name: r.name,
+    }));
+}
+
+async function matchAchievementsForGame(gameId: string): Promise<{ merged: number; candidates: number }> {
+    let achievements = await getAchievements(gameId);
+    const platforms = [...new Set(achievements.map((a) => a.platformId))];
+
+    let merged = 0;
+    let candidates = 0;
+
+    // Fold each platform's achievements into a running pool one at a time,
+    // matching against whatever's accumulated from earlier platforms so far.
+    for (let i = 1; i < platforms.length; i++) {
+        const seenPlatforms = platforms.slice(0, i);
+        const basePool = achievements.filter((a) => seenPlatforms.includes(a.platformId));
+        const incoming = achievements.filter((a) => a.platformId === platforms[i]);
+        const consumed = new Set<string>();
+
+        for (const candidate of incoming) {
+            let best: { row: AchievementRow; score: number } | null = null;
+            for (const base of basePool) {
+                if (consumed.has(base.canonicalId)) continue;
+                const score = wordOverlapScore(candidate.name, base.name);
+                if (!best || score > best.score) best = { row: base, score };
+            }
+
+            if (best && best.score >= AUTO_MERGE_THRESHOLD) {
+                await recordCandidate(candidate.linkId, best.row.canonicalId, best.score, "confirmed");
+                await mergeAchievements(best.row.canonicalId, candidate.canonicalId);
+                consumed.add(best.row.canonicalId);
+                merged++;
+            } else if (best && best.score >= CANDIDATE_THRESHOLD) {
+                await recordCandidate(candidate.linkId, best.row.canonicalId, best.score, "pending");
+                candidates++;
+            }
+        }
+
+        achievements = await getAchievements(gameId); // ids shift after merges
+    }
+
+    return { merged, candidates };
+}
+
+async function recordCandidate(
+    achievementPlatformLinkId: string,
+    candidateCanonicalAchievementId: string,
+    confidence: number,
+    status: "confirmed" | "pending"
+): Promise<void> {
+    await pool.query(
+        `insert into achievement_match_candidates
+            (achievement_platform_link_id, candidate_canonical_achievement_id, confidence, status, reviewed_at)
+         values ($1, $2, $3, $4, $5)`,
+        [
+            achievementPlatformLinkId,
+            candidateCanonicalAchievementId,
+            confidence,
+            status,
+            status === "confirmed" ? new Date() : null,
+        ]
+    );
+}
+
+async function mergeAchievements(idA: string, idB: string): Promise<void> {
+    const client = await pool.connect();
+    try {
+        await client.query("begin");
+
+        // If either side is an authoritative PSN trophy, it always wins and
+        // keeps its tier untouched - that's the whole point of PSN being the
+        // scoring source of truth (see docs/data-model.md).
+        const tierSources = await client.query("select id, tier_source from canonical_achievements where id in ($1, $2)", [
+            idA,
+            idB,
+        ]);
+        const psnRow = tierSources.rows.find((r) => r.tier_source === "psn_native");
+        const winnerId = psnRow ? psnRow.id : idA;
+        const loserId = winnerId === idA ? idB : idA;
+
+        await client.query(
+            "update achievement_platform_links set canonical_achievement_id = $1 where canonical_achievement_id = $2",
+            [winnerId, loserId]
+        );
+        await client.query(
+            "update achievement_match_candidates set candidate_canonical_achievement_id = $1 where candidate_canonical_achievement_id = $2",
+            [winnerId, loserId]
+        );
+
+        if (!psnRow) {
+            // No PSN tier involved - re-resolve from the rarest signal across
+            // all now-merged platform copies of this achievement.
+            const rarities = await client.query(
+                "select global_unlock_rarity from achievement_platform_links where canonical_achievement_id = $1",
+                [winnerId]
+            );
+            const values = rarities.rows
+                .map((r) => r.global_unlock_rarity)
+                .filter((v) => v != null)
+                .map(Number);
+            if (values.length > 0) {
+                const { tier, points } = resolveTierFromRarity(Math.min(...values));
+                await client.query("update canonical_achievements set tier = $1, points = $2 where id = $3", [
+                    tier,
+                    points,
+                    winnerId,
+                ]);
+            }
+        }
+
+        await client.query("delete from canonical_achievements where id = $1", [loserId]);
+        await client.query("commit");
+    } catch (err) {
+        await client.query("rollback");
+        throw err;
+    } finally {
+        client.release();
+    }
+}

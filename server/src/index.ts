@@ -8,6 +8,7 @@ import { steamRouter } from "./steam/routes";
 import { xboxRouter } from "./xbox/routes";
 import { scoreRouter } from "./scoring/routes";
 import { gamesRouter } from "./games/routes";
+import { matchingRouter } from "./matching/routes";
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/api/steam", steamRouter);
 app.use("/api/xbox", xboxRouter);
 app.use("/api/me", scoreRouter);
 app.use("/api/me", gamesRouter);
+app.use("/api/matching", matchingRouter);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 

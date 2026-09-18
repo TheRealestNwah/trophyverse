@@ -215,6 +215,10 @@
 
         <div class="toolbar">
             <h2 id="games-heading">Your games</h2>
+            <div>
+                <span class="platform-note" id="match-status"></span>
+                <button class="secondary" id="match-btn">Find matches</button>
+            </div>
         </div>
 
         <div id="games-list"></div>
@@ -430,6 +434,21 @@ async function init() {
     document.getElementById("logout-btn").addEventListener("click", async () => {
         await fetch("/auth/logout", { method: "POST" });
         location.reload();
+    });
+    document.getElementById("match-btn").addEventListener("click", async (e) => {
+        const btn = e.target;
+        const status = document.getElementById("match-status");
+        btn.disabled = true;
+        status.textContent = "Matching games and achievements across platforms...";
+        try {
+            const summary = await api("/api/matching/run", { method: "POST" });
+            status.textContent = `Merged ${summary.gameGroupsMerged} game(s), ${summary.achievementsMerged} achievement(s). ${summary.achievementCandidatesRecorded} possible match(es) queued for review.`;
+            await refreshGamesAndScore();
+        } catch (err) {
+            status.textContent = `Matching failed: ${err.message}`;
+        } finally {
+            btn.disabled = false;
+        }
     });
 
     await refreshPlatforms();
