@@ -1,3 +1,11 @@
+// Mirrors the tier_points table in db/schema.sql (PSN's published values).
+export const TIER_POINTS: Record<string, number> = {
+    bronze: 15,
+    silver: 30,
+    gold: 90,
+    platinum: 300,
+};
+
 // Shared by every platform's sync job. When no PSN release exists for an
 // achievement (see docs/data-model.md), its tier is inferred from global
 // unlock rarity - the only signal every platform can provide.

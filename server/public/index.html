@@ -212,6 +212,13 @@
         </div>
 
         <div class="platforms" id="platforms-list"></div>
+        <p class="loading-note" style="margin: -8px 0 20px;">
+            PSN has no public login - to connect it, log into
+            <a href="https://www.playstation.com" target="_blank" style="color: var(--accent);">playstation.com</a>,
+            then visit
+            <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" style="color: var(--accent);">this page</a>
+            in the same browser and copy the <code>npsso</code> value from the JSON it shows.
+        </p>
 
         <div class="toolbar">
             <h2 id="games-heading">Your games</h2>
@@ -405,6 +412,49 @@ function renderPlatforms(accounts) {
                 await refreshPlatforms();
             } catch (err) {
                 alert("Couldn't connect that Xbox account. Double check the API key.");
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
+    const psnRow = document.createElement("div");
+    psnRow.className = "platform-row";
+    if (byPlatform.psn) {
+        psnRow.innerHTML = `
+            <span class="platform-name">PSN</span>
+            <span class="platform-note" id="psn-note">${byPlatform.psn.display_name} — ${
+                byPlatform.psn.last_synced_at
+                    ? `last synced ${new Date(byPlatform.psn.last_synced_at).toLocaleString()}`
+                    : "not synced yet"
+            }</span>
+            <button id="psn-sync-btn">Sync</button>
+        `;
+        list.appendChild(psnRow);
+        psnRow.querySelector("#psn-sync-btn").addEventListener("click", (e) =>
+            syncPlatform("psn", e.target, psnRow.querySelector("#psn-note"))
+        );
+    } else {
+        psnRow.innerHTML = `
+            <span class="platform-name">PSN</span>
+            <input type="text" id="psn-key-input" placeholder="Paste your NPSSO token" />
+            <button id="psn-connect-btn">Connect</button>
+        `;
+        list.appendChild(psnRow);
+        psnRow.querySelector("#psn-connect-btn").addEventListener("click", async () => {
+            const input = psnRow.querySelector("#psn-key-input");
+            const btn = psnRow.querySelector("#psn-connect-btn");
+            btn.disabled = true;
+            try {
+                await api("/api/psn/connect", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ npsso: input.value.trim() }),
+                });
+                await refreshPlatforms();
+            } catch (err) {
+                alert(err.message || "Couldn't connect that PlayStation account.");
                 console.error(err);
             } finally {
                 btn.disabled = false;

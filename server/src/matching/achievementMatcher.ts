@@ -73,6 +73,17 @@ async function matchAchievementsForGame(gameId: string): Promise<{ merged: numbe
         const consumed = new Set<string>();
 
         for (const candidate of incoming) {
+            // Already the same canonical achievement as something in the base
+            // pool (e.g. two platforms merged in an earlier pass, and a third
+            // platform's link was carried along by that merge's blanket
+            // repoint). Nothing to do - scoring and "merging" it against
+            // itself would call mergeAchievements(id, id), which deletes the
+            // row via its own loser-cleanup step.
+            if (basePool.some((base) => base.canonicalId === candidate.canonicalId)) {
+                consumed.add(candidate.canonicalId);
+                continue;
+            }
+
             let best: { row: AchievementRow; score: number } | null = null;
             for (const base of basePool) {
                 if (consumed.has(base.canonicalId)) continue;
@@ -118,6 +129,11 @@ async function recordCandidate(
 }
 
 async function mergeAchievements(idA: string, idB: string): Promise<void> {
+    // Defense in depth against the self-merge bug above: merging a row with
+    // itself would fall through to deleting it, cascading away its platform
+    // links and any recorded unlocks.
+    if (idA === idB) return;
+
     const client = await pool.connect();
     try {
         await client.query("begin");

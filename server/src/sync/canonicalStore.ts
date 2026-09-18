@@ -1,5 +1,5 @@
 import { pool } from "../db";
-import { resolveTierFromRarity } from "../scoring/tier";
+import { resolveTierFromRarity, TIER_POINTS } from "../scoring/tier";
 
 // Shared by every platform's sync job: finds or creates the canonical
 // games/achievements rows a platform-specific achievement should attach to.
@@ -35,6 +35,11 @@ export async function getOrCreateCanonicalGame(
     }
 }
 
+export interface NativeTier {
+    tier: string;
+    tierSource: "psn_native";
+}
+
 export async function getOrCreateAchievementLink(
     gameId: string,
     platformId: string,
@@ -42,7 +47,8 @@ export async function getOrCreateAchievementLink(
     platformAchievementId: string,
     name: string,
     description: string | undefined,
-    globalRarity: number | undefined
+    globalRarity: number | undefined,
+    nativeTier?: NativeTier
 ): Promise<string> {
     // Platform achievement IDs are typically only unique within one game
     // (e.g. Steam's api names, Xbox's small per-title integer IDs), so the
@@ -53,15 +59,20 @@ export async function getOrCreateAchievementLink(
     );
     if (existing.rows[0]) return existing.rows[0].id;
 
-    const { tier, points } = resolveTierFromRarity(globalRarity);
+    // PSN's own trophy tier is authoritative when available (see
+    // docs/data-model.md) - every other platform's tier is inferred from
+    // global unlock rarity since there's no native tier to trust.
+    const { tier, tierSource, points } = nativeTier
+        ? { tier: nativeTier.tier, tierSource: nativeTier.tierSource, points: TIER_POINTS[nativeTier.tier] }
+        : { ...resolveTierFromRarity(globalRarity), tierSource: "rarity_fallback" as const };
 
     const client = await pool.connect();
     try {
         await client.query("begin");
         const canonical = await client.query(
             `insert into canonical_achievements (game_id, name, description, tier, tier_source, points)
-             values ($1, $2, $3, $4, 'rarity_fallback', $5) returning id`,
-            [gameId, name, description ?? null, tier, points]
+             values ($1, $2, $3, $4, $5, $6) returning id`,
+            [gameId, name, description ?? null, tier, tierSource, points]
         );
         const link = await client.query(
             `insert into achievement_platform_links
