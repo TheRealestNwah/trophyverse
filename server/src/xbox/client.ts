@@ -166,32 +166,60 @@ interface RawX360Achievement {
     rarity?: { currentPercentage?: number };
 }
 
-function mapX360Achievement(a: RawX360Achievement): XboxAchievement {
-    return {
-        id: String(a.id),
-        name: a.name,
-        description: a.description,
-        isUnlocked: a.unlocked,
-        timeUnlocked: a.timeUnlocked,
-        gamerscore: a.gamerscore,
-        rarityPercent: a.rarity?.currentPercentage,
-    };
+interface X360Page {
+    achievements: RawX360Achievement[];
+    pagingInfo?: { continuationToken: string | null };
+}
+
+async function getAllPages(apiKey: string, path: string): Promise<RawX360Achievement[]> {
+    const results: RawX360Achievement[] = [];
+    let continuationToken: string | null = null;
+
+    do {
+        const query: string = continuationToken ? `?continuationToken=${continuationToken}` : "";
+        const page: X360Page = await get<X360Page>(apiKey, `${path}${query}`);
+        results.push(...page.achievements);
+        continuationToken = page.pagingInfo?.continuationToken ?? null;
+    } while (continuationToken);
+
+    return results;
 }
 
 // The modern /v2/achievements/title endpoint returns an empty list (not an
-// error) for classic Xbox 360 titles - they use a separate legacy contract.
-// Note this endpoint only returns achievements the player has unlocked, not
-// the full title catalog, so totals for these games will read as earned/earned
-// rather than earned/all - a real gap in what this data source exposes for
-// backward-compatible titles, not a bug.
+// error) for classic Xbox 360 titles - they use a separate legacy contract
+// split across two endpoints, mirroring the schema+status split used for
+// Steam and PSN elsewhere in this codebase:
+//   - /v2/achievements/player/{xuid}/title/{id} returns the FULL catalog
+//     (definitions: name/description/gamerscore/rarity) but its `unlocked`
+//     and `timeUnlocked` fields are bogus placeholders (confirmed against a
+//     live account: always false / a fixed 2002 date, which predates the
+//     Xbox 360 by three years) - it's a schema call despite the per-player
+//     path shape.
+//   - /v2/achievements/x360/{xuid}/title/{id} has the real per-player earned
+//     status, but only returns achievements actually earned - not the full
+//     catalog.
+// Neither alone is enough; this merges both by achievement id.
 export async function getX360AchievementsForTitle(
     apiKey: string,
     xuid: string,
     titleId: string
 ): Promise<XboxAchievement[]> {
-    const content = await get<{ achievements: RawX360Achievement[] }>(
-        apiKey,
-        `/v2/achievements/x360/${xuid}/title/${titleId}`
-    );
-    return content.achievements.map(mapX360Achievement);
+    const [definitions, earned] = await Promise.all([
+        getAllPages(apiKey, `/v2/achievements/player/${xuid}/title/${titleId}`),
+        getAllPages(apiKey, `/v2/achievements/x360/${xuid}/title/${titleId}`),
+    ]);
+    const earnedById = new Map(earned.map((a) => [a.id, a]));
+
+    return definitions.map((def) => {
+        const status = earnedById.get(def.id);
+        return {
+            id: String(def.id),
+            name: def.name,
+            description: def.description,
+            isUnlocked: status?.unlocked ?? false,
+            timeUnlocked: status?.timeUnlocked,
+            gamerscore: def.gamerscore,
+            rarityPercent: (status ?? def).rarity?.currentPercentage,
+        };
+    });
 }
