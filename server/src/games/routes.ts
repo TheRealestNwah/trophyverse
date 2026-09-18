@@ -30,9 +30,7 @@ gamesRouter.get("/games", requireAuth, async (req, res, next) => {
                 count(*) filter (where ca.tier = 'gold' and uau.id is not null) as gold_unlocked,
                 count(*) filter (where ca.tier = 'silver' and uau.id is not null) as silver_unlocked,
                 count(*) filter (where ca.tier = 'bronze' and uau.id is not null) as bronze_unlocked
-             from user_owned_games uog
-             join user_platform_accounts upa on upa.id = uog.user_platform_account_id and upa.user_id = $1
-             join games g on g.id = uog.game_id
+             from games g
              join canonical_achievements ca on ca.game_id = g.id
              left join achievement_platform_links apl on apl.canonical_achievement_id = ca.id
              left join user_achievement_unlocks uau
@@ -40,6 +38,18 @@ gamesRouter.get("/games", requireAuth, async (req, res, next) => {
                    and uau.user_platform_account_id in (
                        select id from user_platform_accounts where user_id = $1
                    )
+             -- Ownership is a pure filter here, not a join source: a merged
+             -- game is normally "owned" via one account per linked platform,
+             -- and joining user_owned_games directly fanned the whole
+             -- achievement count out once per owning account on top of the
+             -- (correct, intentional) per-platform fan-out from
+             -- achievement_platform_links below - e.g. a game owned via 3
+             -- platforms had every count tripled.
+             where exists (
+                 select 1 from user_owned_games uog
+                 join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+                 where upa.user_id = $1 and uog.game_id = g.id
+             )
              group by g.id, g.title
              order by unlocked_achievements desc, g.title`,
             [req.user!.id]
@@ -55,7 +65,8 @@ gamesRouter.get("/games/:gameId/achievements", requireAuth, async (req, res, nex
         const owns = await pool.query(
             `select 1 from user_owned_games uog
              join user_platform_accounts upa on upa.id = uog.user_platform_account_id
-             where upa.user_id = $1 and uog.game_id = $2`,
+             where upa.user_id = $1 and uog.game_id = $2
+             limit 1`,
             [req.user!.id, req.params.gameId]
         );
         if (!owns.rows[0]) {
