@@ -13,10 +13,13 @@ create table platforms (
     has_native_tiers  boolean not null default false  -- true only for psn today
 );
 
+-- Identity comes from whichever platform the user first signs in with
+-- (Steam OpenID, etc.) rather than a separate email/password system, so
+-- email is optional and username (a platform display name) isn't unique.
 create table users (
     id          uuid primary key default uuid_generate_v4(),
-    email       text unique not null,
-    username    text unique not null,
+    email       text unique,
+    username    text not null,
     created_at  timestamptz not null default now()
 );
 

@@ -13,4 +13,23 @@ A cross-platform achievement/trophy aggregator — connect your Steam, Xbox, Pla
 
 ## Status
 
-Early design phase — no code yet.
+See [ROADMAP.md](ROADMAP.md). Auth and the Steam client are built; everything else is next.
+
+## Getting started (server)
+
+Requires a local Postgres database and a [Steam Web API key](https://steamcommunity.com/dev/apikey).
+
+```bash
+cd server
+cp .env.example .env   # fill in DATABASE_URL and STEAM_API_KEY
+npm install
+npm run db:migrate     # applies db/schema.sql
+npm run dev
+```
+
+Then visit `http://localhost:3000/auth/steam` to sign in. First login creates your account and links your Steam ID automatically. Once signed in:
+
+- `POST /api/steam/sync` — pulls your owned games and achievement unlocks from Steam
+- `GET /api/steam/games` — lists your games with achievement/unlock counts
+
+Achievements synced this way get a provisional tier inferred from global unlock rarity (`tier_source = 'rarity_fallback'`) since no cross-platform matching exists yet — see [docs/data-model.md](docs/data-model.md).
