@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "db:migrate": "ts-node src/db/migrate.ts",
     "db:seed-levels": "ts-node src/db/seedLevels.ts",
+    "db:rescore-all": "ts-node src/db/rescoreAll.ts",
     "match": "ts-node src/db/runMatching.ts",
     "fix:platinum-inflation": "ts-node src/db/fixPlatinumInflation.ts",
     "fix:rarity-tiering": "ts-node src/db/fixRarityTiering.ts"
