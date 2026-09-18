@@ -45,14 +45,19 @@ async function getOrCreateCanonicalGame(appId: number, title: string): Promise<s
 
 async function getOrCreateAchievementLink(
     gameId: string,
+    appId: number,
     apiName: string,
     displayName: string,
     description: string | undefined,
     globalRarity: number | undefined
 ): Promise<string> {
+    // Steam achievement API names are only unique within one app, so the
+    // lookup must be scoped by appid too - otherwise two games reusing a
+    // generic achievement name (common with shared engines/templates) get
+    // merged into a single canonical achievement.
     const existing = await pool.query(
-        "select id from achievement_platform_links where platform_id = 'steam' and platform_achievement_id = $1",
-        [apiName]
+        "select id from achievement_platform_links where platform_id = 'steam' and platform_game_id = $1 and platform_achievement_id = $2",
+        [String(appId), apiName]
     );
     if (existing.rows[0]) return existing.rows[0].id;
 
@@ -68,9 +73,9 @@ async function getOrCreateAchievementLink(
         );
         const link = await client.query(
             `insert into achievement_platform_links
-                (canonical_achievement_id, platform_id, platform_achievement_id, platform_name, platform_description, global_unlock_rarity)
-             values ($1, 'steam', $2, $3, $4, $5) returning id`,
-            [canonical.rows[0].id, apiName, displayName, description ?? null, globalRarity ?? null]
+                (canonical_achievement_id, platform_id, platform_game_id, platform_achievement_id, platform_name, platform_description, global_unlock_rarity)
+             values ($1, 'steam', $2, $3, $4, $5, $6) returning id`,
+            [canonical.rows[0].id, String(appId), apiName, displayName, description ?? null, globalRarity ?? null]
         );
         await client.query("commit");
         return link.rows[0].id;
@@ -106,6 +111,7 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
         for (const achievement of schema) {
             const linkId = await getOrCreateAchievementLink(
                 gameId,
+                game.appid,
                 achievement.name,
                 achievement.displayName,
                 achievement.description,

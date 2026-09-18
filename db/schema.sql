@@ -90,12 +90,16 @@ create table achievement_platform_links (
     id                      uuid primary key default uuid_generate_v4(),
     canonical_achievement_id uuid not null references canonical_achievements(id) on delete cascade,
     platform_id             text not null references platforms(id),
-    platform_achievement_id text not null,  -- steam api name / xbox achievement id / psn trophy id / RA achievement id
+    -- Platform achievement IDs (e.g. Steam API names like "ACH_WIN_ONE_GAME")
+    -- are only unique within one game, not globally, so uniqueness must be
+    -- scoped by the platform's own game ID too.
+    platform_game_id        text not null,
+    platform_achievement_id text not null,
     platform_name           text not null,
     platform_description    text,
     global_unlock_rarity    numeric(5,2),   -- percent of players who have this; drives rarity_fallback tiering
     match_confidence        numeric(3,2),   -- 0-1, null when native or manually confirmed
-    unique (platform_id, platform_achievement_id)
+    unique (platform_id, platform_game_id, platform_achievement_id)
 );
 
 -- Achievements a matching pass has proposed linking together, awaiting

@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trophyverse</title>
+<style>
+    :root {
+        --bg: #0f1115;
+        --card: #1b1e24;
+        --card-hover: #22262e;
+        --border: #2a2e37;
+        --text: #e8e9ec;
+        --text-dim: #9aa0ab;
+        --accent: #6d8dfa;
+        --bronze: #cd7f32;
+        --silver: #b8bec7;
+        --gold: #f0c341;
+        --platinum: #7dd3fc;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+    header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 20px; margin: 0; }
+    header h1 span { color: var(--accent); }
+    main { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .hidden { display: none !important; }
+
+    button {
+        background: var(--accent);
+        color: #0b0d10;
+        border: none;
+        padding: 9px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    button.secondary {
+        background: transparent;
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+    }
+
+    #signin-view { text-align: center; padding: 80px 24px; }
+    #signin-view p { color: var(--text-dim); margin-bottom: 24px; }
+
+    .score-card {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+    }
+    .level-badge {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), #a06dfa);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .level-badge .n { font-size: 24px; font-weight: 700; line-height: 1; }
+    .level-badge .l { font-size: 9px; letter-spacing: 1px; opacity: 0.85; }
+    .score-info { flex: 1; }
+    .score-info .points { font-size: 14px; color: var(--text-dim); margin-bottom: 6px; }
+    .progress-track {
+        background: #0b0d10;
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+    }
+    .progress-fill {
+        background: linear-gradient(90deg, var(--accent), #a06dfa);
+        height: 100%;
+    }
+
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .toolbar h2 { font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0; }
+    #sync-status { font-size: 13px; color: var(--text-dim); }
+
+    .game {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        overflow: hidden;
+    }
+    .game-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 16px;
+        cursor: pointer;
+    }
+    .game-row:hover { background: var(--card-hover); }
+    .game-title { flex: 1; font-weight: 600; }
+    .game-progress-text { font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
+    .tier-pips { display: flex; gap: 6px; font-size: 12px; }
+    .pip { display: flex; align-items: center; gap: 3px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.platinum { background: var(--platinum); }
+    .dot.gold { background: var(--gold); }
+    .dot.silver { background: var(--silver); }
+    .dot.bronze { background: var(--bronze); }
+
+    .achievements { border-top: 1px solid var(--border); padding: 8px 16px; }
+    .achievement {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .achievement:last-child { border-bottom: none; }
+    .achievement.locked { opacity: 0.45; }
+    .tier-tag {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: #0b0d10;
+        flex-shrink: 0;
+        width: 56px;
+        text-align: center;
+    }
+    .tier-tag.platinum { background: var(--platinum); }
+    .tier-tag.gold { background: var(--gold); }
+    .tier-tag.silver { background: var(--silver); }
+    .tier-tag.bronze { background: var(--bronze); }
+    .achievement-body { flex: 1; min-width: 0; }
+    .achievement-name { font-weight: 600; font-size: 14px; }
+    .achievement-desc { font-size: 12px; color: var(--text-dim); }
+    .achievement-rarity { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+
+    .loading-note { color: var(--text-dim); font-size: 13px; padding: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>Trophy<span>verse</span></h1>
+    <div id="header-actions"></div>
+</header>
+
+<main>
+    <section id="signin-view" class="hidden">
+        <p>Connect your Steam account to see your achievements in one place.</p>
+        <a href="/auth/steam"><button>Sign in with Steam</button></a>
+    </section>
+
+    <section id="dashboard-view" class="hidden">
+        <div class="score-card">
+            <div class="level-badge">
+                <div class="n" id="level-number">-</div>
+                <div class="l">LEVEL</div>
+            </div>
+            <div class="score-info">
+                <div class="points" id="points-text">-</div>
+                <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <h2 id="games-heading">Your games</h2>
+            <div>
+                <span id="sync-status"></span>
+                <button id="sync-btn">Sync Steam library</button>
+            </div>
+        </div>
+
+        <div id="games-list"></div>
+    </section>
+</main>
+
+<script>
+const state = { games: [] };
+
+async function api(path, options) {
+    const res = await fetch(path, { credentials: "same-origin", ...options });
+    if (res.status === 401) throw new Error("unauthenticated");
+    if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+    return res.json();
+}
+
+function tierDots(game) {
+    const tiers = [
+        ["platinum", game.platinum_unlocked],
+        ["gold", game.gold_unlocked],
+        ["silver", game.silver_unlocked],
+        ["bronze", game.bronze_unlocked],
+    ];
+    return tiers
+        .filter(([, count]) => Number(count) > 0)
+        .map(([tier, count]) => `<span class="pip"><span class="dot ${tier}"></span>${count}</span>`)
+        .join("");
+}
+
+function renderScore(score) {
+    document.getElementById("level-number").textContent = score.level;
+    document.getElementById("points-text").textContent =
+        `${score.totalPoints.toLocaleString()} points` +
+        (score.pointsForNextLevel != null
+            ? ` — ${(score.pointsForNextLevel - score.totalPoints).toLocaleString()} to level ${score.level + 1}`
+            : " — max level");
+
+    const span = score.pointsForNextLevel != null ? score.pointsForNextLevel - score.pointsForCurrentLevel : 1;
+    const progressed = score.totalPoints - score.pointsForCurrentLevel;
+    const pct = score.pointsForNextLevel != null ? Math.min(100, (progressed / span) * 100) : 100;
+    document.getElementById("progress-fill").style.width = `${pct}%`;
+}
+
+function renderGames(games) {
+    document.getElementById("games-heading").textContent =
+        `Your games (${games.length})`;
+
+    const list = document.getElementById("games-list");
+    list.innerHTML = "";
+    for (const game of games) {
+        const el = document.createElement("div");
+        el.className = "game";
+        el.innerHTML = `
+            <div class="game-row" data-game-id="${game.id}">
+                <div class="game-title">${game.title}</div>
+                <div class="tier-pips">${tierDots(game)}</div>
+                <div class="game-progress-text">${game.unlocked_achievements}/${game.total_achievements}</div>
+            </div>
+        `;
+        el.querySelector(".game-row").addEventListener("click", () => toggleAchievements(el, game.id));
+        list.appendChild(el);
+    }
+}
+
+async function toggleAchievements(gameEl, gameId) {
+    const existing = gameEl.querySelector(".achievements");
+    if (existing) {
+        existing.remove();
+        return;
+    }
+    const panel = document.createElement("div");
+    panel.className = "achievements";
+    panel.innerHTML = `<div class="loading-note">Loading achievements...</div>`;
+    gameEl.appendChild(panel);
+
+    const achievements = await api(`/api/steam/games/${gameId}/achievements`);
+    panel.innerHTML = achievements
+        .map(
+            (a) => `
+        <div class="achievement ${a.unlocked ? "" : "locked"}">
+            <span class="tier-tag ${a.tier}">${a.tier}</span>
+            <div class="achievement-body">
+                <div class="achievement-name">${a.name}</div>
+                ${a.description ? `<div class="achievement-desc">${a.description}</div>` : ""}
+            </div>
+            <div class="achievement-rarity">${a.global_unlock_rarity != null ? Number(a.global_unlock_rarity).toFixed(1) + "%" : ""}</div>
+        </div>
+    `
+        )
+        .join("");
+}
+
+async function refresh() {
+    const [score, games] = await Promise.all([api("/api/me/score"), api("/api/steam/games")]);
+    renderScore(score);
+    renderGames(games);
+}
+
+async function sync() {
+    const btn = document.getElementById("sync-btn");
+    const status = document.getElementById("sync-status");
+    btn.disabled = true;
+    status.textContent = "Syncing... this can take a few minutes for a large library.";
+    try {
+        const summary = await api("/api/steam/sync", { method: "POST" });
+        status.textContent = `Synced ${summary.gamesProcessed} games, ${summary.achievementsUnlocked} new unlocks.`;
+        renderScore(summary.score);
+        await refresh();
+    } catch (err) {
+        status.textContent = "Sync failed — check the server log.";
+        console.error(err);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function init() {
+    let user;
+    try {
+        user = await api("/auth/me");
+    } catch {
+        document.getElementById("signin-view").classList.remove("hidden");
+        return;
+    }
+
+    document.getElementById("dashboard-view").classList.remove("hidden");
+    document.getElementById("header-actions").innerHTML = `
+        <span style="color: var(--text-dim); margin-right: 12px;">${user.username}</span>
+        <button class="secondary" id="logout-btn">Log out</button>
+    `;
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+        await fetch("/auth/logout", { method: "POST" });
+        location.reload();
+    });
+    document.getElementById("sync-btn").addEventListener("click", sync);
+
+    await refresh();
+}
+
+init();
+</script>
+</body>
+</html>
