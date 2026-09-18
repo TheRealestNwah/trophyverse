@@ -30,7 +30,7 @@ This is a **shared value lookup, not a dedup mechanism** — a user who unlocks 
 - `tier` — bronze/silver/gold/platinum, PSN-style
 - `tier_source` — records *why* it has that tier:
   - `psn_native`: the game has a real PSN release; this is its actual trophy tier
-  - `cross_platform_match`: no PSN copy of *this* achievement, but it was matched to one that has a tier
+  - `cross_platform_match`: reserved for "no PSN copy of *this* achievement, but it was matched to one that has a tier" — defined in the schema but not currently produced: when a merge involves a `psn_native` row, that row wins outright and keeps its own `tier_source` rather than relabeling the merged result
   - `rarity_fallback`: no PSN release exists at all; tier inferred from `global_unlock_rarity` on `achievement_platform_links`
 - `points` — denormalized from `tier_points` at resolution time, so scoring never needs a join at read time
 
@@ -54,7 +54,10 @@ The achievement-detail view (`/api/me/games/:gameId/achievements`) returns one r
 
 `level_thresholds` stores precomputed `(level, points_required)` pairs rather than a formula evaluated at query time, so the curve can be regenerated or tuned (e.g. `points_required(L) = round(A * L^p)`) without touching application code — see the earlier design discussion for why PSN's own curve can't be replicated exactly and this approximates its shape instead.
 
+## Open design question: fixed vs. per-game rarity thresholds
+
+`resolveTierFromRarity` (see `server/src/scoring/tier.ts`) uses fixed global thresholds (<15% unlock = gold, <50% = silver, else bronze) for the `rarity_fallback` case. This is accurate to the data but doesn't adapt to games with atypical achievement-rarity distributions — a game whose achievements are nearly all rare (e.g. one with a median unlock rate under 10%) will legitimately collapse most of its list into "gold" even though nothing is wrong. Tracked as [issue #10](https://github.com/TheRealestNwah/trophyverse/issues/10); not yet implemented.
+
 ## Not yet modeled
 
-- Game matching automation (title/IGDB-based) — `game_platform_links` assumes rows are populated by a separate matching job, not designed here yet.
-- Auth/session tables — out of scope for the data model, belongs with whatever auth approach is chosen later.
+- Auth/session tables beyond what's in `db/schema.sql` — sessions are handled by `connect-pg-simple`, not part of the canonical/link model this doc describes.

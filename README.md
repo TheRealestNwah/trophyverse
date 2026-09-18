@@ -13,7 +13,7 @@ A cross-platform achievement/trophy aggregator — connect your Steam, Xbox, Pla
 
 ## Status
 
-See [ROADMAP.md](ROADMAP.md). Steam, Xbox, and PSN are all fully working end to end (auth, sync, scoring), plus a cross-platform game/achievement matching job and a dashboard to browse it all. RetroAchievements is next.
+See [ROADMAP.md](ROADMAP.md). Steam, Xbox, and PSN are all fully working end to end (auth, sync, scoring), plus a cross-platform game/achievement matching job (with a manual review UI for low-confidence matches) and a dashboard to browse it all, grouped per platform so multiple platinums/100%s on the same game each show up. RetroAchievements is next.
 
 ## Getting started (server)
 
@@ -32,16 +32,19 @@ Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First l
 - **Sync Steam** — one click, no extra setup.
 - **Connect Xbox** — get a personal API key from [xbl.io/dashboard](https://xbl.io/dashboard) (sign in with your Microsoft account there first) and paste it in.
 - **Connect PSN** — log into [playstation.com](https://www.playstation.com), then in the same browser visit https://ca.account.sony.com/api/v1/ssocookie and paste the `npsso` value from the JSON it shows. Treat that token like a password — it grants full account access.
-- **Find matches** — merges the same game/achievement across platforms into one entry, so your score doesn't double-count. Run it any time after syncing more than one platform. PSN's own trophy tier always wins when a match includes it, since that's the whole point of this project (see [docs/data-model.md](docs/data-model.md)).
+- **Find matches** — links the same real-world game/achievement across platforms so they share one tier, PSN's own trophy tier always winning when a match includes it (see [docs/data-model.md](docs/data-model.md)). This does **not** collapse your score — unlocking the same achievement on two platforms (e.g. two separate platinums) still counts both. Run it any time after syncing more than one platform.
+- **Review matches** — high-confidence matches auto-merge, but anything uncertain queues up here for you to confirm or reject by hand instead of guessing wrong.
 
 API endpoints, if you want to hit them directly:
 
 - `POST /api/steam/sync`, `POST /api/xbox/sync`, `POST /api/psn/sync` — pull each platform's library and unlocks, recompute score
 - `POST /api/xbox/connect` (body: `{ apiKey }`), `POST /api/psn/connect` (body: `{ npsso }`) — link an account
-- `POST /api/matching/run` — merge matched games/achievements across all connected platforms (also runnable as `npm run match`)
+- `POST /api/matching/run` — link matched games/achievements across all connected platforms (also runnable as `npm run match`)
+- `GET /api/matching/candidates` — pending low-confidence matches awaiting manual review
+- `POST /api/matching/candidates/:id/confirm`, `POST /api/matching/candidates/:id/reject` — resolve a pending candidate
 - `GET /api/me/accounts` — which platforms are linked and when each last synced
-- `GET /api/me/games` — all your games across every linked platform, with unlock counts and per-tier breakdown
-- `GET /api/me/games/:gameId/achievements` — full achievement list for one game
-- `GET /api/me/score` — total points, level, and progress to the next level
+- `GET /api/me/games` — all your games across every linked platform, combined into one row per game, with unlock counts and per-tier breakdown
+- `GET /api/me/games/:gameId/achievements` — full achievement list for one game, one row per `(achievement, platform)` so a matched achievement's separate completions on each platform each show their own unlock status
+- `GET /api/me/score` — total points, level, and progress to the next level, summing every unlock on every linked platform (no cross-platform dedup — see [docs/data-model.md](docs/data-model.md))
 
-An achievement's tier is either inherited from PSN directly (`tier_source = 'psn_native'`) or, when no PSN copy exists or hasn't been matched yet, inferred from global unlock rarity (`tier_source = 'rarity_fallback'`). The level curve is defined in `server/src/scoring/levelCurve.ts` and can be retuned by editing it and rerunning `npm run db:seed-levels`.
+An achievement's tier is either inherited from PSN directly (`tier_source = 'psn_native'`) or, when no PSN copy exists or hasn't been matched yet, inferred from global unlock rarity (`tier_source = 'rarity_fallback'`) — capped at gold, since Platinum on real PSN is a one-per-game completion trophy, not a rarity tier. The level curve is defined in `server/src/scoring/levelCurve.ts` and can be retuned by editing it and rerunning `npm run db:seed-levels`. Sessions are persisted in Postgres (`connect-pg-simple`), so a server restart doesn't log everyone out.
