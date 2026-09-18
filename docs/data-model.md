@@ -52,7 +52,11 @@ The achievement-detail view (`/api/me/games/:gameId/achievements`) returns one r
 
 ## Level curve
 
-`level_thresholds` stores precomputed `(level, points_required)` pairs rather than a formula evaluated at query time, so the curve can be regenerated or tuned (e.g. `points_required(L) = round(A * L^p)`) without touching application code — see the earlier design discussion for why PSN's own curve can't be replicated exactly and this approximates its shape instead.
+`level_thresholds` stores precomputed `(level, points_required)` pairs rather than a formula evaluated at query time, so the curve can be regenerated or tuned (`points_required(L) = round(BASE * (L-1)^EXPONENT)`, in `server/src/scoring/levelCurve.ts`) without touching application code.
+
+PSN's own curve is undisclosed, so `EXPONENT` is fit against a real calibration point rather than guessed: a real PSN account at level 323 has 81,030 real trophy points (using the same bronze=15/silver=30/gold=90/platinum=300 values this app uses). An earlier `EXPONENT` of 2.4 was picked with no such anchor and was off by roughly three orders of magnitude at high levels — it demanded ~43,000,000 points for level 300, so that same real account (81,030 PSN points, ~185,000 combined across all three linked platforms) was stuck at level 31 instead of tracking anywhere near its real PSN level. `EXPONENT = 1.28` reproduces that anchor almost exactly (81,030 points lands at level 322).
+
+Since this is fit from a single real data point rather than Sony's actual formula, retuning `level_thresholds` after any curve change requires re-running both `npm run db:seed-levels` (regenerates the thresholds table) and `npm run db:rescore-all` (refreshes every user's cached `level`, since `total_points` is always live but `level` is only recomputed when a sync or match job runs).
 
 ## Per-game rarity tiering for skewed games
 
