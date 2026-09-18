@@ -4,7 +4,7 @@ Schema lives in [`db/schema.sql`](../db/schema.sql). This doc explains the reaso
 
 ## Core idea
 
-Every real-world game and achievement gets exactly one **canonical** row, no matter how many platforms it appears on. Platform-specific data hangs off that canonical row through a link table. This is what makes cross-platform scoring and deduplication possible.
+Every real-world game and achievement gets exactly one **canonical** row, no matter how many platforms it appears on. Platform-specific data hangs off that canonical row through a link table. This is what lets every platform's copy of an achievement share one authoritative tier/value, borrowed from PSN when a match exists.
 
 ```
 games ---------------< game_platform_links >--------------- platforms
@@ -21,7 +21,9 @@ canonical_achievements ---< achievement_platform_links >--- platforms
 
 ## Why canonical + link tables, not one flat table
 
-If a user owns *Hades* on both Steam and PSN and unlocks "Escape" on both, that must count as **one** achievement toward their score, not two. Storing achievements per-platform with a link back to a shared canonical row makes dedup a join instead of app-level logic scattered everywhere.
+If a user owns *Hades* on both Steam and PSN, the two copies' achievements are still the *same real achievement* and should be worth the same amount — specifically, whatever PSN's own trophy says it's worth, not a separate rarity guess per platform. Storing achievements per-platform with a link back to a shared canonical row is what makes that tier-sharing a join instead of app-level logic scattered everywhere.
+
+This is a **shared value lookup, not a dedup mechanism** — a user who unlocks "Escape" on both Steam and PSN gets credited for both. Re-earning something on a second platform (a second platinum, a second 100%) is a real accomplishment worth counting twice, matching how PSN itself treats a PS4 and PS5 version of the same game as two separate trophy lists. See "Scoring counts every unlock, not every achievement" below.
 
 ## Scoring fields live on `canonical_achievements`
 
@@ -38,9 +40,15 @@ Keeping `tier_source` explicit means you can always answer "why does this achiev
 
 `achievement_match_candidates` holds proposed links between a platform achievement and a canonical achievement, with a `confidence` score and `pending/confirmed/rejected` status. High-confidence matches (e.g. identical name + description) can auto-confirm; low-confidence ones sit for manual review. This keeps the fuzzy-matching algorithm's mistakes correctable without re-scraping anything.
 
+## Scoring counts every unlock, not every achievement
+
+`recomputeUserScore` sums `points` across every row in `user_achievement_unlocks` for the user, joined through to each unlock's own `achievement_platform_links` → `canonical_achievements` for that platform copy's tier. It does **not** dedupe by `canonical_achievement_id` — the same real achievement unlocked via two different linked platform accounts counts twice. The games list (`/api/me/games`) already summed each platform's own totals this way from the start (a side effect of joining through `achievement_platform_links`, which fans out once per platform link); scoring now matches that same philosophy instead of being the one place that deduped.
+
+The achievement-detail view (`/api/me/games/:gameId/achievements`) returns one row per `(canonical_achievement, platform_link)` pair for the same reason — grouped by platform in the UI, so a matched achievement's separate PSN and Steam completions both show up, each with that platform's own unlock status.
+
 ## Scoring is cached, not computed live
 
-`user_scores` holds each user's current `total_points` and `level`, recomputed by a job whenever new unlocks come in. The `user_canonical_unlocks` view does the dedup join (a user's unlock counts once even if earned on two platforms) and is what that job reads from — profile pages read the cache, not the view, so viewing a profile stays cheap.
+`user_scores` holds each user's current `total_points` and `level`, recomputed by a job whenever new unlocks come in — profile pages read the cache, not a live join, so viewing a profile stays cheap.
 
 ## Level curve
 

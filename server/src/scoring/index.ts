@@ -7,12 +7,20 @@ export interface UserScore {
     pointsForNextLevel: number | null; // null once MAX_LEVEL is reached
 }
 
-// Recomputes a user's total points from their deduplicated unlocks (the same
-// achievement counts once even if earned on two linked platforms) and caches
-// the result in user_scores. Call this after any sync that adds unlocks.
+// Recomputes a user's total points from every one of their unlocks, counted
+// per platform - the same real-world achievement earned separately on two
+// linked platforms (e.g. platinumed on PSN, separately 100%ed on Steam)
+// counts twice, matching how the games list already sums each platform's
+// own totals rather than deduping by canonical achievement. Call this after
+// any sync that adds unlocks.
 export async function recomputeUserScore(userId: string): Promise<UserScore> {
     const totalResult = await pool.query(
-        "select coalesce(sum(points), 0) as total from user_canonical_unlocks where user_id = $1",
+        `select coalesce(sum(ca.points), 0) as total
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         where upa.user_id = $1`,
         [userId]
     );
     const totalPoints = Number(totalResult.rows[0].total);

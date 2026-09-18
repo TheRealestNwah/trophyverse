@@ -154,6 +154,17 @@
     .dot.bronze { background: var(--bronze); }
 
     .achievements { border-top: 1px solid var(--border); padding: 8px 16px; }
+    .platform-section { margin-bottom: 12px; }
+    .platform-section:last-child { margin-bottom: 0; }
+    .platform-section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 0 4px;
+        font-size: 12px;
+        color: var(--text-dim);
+        font-weight: 600;
+    }
     .achievement {
         display: flex;
         align-items: center;
@@ -338,19 +349,43 @@ async function toggleAchievements(gameEl, gameId) {
     gameEl.appendChild(panel);
 
     const achievements = await api(`/api/me/games/${gameId}/achievements`);
-    panel.innerHTML = achievements
-        .map(
-            (a) => `
-        <div class="achievement ${a.unlocked ? "" : "locked"}">
-            <span class="tier-tag ${a.tier}">${a.tier}</span>
-            <div class="achievement-body">
-                <div class="achievement-name">${a.name}</div>
-                ${a.description ? `<div class="achievement-desc">${a.description}</div>` : ""}
+
+    // One row per (achievement, platform link), so the same real achievement
+    // matched across platforms appears once per platform - each with that
+    // platform's own completion status. Re-earning something on a second
+    // platform is a separate accomplishment, not a duplicate to collapse.
+    const byPlatform = new Map();
+    for (const a of achievements) {
+        if (!byPlatform.has(a.platform_id)) byPlatform.set(a.platform_id, []);
+        byPlatform.get(a.platform_id).push(a);
+    }
+
+    panel.innerHTML = [...byPlatform.entries()]
+        .map(([platformId, list]) => {
+            const unlockedCount = list.filter((a) => a.unlocked).length;
+            return `
+        <div class="platform-section">
+            <div class="platform-section-header">
+                <span class="platform-badge">${platformId}</span>
+                <span>${unlockedCount}/${list.length}</span>
             </div>
-            <div class="achievement-rarity">${a.global_unlock_rarity != null ? Number(a.global_unlock_rarity).toFixed(1) + "%" : ""}</div>
+            ${list
+                .map(
+                    (a) => `
+                <div class="achievement ${a.unlocked ? "" : "locked"}">
+                    <span class="tier-tag ${a.tier}">${a.tier}</span>
+                    <div class="achievement-body">
+                        <div class="achievement-name">${a.name}</div>
+                        ${a.description ? `<div class="achievement-desc">${a.description}</div>` : ""}
+                    </div>
+                    <div class="achievement-rarity">${a.global_unlock_rarity != null ? Number(a.global_unlock_rarity).toFixed(1) + "%" : ""}</div>
+                </div>
+            `
+                )
+                .join("")}
         </div>
-    `
-        )
+    `;
+        })
         .join("");
 }
 

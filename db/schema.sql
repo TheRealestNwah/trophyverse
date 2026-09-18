@@ -205,21 +205,3 @@ insert into platforms (id, name, has_native_tiers) values
     ('xbox', 'Xbox', false),
     ('retroachievements', 'RetroAchievements', false);
 
--- ---------------------------------------------------------------------------
--- Convenience view: one row per user per canonical achievement they've
--- unlocked on ANY linked platform, deduplicated. This is what the scoring
--- job and profile page should read from.
--- ---------------------------------------------------------------------------
-
-create view user_canonical_unlocks as
-select distinct on (upa.user_id, ca.id)
-    upa.user_id,
-    ca.id as canonical_achievement_id,
-    ca.game_id,
-    ca.tier,
-    ca.points,
-    min(uau.unlocked_at) over (partition by upa.user_id, ca.id) as first_unlocked_at
-from user_achievement_unlocks uau
-join user_platform_accounts upa on upa.id = uau.user_platform_account_id
-join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
-join canonical_achievements ca on ca.id = apl.canonical_achievement_id;
