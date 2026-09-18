@@ -13,7 +13,7 @@ A cross-platform achievement/trophy aggregator — connect your Steam, Xbox, Pla
 
 ## Status
 
-See [ROADMAP.md](ROADMAP.md). Steam, Xbox, and PSN are all fully working end to end (auth, sync, scoring), plus a cross-platform game/achievement matching job (with a manual review UI for low-confidence matches) and a dashboard to browse it all, grouped per platform so multiple platinums/100%s on the same game each show up. RetroAchievements is next.
+See [ROADMAP.md](ROADMAP.md). Steam, Xbox, PSN, and RetroAchievements are all fully working end to end (auth, sync, scoring), plus a cross-platform game/achievement matching job (with a manual review UI for low-confidence matches) and a dashboard to browse it all, grouped per platform so multiple platinums/100%s on the same game each show up. Every planned platform integration is now in — remaining work is P2 polish (background sync, leaderboards, public profiles).
 
 ## Getting started (server)
 
@@ -32,6 +32,7 @@ Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First l
 - **Sync Steam** — one click, no extra setup.
 - **Connect Xbox** — get a personal API key from [xbl.io/dashboard](https://xbl.io/dashboard) (sign in with your Microsoft account there first) and paste it in.
 - **Connect PSN** — log into [playstation.com](https://www.playstation.com), then in the same browser visit https://ca.account.sony.com/api/v1/ssocookie and paste the `npsso` value from the JSON it shows. Treat that token like a password — it grants full account access.
+- **Connect RetroAchievements** — get a personal Web API key from your [account settings page](https://retroachievements.org/settings) and paste it in along with your username.
 - **Find matches** — links the same real-world game/achievement across platforms so they share one tier, PSN's own trophy tier always winning when a match includes it (see [docs/data-model.md](docs/data-model.md)). This does **not** collapse your score — unlocking the same achievement on two platforms (e.g. two separate platinums) still counts both. Run it any time after syncing more than one platform.
 - **Review matches** — high-confidence matches auto-merge, but anything uncertain queues up here for you to confirm or reject by hand instead of guessing wrong.
 - **Public profile** — off by default. Turning it on publishes a PSNProfiles-style read-only page at `/u/<your-slug>` (no login required to view) showing your combined score, level, and full game/achievement list. Turning it back off takes it down immediately.
@@ -39,8 +40,8 @@ Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First l
 
 API endpoints, if you want to hit them directly:
 
-- `POST /api/steam/sync`, `POST /api/xbox/sync`, `POST /api/psn/sync` — pull each platform's library and unlocks, recompute score
-- `POST /api/xbox/connect` (body: `{ apiKey }`), `POST /api/psn/connect` (body: `{ npsso }`) — link an account
+- `POST /api/steam/sync`, `POST /api/xbox/sync`, `POST /api/psn/sync`, `POST /api/retro/sync` — pull each platform's library and unlocks, recompute score
+- `POST /api/xbox/connect` (body: `{ apiKey }`), `POST /api/psn/connect` (body: `{ npsso }`), `POST /api/retro/connect` (body: `{ username, apiKey }`) — link an account
 - `POST /api/matching/run` — link matched games/achievements across all connected platforms (also runnable as `npm run match`)
 - `GET /api/matching/candidates` — pending low-confidence matches awaiting manual review
 - `POST /api/matching/candidates/:id/confirm`, `POST /api/matching/candidates/:id/reject` — resolve a pending candidate
