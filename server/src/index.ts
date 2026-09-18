@@ -1,7 +1,9 @@
 import express, { ErrorRequestHandler } from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import path from "path";
 import { config } from "./config";
+import { pool } from "./db";
 import { passport } from "./auth/passport";
 import { authRouter } from "./auth/routes";
 import { steamRouter } from "./steam/routes";
@@ -13,9 +15,12 @@ import { matchingRouter } from "./matching/routes";
 
 const app = express();
 
+const PgSession = connectPgSimple(session);
+
 app.use(express.json());
 app.use(
     session({
+        store: new PgSession({ pool, tableName: "session" }),
         secret: config.sessionSecret,
         resave: false,
         saveUninitialized: false,

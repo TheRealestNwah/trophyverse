@@ -11,6 +11,7 @@
     "match": "ts-node src/db/runMatching.ts"
   },
   "dependencies": {
+    "connect-pg-simple": "^10.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
@@ -19,6 +20,7 @@
     "pg": "^8.12.0"
   },
   "devDependencies": {
+    "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "^4.17.21",
     "@types/express-session": "^1.18.0",
     "@types/node": "^20.14.9",
