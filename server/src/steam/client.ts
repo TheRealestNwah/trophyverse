@@ -80,7 +80,7 @@ export async function getGlobalAchievementPercentages(
     try {
         const data = await get<{
             achievementpercentages: { achievements: Array<{ name: string; percent: number }> };
-        }>("/ISteamUserStats/GetGlobalAchievementPercentagesForGame/v2/", {
+        }>("/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/", {
             gameid: String(appId),
         });
         return new Map(data.achievementpercentages.achievements.map((a) => [a.name, a.percent]));
