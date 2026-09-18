@@ -127,6 +127,18 @@ create table user_achievement_unlocks (
     unique (user_platform_account_id, achievement_platform_link_id)
 );
 
+-- games/canonical_achievements are shared, deduplicated tables across every
+-- user of the app (that's the point of the canonical model) - so "does this
+-- user own this game" can't be inferred from a game merely existing in the
+-- canonical tables for a platform they've linked. This records it explicitly,
+-- populated during sync for every game the account has (achievements or not).
+create table user_owned_games (
+    id                       uuid primary key default uuid_generate_v4(),
+    user_platform_account_id uuid not null references user_platform_accounts(id) on delete cascade,
+    game_id                  uuid not null references games(id) on delete cascade,
+    unique (user_platform_account_id, game_id)
+);
+
 -- Point value per tier. A table rather than a hardcoded constant so it can
 -- be tuned without a migration; seeded with PSN's published values.
 create table tier_points (

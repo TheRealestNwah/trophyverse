@@ -5,12 +5,8 @@ import {
     getPlayerAchievements,
     getGlobalAchievementPercentages,
 } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink } from "../games/canonicalUpsert";
-
-export interface SyncSummary {
-    gamesProcessed: number;
-    achievementsUnlocked: number;
-}
+import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { SyncSummary } from "../sync/types";
 
 export async function syncSteamAccount(userPlatformAccountId: string, steamId: string): Promise<SyncSummary> {
     const games = await getOwnedGames(steamId);
@@ -27,11 +23,12 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
         const unlockedByName = new Map(playerAchievements.map((a) => [a.apiname, a]));
 
         const gameId = await getOrCreateCanonicalGame("steam", String(game.appid), game.name);
+        await recordOwnership(userPlatformAccountId, gameId);
 
         for (const achievement of schema) {
             const linkId = await getOrCreateAchievementLink(
-                "steam",
                 gameId,
+                "steam",
                 String(game.appid),
                 achievement.name,
                 achievement.displayName,
@@ -42,14 +39,8 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
             const unlock = unlockedByName.get(achievement.name);
             if (!unlock?.achieved) continue;
 
-            const result = await pool.query(
-                `insert into user_achievement_unlocks (user_platform_account_id, achievement_platform_link_id, unlocked_at)
-                 values ($1, $2, to_timestamp($3))
-                 on conflict (user_platform_account_id, achievement_platform_link_id) do nothing
-                 returning id`,
-                [userPlatformAccountId, linkId, unlock.unlocktime]
-            );
-            if (result.rows[0]) achievementsUnlocked++;
+            const isNew = await recordUnlock(userPlatformAccountId, linkId, new Date(unlock.unlocktime * 1000));
+            if (isNew) achievementsUnlocked++;
         }
     }
 

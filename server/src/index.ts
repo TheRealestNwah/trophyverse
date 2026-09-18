@@ -1,13 +1,13 @@
-import express from "express";
+import express, { ErrorRequestHandler } from "express";
 import session from "express-session";
 import path from "path";
 import { config } from "./config";
 import { passport } from "./auth/passport";
 import { authRouter } from "./auth/routes";
 import { steamRouter } from "./steam/routes";
-import { xboxAuthRouter } from "./xbox/authRoutes";
 import { xboxRouter } from "./xbox/routes";
 import { scoreRouter } from "./scoring/routes";
+import { gamesRouter } from "./games/routes";
 
 const app = express();
 
@@ -24,12 +24,21 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use("/auth", authRouter);
-app.use("/auth/xbox", xboxAuthRouter);
 app.use("/api/steam", steamRouter);
 app.use("/api/xbox", xboxRouter);
 app.use("/api/me", scoreRouter);
+app.use("/api/me", gamesRouter);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
+
+// Every route above hands failures to next(err); without this, Express's
+// default handler sends an HTML error page, which breaks every fetch()-based
+// call in the dashboard (JSON.parse on "<!DOCTYPE ...").
+const jsonErrorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+    console.error(err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Internal server error" });
+};
+app.use(jsonErrorHandler);
 
 app.listen(config.port, () => {
     console.log(`Trophyverse server listening on ${config.baseUrl}`);

@@ -1,56 +1,47 @@
 import { pool } from "../db";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink } from "../games/canonicalUpsert";
-import { resumeXboxSession } from "./oauth";
-import { getTitleHistory, getAchievementsForTitle } from "./client";
+import { getTitles, getAchievementsForTitle, getX360AchievementsForTitle } from "./client";
+import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { SyncSummary } from "../sync/types";
 
-export interface SyncSummary {
-    gamesProcessed: number;
-    achievementsUnlocked: number;
-}
-
-export async function syncXboxAccount(
-    userPlatformAccountId: string,
-    xuid: string,
-    storedRefreshToken: string
-): Promise<SyncSummary> {
-    const { session, newRefreshToken } = await resumeXboxSession(storedRefreshToken);
-    // Xbox rotates refresh tokens on use - persist the new one immediately
-    // so a failed sync later doesn't strand the account on a stale token.
-    await pool.query("update user_platform_accounts set refresh_token = $1 where id = $2", [
-        newRefreshToken,
-        userPlatformAccountId,
-    ]);
-
-    const titles = await getTitleHistory(xuid, session);
+export async function syncXboxAccount(userPlatformAccountId: string, apiKey: string, xuid: string): Promise<SyncSummary> {
+    const titles = await getTitles(apiKey);
     let achievementsUnlocked = 0;
+    let gamesProcessed = 0;
 
     for (const title of titles) {
-        const achievements = await getAchievementsForTitle(xuid, title.titleId, session);
+        if (title.totalAchievements === 0) continue;
+
+        let achievements = await getAchievementsForTitle(apiKey, title.titleId);
+        if (achievements.length === 0) {
+            // Classic Xbox 360 titles use a separate legacy achievements
+            // contract - see getX360AchievementsForTitle for what's different.
+            achievements = await getX360AchievementsForTitle(apiKey, xuid, title.titleId);
+        }
         if (achievements.length === 0) continue;
 
         const gameId = await getOrCreateCanonicalGame("xbox", title.titleId, title.name);
+        await recordOwnership(userPlatformAccountId, gameId);
+        gamesProcessed++;
 
         for (const achievement of achievements) {
             const linkId = await getOrCreateAchievementLink(
-                "xbox",
                 gameId,
+                "xbox",
                 title.titleId,
                 achievement.id,
                 achievement.name,
                 achievement.description,
-                achievement.globalUnlockRarity
+                achievement.rarityPercent
             );
 
-            if (!achievement.unlocked) continue;
+            if (!achievement.isUnlocked) continue;
 
-            const result = await pool.query(
-                `insert into user_achievement_unlocks (user_platform_account_id, achievement_platform_link_id, unlocked_at)
-                 values ($1, $2, coalesce($3::timestamptz, now()))
-                 on conflict (user_platform_account_id, achievement_platform_link_id) do nothing
-                 returning id`,
-                [userPlatformAccountId, linkId, achievement.unlockedAt ?? null]
+            const isNew = await recordUnlock(
+                userPlatformAccountId,
+                linkId,
+                achievement.timeUnlocked ? new Date(achievement.timeUnlocked) : new Date()
             );
-            if (result.rows[0]) achievementsUnlocked++;
+            if (isNew) achievementsUnlocked++;
         }
     }
 
@@ -58,5 +49,5 @@ export async function syncXboxAccount(
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed: titles.length, achievementsUnlocked };
+    return { gamesProcessed, achievementsUnlocked };
 }
