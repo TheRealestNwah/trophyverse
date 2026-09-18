@@ -184,6 +184,28 @@
     .achievement-rarity { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
 
     .loading-note { color: var(--text-dim); font-size: 13px; padding: 16px; }
+
+    .review-list {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+    .review-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+    .review-row:last-child { border-bottom: none; }
+    .review-game { font-size: 11px; color: var(--text-dim); width: 110px; flex-shrink: 0; }
+    .review-compare { flex: 1; font-size: 13px; min-width: 0; }
+    .review-compare .arrow { color: var(--text-dim); margin: 0 6px; }
+    .review-confidence { font-size: 11px; color: var(--text-dim); width: 50px; flex-shrink: 0; text-align: right; }
+    .review-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .review-actions button { padding: 5px 10px; font-size: 12px; }
+    .review-actions button.reject { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -224,9 +246,12 @@
             <h2 id="games-heading">Your games</h2>
             <div>
                 <span class="platform-note" id="match-status"></span>
+                <button class="secondary" id="review-btn">Review matches</button>
                 <button class="secondary" id="match-btn">Find matches</button>
             </div>
         </div>
+
+        <div id="review-panel" class="hidden"></div>
 
         <div id="games-list"></div>
     </section>
@@ -242,6 +267,7 @@ async function api(path, options) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error || `${path} failed: ${res.status}`);
     }
+    if (res.status === 204) return null;
     return res.json();
 }
 
@@ -332,6 +358,55 @@ async function refreshGamesAndScore() {
     const [score, games] = await Promise.all([api("/api/me/score"), api("/api/me/games")]);
     renderScore(score);
     renderGames(games);
+}
+
+async function refreshReviewCount() {
+    const candidates = await api("/api/matching/candidates");
+    const btn = document.getElementById("review-btn");
+    btn.textContent = candidates.length > 0 ? `Review matches (${candidates.length})` : "Review matches";
+    return candidates;
+}
+
+function renderReviewPanel(candidates) {
+    const panel = document.getElementById("review-panel");
+    if (candidates.length === 0) {
+        panel.innerHTML = `<div class="loading-note">No matches waiting for review.</div>`;
+        return;
+    }
+
+    panel.innerHTML = candidates
+        .map(
+            (c) => `
+        <div class="review-row" data-id="${c.id}">
+            <span class="review-game">${c.game_title}</span>
+            <span class="review-compare">
+                <span class="platform-badge">${c.candidate_platform}</span> ${c.candidate_name}
+                <span class="arrow">vs</span>
+                ${(c.target_platforms || []).map((p) => `<span class="platform-badge">${p}</span>`).join(" ")}
+                ${c.target_name} <span class="tier-tag ${c.target_tier}">${c.target_tier}</span>
+            </span>
+            <span class="review-confidence">${Math.round(c.confidence * 100)}%</span>
+            <span class="review-actions">
+                <button class="confirm">Same</button>
+                <button class="reject">Different</button>
+            </span>
+        </div>
+    `
+        )
+        .join("");
+
+    panel.querySelectorAll(".review-row").forEach((row) => {
+        const id = row.dataset.id;
+        row.querySelector(".confirm").addEventListener("click", () => resolveCandidate(id, "confirm"));
+        row.querySelector(".reject").addEventListener("click", () => resolveCandidate(id, "reject"));
+    });
+}
+
+async function resolveCandidate(id, action) {
+    await api(`/api/matching/candidates/${id}/${action}`, { method: "POST" });
+    const candidates = await refreshReviewCount();
+    renderReviewPanel(candidates);
+    if (action === "confirm") await refreshGamesAndScore();
 }
 
 async function syncPlatform(platformId, button, noteEl) {
@@ -494,15 +569,28 @@ async function init() {
             const summary = await api("/api/matching/run", { method: "POST" });
             status.textContent = `Merged ${summary.gameGroupsMerged} game(s), ${summary.achievementsMerged} achievement(s). ${summary.achievementCandidatesRecorded} possible match(es) queued for review.`;
             await refreshGamesAndScore();
+            await refreshReviewCount();
         } catch (err) {
             status.textContent = `Matching failed: ${err.message}`;
         } finally {
             btn.disabled = false;
         }
     });
+    document.getElementById("review-btn").addEventListener("click", async () => {
+        const panel = document.getElementById("review-panel");
+        if (!panel.classList.contains("hidden")) {
+            panel.classList.add("hidden");
+            return;
+        }
+        panel.classList.remove("hidden");
+        panel.className = "review-list";
+        panel.innerHTML = `<div class="loading-note">Loading...</div>`;
+        renderReviewPanel(await api("/api/matching/candidates"));
+    });
 
     await refreshPlatforms();
     await refreshGamesAndScore();
+    await refreshReviewCount();
 }
 
 init();

@@ -128,7 +128,7 @@ async function recordCandidate(
     );
 }
 
-async function mergeAchievements(idA: string, idB: string): Promise<void> {
+export async function mergeAchievements(idA: string, idB: string): Promise<void> {
     // Defense in depth against the self-merge bug above: merging a row with
     // itself would fall through to deleting it, cascading away its platform
     // links and any recorded unlocks.
@@ -187,4 +187,37 @@ async function mergeAchievements(idA: string, idB: string): Promise<void> {
     } finally {
         client.release();
     }
+}
+
+// Manual review actions for candidates left below AUTO_MERGE_THRESHOLD (see
+// matchAchievementsForGame above) - a human decides instead of a score.
+export async function confirmMatchCandidate(candidateId: string): Promise<void> {
+    const candidate = await pool.query(
+        "select achievement_platform_link_id, candidate_canonical_achievement_id from achievement_match_candidates where id = $1",
+        [candidateId]
+    );
+    if (!candidate.rows[0]) throw new Error("Match candidate not found");
+
+    const link = await pool.query("select canonical_achievement_id from achievement_platform_links where id = $1", [
+        candidate.rows[0].achievement_platform_link_id,
+    ]);
+    const sourceId = link.rows[0].canonical_achievement_id;
+    const targetId = candidate.rows[0].candidate_canonical_achievement_id;
+
+    // mergeAchievements repoints any achievement_match_candidates row whose
+    // candidate_canonical_achievement_id was the merge's loser - including
+    // this one, if it turns out targetId loses to a PSN-native sourceId - so
+    // this row's own candidate_canonical_achievement_id is already correct
+    // by the time we get here regardless of which side won.
+    await mergeAchievements(targetId, sourceId);
+
+    await pool.query("update achievement_match_candidates set status = 'confirmed', reviewed_at = now() where id = $1", [
+        candidateId,
+    ]);
+}
+
+export async function rejectMatchCandidate(candidateId: string): Promise<void> {
+    await pool.query("update achievement_match_candidates set status = 'rejected', reviewed_at = now() where id = $1", [
+        candidateId,
+    ]);
 }
