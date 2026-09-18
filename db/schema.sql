@@ -4,6 +4,33 @@
 create extension if not exists "uuid-ossp";
 
 -- ---------------------------------------------------------------------------
+-- Sessions (connect-pg-simple)
+-- ---------------------------------------------------------------------------
+
+-- Adapted from connect-pg-simple's own recommended DDL (see its table.sql),
+-- with two changes confirmed necessary against a live server, not just
+-- assumed from the docs:
+--   - dropped `WITH (OIDS=FALSE)` - OIDS were removed in Postgres 12+, and
+--     this fails to create at all on modern Postgres with that clause left in.
+--   - dropped `DEFERRABLE INITIALLY IMMEDIATE` on the primary key - the
+--     library's own session-write query uses `ON CONFLICT (sid) DO UPDATE`,
+--     and Postgres rejects a deferrable constraint as an ON CONFLICT arbiter
+--     ("ON CONFLICT does not support deferrable unique constraints/exclusion
+--     constraints as arbiters"), so every write failed until this came out.
+-- Backing sessions with Postgres instead of express-session's default
+-- in-memory store means a server restart (or, later, running more than one
+-- server instance) doesn't silently log every signed-in user out.
+create table session (
+    sid    varchar collate "default" not null,
+    sess   json not null,
+    expire timestamp(6) not null
+);
+
+alter table session add constraint session_pkey primary key (sid);
+
+create index idx_session_expire on session (expire);
+
+-- ---------------------------------------------------------------------------
 -- Platforms & users
 -- ---------------------------------------------------------------------------
 
