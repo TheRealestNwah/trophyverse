@@ -15,6 +15,8 @@ Everything below is scoped concretely enough to start on without further discuss
 9. **[#28](https://github.com/TheRealestNwah/trophyverse/issues/28) Side-by-side profile comparison** - concrete scope for the "friend comparison" half of item 15 below. No new "friends" data model needed - public profiles are already shareable by slug (#14, done). A page taking two `?a=slug&b=slug` params and rendering both profiles' scores/games next to each other covers the actual use case without inventing a follow/friend-request system nothing else in the app has.
 10. **[#25](https://github.com/TheRealestNwah/trophyverse/issues/25) Fun stats/insights page** - rarest achievement owned, most points in a day, longest platinum drought, etc. Pure novelty, cheap given the data's already there. Good to build alongside item 7.
 11. **[#26](https://github.com/TheRealestNwah/trophyverse/issues/26) Data export** - a "download my data" JSON/CSV endpoint scoped to the requesting user's own data.
+12. **[#32](https://github.com/TheRealestNwah/trophyverse/issues/32) User-set cover art/icons** (upload or paste a URL) - manual override on top of #22's automatic images, for platforms/cases with no usable image. Needs a storage-approach decision (file upload has no existing infrastructure in this app) before implementation.
+13. **Research [#31](https://github.com/TheRealestNwah/trophyverse/issues/31)** (Ubisoft Connect / GOG / Epic integrations) - same discipline as #19: confirm each platform actually has a usable API before committing to any of them. Epic in particular may not be feasible at all (no achievements for most games, no known public API). Scope one platform at a time, not as a single unit.
 
 ## P0 — core (nothing works end-to-end without these)
 
