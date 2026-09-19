@@ -2,17 +2,17 @@ import { Router } from "express";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { verifyAccount, RetroApiError } from "./client";
-import { syncRetroAccount } from "./sync";
+import { runAccountSync, PlatformAccountRow } from "../sync/runAccountSync";
 import { recomputeUserScore } from "../scoring";
 
 export const retroRouter = Router();
 
 async function getRetroAccount(userId: string) {
     const result = await pool.query(
-        "select id, platform_account_id, access_token from user_platform_accounts where user_id = $1 and platform_id = 'retroachievements'",
+        "select id, user_id, platform_id, platform_account_id, access_token, refresh_token from user_platform_accounts where user_id = $1 and platform_id = 'retroachievements'",
         [userId]
     );
-    return result.rows[0] as { id: string; platform_account_id: string; access_token: string } | undefined;
+    return result.rows[0] as PlatformAccountRow | undefined;
 }
 
 // No OAuth flow - the user pastes their RA username plus a personal Web API
@@ -53,7 +53,7 @@ retroRouter.post("/sync", requireAuth, async (req, res, next) => {
         if (!account) {
             return res.status(404).json({ error: "No linked RetroAchievements account" });
         }
-        const summary = await syncRetroAccount(account.id, account.platform_account_id, account.access_token);
+        const summary = await runAccountSync(account);
         const score = await recomputeUserScore(req.user!.id);
         res.json({ ...summary, score });
     } catch (err) {

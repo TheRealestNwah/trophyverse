@@ -3,6 +3,7 @@ import { syncSteamAccount } from "../steam/sync";
 import { syncXboxAccount } from "../xbox/sync";
 import { syncPsnAccount } from "../psn/sync";
 import { exchangeRefreshTokenForTokens } from "../psn/client";
+import { syncRetroAccount } from "../retro/sync";
 import { SyncSummary } from "./types";
 
 export interface PlatformAccountRow {
@@ -36,6 +37,9 @@ export async function runAccountSync(account: PlatformAccountRow): Promise<SyncS
             );
             return syncPsnAccount(account.id, tokens.accessToken);
         }
+
+        case "retroachievements":
+            return syncRetroAccount(account.id, account.platform_account_id, account.access_token!);
 
         default:
             throw new Error(`No sync handler for platform: ${account.platform_id}`);

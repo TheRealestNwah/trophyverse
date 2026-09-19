@@ -41,17 +41,20 @@ export interface RetroAccount {
 }
 
 // Used to validate a username/API key pair at connect time - GetUserSummary
-// returns an object with no Username field for an account that doesn't
-// exist, rather than a 404.
+// returns an object with no User field for an account that doesn't exist,
+// rather than a 404. Confirmed against the real API: the field is "User",
+// not "Username" as RA's docs' own field-naming convention elsewhere would
+// suggest - caught by testing against a real account rather than trusting
+// the docs.
 export async function verifyAccount(username: string, apiKey: string): Promise<RetroAccount> {
-    const data = await get<{ Username?: string; TotalPoints?: number }>("API_GetUserSummary.php", {
+    const data = await get<{ User?: string; TotalPoints?: number }>("API_GetUserSummary.php", {
         u: username,
         y: apiKey,
     });
-    if (!data.Username) {
+    if (!data.User) {
         throw new RetroApiError(404, `RetroAchievements user "${username}" not found`);
     }
-    return { username: data.Username, totalPoints: data.TotalPoints ?? 0 };
+    return { username: data.User, totalPoints: data.TotalPoints ?? 0 };
 }
 
 export interface RetroGameSummary {
