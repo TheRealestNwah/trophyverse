@@ -269,5 +269,6 @@ insert into platforms (id, name, has_native_tiers) values
     ('psn', 'PlayStation Network', true),
     ('steam', 'Steam', false),
     ('xbox', 'Xbox', false),
-    ('retroachievements', 'RetroAchievements', false);
+    ('retroachievements', 'RetroAchievements', false),
+    ('gog', 'GOG', false);
 
