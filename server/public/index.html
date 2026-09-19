@@ -540,6 +540,19 @@ async function syncPlatform(platformId, button, noteEl) {
     }
 }
 
+async function disconnectPlatform(platformId, label) {
+    if (!confirm(`Disconnect ${label}? This removes its synced games and achievements from your library.`)) return;
+    try {
+        const result = await api(`/api/me/accounts/${platformId}`, { method: "DELETE" });
+        renderScore(result.score);
+        await refreshPlatforms();
+        await refreshGamesAndScore();
+    } catch (err) {
+        alert(err.message || `Couldn't disconnect ${label}.`);
+        console.error(err);
+    }
+}
+
 function renderPlatforms(accounts) {
     const byPlatform = Object.fromEntries(accounts.map((a) => [a.platform_id, a]));
     const list = document.getElementById("platforms-list");
@@ -573,11 +586,13 @@ function renderPlatforms(accounts) {
                     : "not synced yet"
             }</span>
             <button id="xbox-sync-btn">Sync</button>
+            <button class="secondary" id="xbox-disconnect-btn">Disconnect</button>
         `;
         list.appendChild(xboxRow);
         xboxRow.querySelector("#xbox-sync-btn").addEventListener("click", (e) =>
             syncPlatform("xbox", e.target, xboxRow.querySelector("#xbox-note"))
         );
+        xboxRow.querySelector("#xbox-disconnect-btn").addEventListener("click", () => disconnectPlatform("xbox", "Xbox"));
     } else {
         xboxRow.innerHTML = `
             <span class="platform-name">Xbox</span>
@@ -616,11 +631,13 @@ function renderPlatforms(accounts) {
                     : "not synced yet"
             }</span>
             <button id="psn-sync-btn">Sync</button>
+            <button class="secondary" id="psn-disconnect-btn">Disconnect</button>
         `;
         list.appendChild(psnRow);
         psnRow.querySelector("#psn-sync-btn").addEventListener("click", (e) =>
             syncPlatform("psn", e.target, psnRow.querySelector("#psn-note"))
         );
+        psnRow.querySelector("#psn-disconnect-btn").addEventListener("click", () => disconnectPlatform("psn", "PSN"));
     } else {
         psnRow.innerHTML = `
             <span class="platform-name">PSN</span>
@@ -659,10 +676,14 @@ function renderPlatforms(accounts) {
                     : "not synced yet"
             }</span>
             <button id="retro-sync-btn">Sync</button>
+            <button class="secondary" id="retro-disconnect-btn">Disconnect</button>
         `;
         list.appendChild(retroRow);
         retroRow.querySelector("#retro-sync-btn").addEventListener("click", (e) =>
             syncPlatform("retro", e.target, retroRow.querySelector("#retro-note"))
+        );
+        retroRow.querySelector("#retro-disconnect-btn").addEventListener("click", () =>
+            disconnectPlatform("retroachievements", "RetroAchievements")
         );
     } else {
         retroRow.innerHTML = `
