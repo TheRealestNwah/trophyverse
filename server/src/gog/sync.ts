@@ -6,8 +6,7 @@ import {
     recordUnlock,
     revokeUnlockIfPresent,
     recordOwnership,
-    getCanonicalGameIdsForPlatformGames,
-    reconcileMissingOwnership,
+    reconcileOwnershipForPlatform,
 } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
@@ -64,10 +63,10 @@ export async function syncGogAccount(userPlatformAccountId: string, accessToken:
         await normalizeRarityTiersForGame(gameId);
     }
 
-    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames("gog", ownedIds);
-    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileMissingOwnership(
+    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileOwnershipForPlatform(
         userPlatformAccountId,
-        currentlyOwnedGameIds
+        "gog",
+        ownedIds
     );
     achievementsRevoked += reconciledRevocations;
 

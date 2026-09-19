@@ -813,10 +813,24 @@ async function handleLinkClick(game) {
 // toggled on, since a long platform's list (e.g. Steam) burying a shorter
 // one is a recurring annoyance across a whole library, not a one-off.
 const COLLAPSED_PLATFORMS_KEY = "unified-achievement-manager:collapsedPlatforms";
+// Renamed from "trophyverse:collapsedPlatforms" - read once as a fallback so
+// a returning user's existing preference migrates forward instead of
+// silently resetting to "everything expanded".
+const LEGACY_COLLAPSED_PLATFORMS_KEY = "trophyverse:collapsedPlatforms";
 
 function getCollapsedPlatforms() {
     try {
-        return new Set(JSON.parse(localStorage.getItem(COLLAPSED_PLATFORMS_KEY) || "[]"));
+        const current = localStorage.getItem(COLLAPSED_PLATFORMS_KEY);
+        if (current !== null) return new Set(JSON.parse(current));
+
+        const legacy = localStorage.getItem(LEGACY_COLLAPSED_PLATFORMS_KEY);
+        if (legacy !== null) {
+            localStorage.setItem(COLLAPSED_PLATFORMS_KEY, legacy);
+            localStorage.removeItem(LEGACY_COLLAPSED_PLATFORMS_KEY);
+            return new Set(JSON.parse(legacy));
+        }
+
+        return new Set();
     } catch {
         return new Set();
     }
@@ -978,10 +992,9 @@ async function resolveCandidate(id, action) {
 
 // /api/me/accounts reports platform_id the way the DB stores it
 // ("retroachievements"), but that platform's routes are mounted at
-// /api/retro (see index.ts) - every per-platform sync button already
-// hardcodes this slug per-row, this is the same mapping for the "sync all"
-// button, which has to work it out from whichever platforms happen to be
-// linked instead of a fixed row per platform.
+// /api/retro (see index.ts) - this is the single source of truth for that
+// mapping, used both by "sync all" (which has to work it out from whichever
+// platforms happen to be linked) and by every per-row sync button below.
 const PLATFORM_SYNC_SLUGS = {
     steam: "steam",
     xbox: "xbox",
@@ -992,6 +1005,13 @@ const PLATFORM_SYNC_SLUGS = {
 
 async function syncAllPlatforms(button, statusEl) {
     button.disabled = true;
+    // Also disable every per-row Sync button for the run - the server now
+    // serializes concurrent syncs of the same account with an advisory lock,
+    // but a per-row click mid-loop would otherwise sit blocked on that lock
+    // for no visible reason, and double-counts toward the sync cadence a
+    // missing-game's absence streak assumes.
+    const rowSyncButtons = document.querySelectorAll('[id$="-sync-btn"]');
+    rowSyncButtons.forEach((b) => (b.disabled = true));
     try {
         const accounts = await api("/api/me/accounts");
         const linked = accounts.filter((a) => PLATFORM_SYNC_SLUGS[a.platform_id]);
@@ -1013,7 +1033,7 @@ async function syncAllPlatforms(button, statusEl) {
             try {
                 const summary = await api(`/api/${slug}/sync`, { method: "POST" });
                 renderScore(summary.score);
-                results.push(`${account.platform_id}: ${summary.achievementsUnlocked} new`);
+                results.push(`${account.platform_id}: ${formatSyncSummary(summary)}`);
             } catch (err) {
                 results.push(`${account.platform_id}: failed (${err.message})`);
                 console.error(err);
@@ -1039,7 +1059,19 @@ async function syncAllPlatforms(button, statusEl) {
         console.error(err);
     } finally {
         button.disabled = false;
+        rowSyncButtons.forEach((b) => (b.disabled = false));
     }
+}
+
+// Shared by syncPlatform and syncAllPlatforms so a sync's revoked/reconciled
+// counts show up wherever a summary is displayed, instead of each call site
+// formatting SyncSummary by hand and silently drifting from one another.
+function formatSyncSummary(summary) {
+    return `${summary.gamesProcessed} games, ${summary.achievementsUnlocked} new unlocks${
+        summary.achievementsRevoked > 0 ? `, ${summary.achievementsRevoked} corrected (no longer unlocked)` : ""
+    }${
+        summary.gamesReconciled > 0 ? `, ${summary.gamesReconciled} game(s) no longer owned` : ""
+    }`;
 }
 
 async function syncPlatform(platformId, button, noteEl) {
@@ -1049,11 +1081,7 @@ async function syncPlatform(platformId, button, noteEl) {
         : "Syncing...";
     try {
         const summary = await api(`/api/${platformId}/sync`, { method: "POST" });
-        noteEl.textContent = `Synced ${summary.gamesProcessed} games, ${summary.achievementsUnlocked} new unlocks${
-            summary.achievementsRevoked > 0 ? `, ${summary.achievementsRevoked} corrected (no longer unlocked)` : ""
-        }${
-            summary.gamesReconciled > 0 ? `, ${summary.gamesReconciled} game(s) no longer owned` : ""
-        }.`;
+        noteEl.textContent = `Synced ${formatSyncSummary(summary)}.`;
         renderScore(summary.score);
         await refreshGamesAndScore();
         await refreshActivity();
@@ -1100,7 +1128,7 @@ function renderPlatforms(accounts) {
     `;
     list.appendChild(steamRow);
     steamRow.querySelector("#steam-sync-btn").addEventListener("click", (e) =>
-        syncPlatform("steam", e.target, steamRow.querySelector("#steam-note"))
+        syncPlatform(PLATFORM_SYNC_SLUGS.steam, e.target, steamRow.querySelector("#steam-note"))
     );
 
     const xboxRow = document.createElement("div");
@@ -1118,7 +1146,7 @@ function renderPlatforms(accounts) {
         `;
         list.appendChild(xboxRow);
         xboxRow.querySelector("#xbox-sync-btn").addEventListener("click", (e) =>
-            syncPlatform("xbox", e.target, xboxRow.querySelector("#xbox-note"))
+            syncPlatform(PLATFORM_SYNC_SLUGS.xbox, e.target, xboxRow.querySelector("#xbox-note"))
         );
         xboxRow.querySelector("#xbox-disconnect-btn").addEventListener("click", () => disconnectPlatform("xbox", "Xbox"));
     } else {
@@ -1163,7 +1191,7 @@ function renderPlatforms(accounts) {
         `;
         list.appendChild(psnRow);
         psnRow.querySelector("#psn-sync-btn").addEventListener("click", (e) =>
-            syncPlatform("psn", e.target, psnRow.querySelector("#psn-note"))
+            syncPlatform(PLATFORM_SYNC_SLUGS.psn, e.target, psnRow.querySelector("#psn-note"))
         );
         psnRow.querySelector("#psn-disconnect-btn").addEventListener("click", () => disconnectPlatform("psn", "PSN"));
     } else {
@@ -1208,7 +1236,7 @@ function renderPlatforms(accounts) {
         `;
         list.appendChild(retroRow);
         retroRow.querySelector("#retro-sync-btn").addEventListener("click", (e) =>
-            syncPlatform("retro", e.target, retroRow.querySelector("#retro-note"))
+            syncPlatform(PLATFORM_SYNC_SLUGS.retroachievements, e.target, retroRow.querySelector("#retro-note"))
         );
         retroRow.querySelector("#retro-disconnect-btn").addEventListener("click", () =>
             disconnectPlatform("retroachievements", "RetroAchievements")
@@ -1257,7 +1285,7 @@ function renderPlatforms(accounts) {
         `;
         list.appendChild(gogRow);
         gogRow.querySelector("#gog-sync-btn").addEventListener("click", (e) =>
-            syncPlatform("gog", e.target, gogRow.querySelector("#gog-note"))
+            syncPlatform(PLATFORM_SYNC_SLUGS.gog, e.target, gogRow.querySelector("#gog-note"))
         );
         gogRow.querySelector("#gog-disconnect-btn").addEventListener("click", () => disconnectPlatform("gog", "GOG"));
     } else {

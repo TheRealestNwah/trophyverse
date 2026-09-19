@@ -6,8 +6,7 @@ import {
     recordUnlock,
     revokeUnlockIfPresent,
     recordOwnership,
-    getCanonicalGameIdsForPlatformGames,
-    reconcileMissingOwnership,
+    reconcileOwnershipForPlatform,
 } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
@@ -72,13 +71,10 @@ export async function syncPsnAccount(userPlatformAccountId: string, accessToken:
         await normalizeRarityTiersForGame(gameId);
     }
 
-    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames(
+    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileOwnershipForPlatform(
+        userPlatformAccountId,
         "psn",
         titles.map((t) => t.npCommunicationId)
-    );
-    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileMissingOwnership(
-        userPlatformAccountId,
-        currentlyOwnedGameIds
     );
     achievementsRevoked += reconciledRevocations;
 

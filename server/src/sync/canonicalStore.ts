@@ -209,57 +209,111 @@ export async function reconcileMissingOwnership(
     userPlatformAccountId: string,
     currentlyOwnedGameIds: string[]
 ): Promise<ReconciliationResult> {
-    if (currentlyOwnedGameIds.length > 0) {
-        await pool.query(
-            `delete from game_absence_streaks
-             where user_platform_account_id = $1 and game_id = any($2::uuid[])`,
-            [userPlatformAccountId, currentlyOwnedGameIds]
+    const client = await pool.connect();
+    try {
+        await client.query("begin");
+
+        // Serializes every reconciliation call for the same account (the
+        // background scheduler and a manual/"sync all" sync can otherwise run
+        // concurrently) so two overlapping syncs can't each increment the same
+        // game's absence streak or race the revoke/delete statements below.
+        // xact-scoped: released automatically on commit/rollback, so a crash
+        // or dropped connection can't leave it held.
+        await client.query("select pg_advisory_xact_lock(hashtext('game_absence_streaks'), hashtext($1))", [
+            userPlatformAccountId,
+        ]);
+
+        if (currentlyOwnedGameIds.length > 0) {
+            await client.query(
+                `delete from game_absence_streaks
+                 where user_platform_account_id = $1 and game_id = any($2::uuid[])`,
+                [userPlatformAccountId, currentlyOwnedGameIds]
+            );
+        }
+
+        const previouslyOwned = await client.query(
+            "select game_id from user_owned_games where user_platform_account_id = $1",
+            [userPlatformAccountId]
         );
-    }
 
-    const previouslyOwned = await pool.query("select game_id from user_owned_games where user_platform_account_id = $1", [
-        userPlatformAccountId,
-    ]);
-    const currentSet = new Set(currentlyOwnedGameIds);
-    const missingGameIds = previouslyOwned.rows.map((r) => r.game_id).filter((gameId) => !currentSet.has(gameId));
+        // A platform reporting zero owned games while we previously tracked
+        // some is far more likely a soft failure (expired token, an empty
+        // paginated page) than a real "now owns nothing" - the per-game
+        // streak alone can't tell those apart, so skip reconciling entirely
+        // this sync rather than risk treating a whole library as missing
+        // (see #58's original risk, just spread across 3 syncs instead of 1).
+        if (currentlyOwnedGameIds.length === 0 && previouslyOwned.rows.length > 0) {
+            await client.query("commit");
+            return { gamesReconciled: 0, achievementsRevoked: 0 };
+        }
 
-    let gamesReconciled = 0;
-    let achievementsRevoked = 0;
+        const currentSet = new Set(currentlyOwnedGameIds);
+        const missingGameIds = previouslyOwned.rows.map((r) => r.game_id).filter((gameId) => !currentSet.has(gameId));
 
-    for (const gameId of missingGameIds) {
-        const streak = await pool.query(
+        if (missingGameIds.length === 0) {
+            await client.query("commit");
+            return { gamesReconciled: 0, achievementsRevoked: 0 };
+        }
+
+        const streaks = await client.query(
             `insert into game_absence_streaks (user_platform_account_id, game_id, consecutive_missing_syncs)
-             values ($1, $2, 1)
+             select $1, gid, 1 from unnest($2::uuid[]) as gid
              on conflict (user_platform_account_id, game_id)
              do update set consecutive_missing_syncs = game_absence_streaks.consecutive_missing_syncs + 1
-             returning consecutive_missing_syncs`,
-            [userPlatformAccountId, gameId]
+             returning game_id, consecutive_missing_syncs`,
+            [userPlatformAccountId, missingGameIds]
         );
-        if (streak.rows[0].consecutive_missing_syncs < MISSING_SYNC_THRESHOLD) continue;
+        const toReconcile = streaks.rows
+            .filter((r) => r.consecutive_missing_syncs >= MISSING_SYNC_THRESHOLD)
+            .map((r) => r.game_id);
 
-        const revoked = await pool.query(
-            `delete from user_achievement_unlocks
-             where user_platform_account_id = $1
-               and achievement_platform_link_id in (
-                   select apl.id from achievement_platform_links apl
-                   join canonical_achievements ca on ca.id = apl.canonical_achievement_id
-                   where ca.game_id = $2
-               )
-             returning id`,
-            [userPlatformAccountId, gameId]
-        );
-        achievementsRevoked += revoked.rows.length;
-        gamesReconciled++;
+        let gamesReconciled = 0;
+        let achievementsRevoked = 0;
 
-        await pool.query("delete from user_owned_games where user_platform_account_id = $1 and game_id = $2", [
-            userPlatformAccountId,
-            gameId,
-        ]);
-        await pool.query("delete from game_absence_streaks where user_platform_account_id = $1 and game_id = $2", [
-            userPlatformAccountId,
-            gameId,
-        ]);
+        if (toReconcile.length > 0) {
+            const revoked = await client.query(
+                `delete from user_achievement_unlocks
+                 where user_platform_account_id = $1
+                   and achievement_platform_link_id in (
+                       select apl.id from achievement_platform_links apl
+                       join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+                       where ca.game_id = any($2::uuid[])
+                   )
+                 returning id`,
+                [userPlatformAccountId, toReconcile]
+            );
+            achievementsRevoked = revoked.rows.length;
+            gamesReconciled = toReconcile.length;
+
+            await client.query(
+                "delete from user_owned_games where user_platform_account_id = $1 and game_id = any($2::uuid[])",
+                [userPlatformAccountId, toReconcile]
+            );
+            await client.query(
+                "delete from game_absence_streaks where user_platform_account_id = $1 and game_id = any($2::uuid[])",
+                [userPlatformAccountId, toReconcile]
+            );
+        }
+
+        await client.query("commit");
+        return { gamesReconciled, achievementsRevoked };
+    } catch (err) {
+        await client.query("rollback");
+        throw err;
+    } finally {
+        client.release();
     }
+}
 
-    return { gamesReconciled, achievementsRevoked };
+// Shared by every platform's sync job: maps its raw owned-game-id list to
+// canonical games and reconciles ownership in one call, instead of each
+// sync.ts repeating the getCanonicalGameIdsForPlatformGames +
+// reconcileMissingOwnership pair by hand.
+export async function reconcileOwnershipForPlatform(
+    userPlatformAccountId: string,
+    platformId: string,
+    platformGameIds: string[]
+): Promise<ReconciliationResult> {
+    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames(platformId, platformGameIds);
+    return reconcileMissingOwnership(userPlatformAccountId, currentlyOwnedGameIds);
 }

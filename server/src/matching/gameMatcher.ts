@@ -80,6 +80,33 @@ export async function mergeGames(winnerId: string, loserId: string): Promise<voi
             [winnerId, loserId]
         );
         await client.query("delete from user_owned_games where game_id = $1", [loserId]);
+
+        // Repoint absence streaks the same way (see #58) - without this, the
+        // games row's on-delete-cascade FK would just wipe the loser's
+        // streak, silently resetting a genuinely-removed game's reconciliation
+        // clock to zero any time a routine cross-platform match merges it.
+        // On a collision (same account has a streak row for both games
+        // already), keep the higher streak rather than either row's value.
+        await client.query(
+            `update game_absence_streaks winner
+             set consecutive_missing_syncs = greatest(winner.consecutive_missing_syncs, loser.consecutive_missing_syncs)
+             from game_absence_streaks loser
+             where loser.game_id = $2
+               and winner.game_id = $1
+               and winner.user_platform_account_id = loser.user_platform_account_id`,
+            [winnerId, loserId]
+        );
+        await client.query(
+            `update game_absence_streaks gas set game_id = $1
+             where game_id = $2
+               and not exists (
+                   select 1 from game_absence_streaks x
+                   where x.user_platform_account_id = gas.user_platform_account_id and x.game_id = $1
+               )`,
+            [winnerId, loserId]
+        );
+        await client.query("delete from game_absence_streaks where game_id = $1", [loserId]);
+
         await client.query("delete from games where id = $1", [loserId]);
         await client.query("commit");
     } catch (err) {

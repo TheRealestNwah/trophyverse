@@ -6,8 +6,7 @@ import {
     recordUnlock,
     revokeUnlockIfPresent,
     recordOwnership,
-    getCanonicalGameIdsForPlatformGames,
-    reconcileMissingOwnership,
+    reconcileOwnershipForPlatform,
 } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
@@ -75,13 +74,10 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
         await normalizeRarityTiersForGame(gameId);
     }
 
-    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames(
+    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileOwnershipForPlatform(
+        userPlatformAccountId,
         "xbox",
         titles.map((t) => t.titleId)
-    );
-    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileMissingOwnership(
-        userPlatformAccountId,
-        currentlyOwnedGameIds
     );
     achievementsRevoked += reconciledRevocations;
 
