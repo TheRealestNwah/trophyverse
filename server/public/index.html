@@ -319,12 +319,26 @@
 
         <div id="review-panel" class="hidden"></div>
 
-        <input
-            type="text"
-            id="games-filter"
-            placeholder="Filter your games..."
-            style="width: 100%; margin-bottom: 12px; background: #0b0d10; border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: var(--text); font-size: 14px;"
-        />
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input
+                type="text"
+                id="games-filter"
+                placeholder="Filter your games..."
+                style="flex: 1; background: #0b0d10; border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: var(--text); font-size: 14px;"
+            />
+            <select
+                id="games-sort"
+                style="background: #0b0d10; border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: var(--text); font-size: 14px;"
+            >
+                <option value="unlocked-desc">Most unlocked</option>
+                <option value="completion-desc">Completion % (high to low)</option>
+                <option value="completion-asc">Completion % (low to high)</option>
+                <option value="alpha">Alphabetical</option>
+                <option value="total-desc">Most achievements</option>
+                <option value="total-asc">Fewest achievements</option>
+                <option value="platform">Platform</option>
+            </select>
+        </div>
 
         <div id="games-list"></div>
     </section>
@@ -425,12 +439,28 @@ function platformBadges(game) {
         .join("");
 }
 
+function completionPct(game) {
+    return game.total_achievements > 0 ? game.unlocked_achievements / game.total_achievements : 0;
+}
+
+const gameSorters = {
+    "unlocked-desc": (a, b) => b.unlocked_achievements - a.unlocked_achievements || a.title.localeCompare(b.title),
+    "completion-desc": (a, b) => completionPct(b) - completionPct(a) || a.title.localeCompare(b.title),
+    "completion-asc": (a, b) => completionPct(a) - completionPct(b) || a.title.localeCompare(b.title),
+    alpha: (a, b) => a.title.localeCompare(b.title),
+    "total-desc": (a, b) => b.total_achievements - a.total_achievements || a.title.localeCompare(b.title),
+    "total-asc": (a, b) => a.total_achievements - b.total_achievements || a.title.localeCompare(b.title),
+    platform: (a, b) => (a.platforms || []).join(",").localeCompare((b.platforms || []).join(",")) || a.title.localeCompare(b.title),
+};
+
 function renderGames(games) {
     document.getElementById("games-heading").textContent =
         `Your games (${games.length})`;
 
     const filterText = document.getElementById("games-filter").value.trim().toLowerCase();
-    const visible = filterText ? games.filter((g) => g.title.toLowerCase().includes(filterText)) : games;
+    const sortMode = document.getElementById("games-sort").value;
+    const visible = (filterText ? games.filter((g) => g.title.toLowerCase().includes(filterText)) : games.slice())
+        .sort(gameSorters[sortMode] || gameSorters["unlocked-desc"]);
 
     const list = document.getElementById("games-list");
     list.innerHTML = "";
@@ -895,6 +925,7 @@ async function init() {
         renderReviewPanel(await api("/api/matching/candidates"));
     });
     document.getElementById("games-filter").addEventListener("input", () => renderGames(state.games));
+    document.getElementById("games-sort").addEventListener("change", () => renderGames(state.games));
     document.getElementById("link-games-btn").addEventListener("click", (e) => {
         state.linkMode = !state.linkMode;
         state.linkSelection = null;
