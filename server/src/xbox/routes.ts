@@ -3,7 +3,7 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { getAccount, XboxApiError } from "./client";
 import { runAccountSync, PlatformAccountRow } from "../sync/runAccountSync";
-import { recomputeUserScore } from "../scoring";
+import { runMatchingAndGetScore } from "../matching";
 
 export const xboxRouter = Router();
 
@@ -53,7 +53,7 @@ xboxRouter.post("/sync", requireAuth, async (req, res, next) => {
             return res.status(404).json({ error: "No linked Xbox account" });
         }
         const summary = await runAccountSync(account);
-        const score = await recomputeUserScore(req.user!.id);
+        const score = await runMatchingAndGetScore(req.user!.id);
         res.json({ ...summary, score });
     } catch (err) {
         if (err instanceof XboxApiError && err.status === 401) {
