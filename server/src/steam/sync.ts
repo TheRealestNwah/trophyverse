@@ -5,7 +5,15 @@ import {
     getPlayerAchievements,
     getGlobalAchievementPercentages,
 } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
+import {
+    getOrCreateCanonicalGame,
+    getOrCreateAchievementLink,
+    recordUnlock,
+    revokeUnlockIfPresent,
+    recordOwnership,
+    getCanonicalGameIdsForPlatformGames,
+    reconcileMissingOwnership,
+} from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
@@ -135,9 +143,22 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
         await normalizeRarityTiersForGame(gameId);
     }
 
+    // Built from every appid Steam still reports owning, not just the ones
+    // processed above - a game skipped this sync by the playtime cache (see
+    // above) is still owned and must not look "missing" to reconciliation.
+    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames(
+        "steam",
+        games.map((g) => String(g.appid))
+    );
+    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileMissingOwnership(
+        userPlatformAccountId,
+        currentlyOwnedGameIds
+    );
+    achievementsRevoked += reconciledRevocations;
+
     await pool.query("update user_platform_accounts set last_synced_at = now() where id = $1", [
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed: games.length, achievementsUnlocked, achievementsRevoked };
+    return { gamesProcessed: games.length, achievementsUnlocked, achievementsRevoked, gamesReconciled };
 }

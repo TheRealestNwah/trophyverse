@@ -172,3 +172,94 @@ export async function revokeUnlockIfPresent(userPlatformAccountId: string, achie
     );
     return result.rows.length > 0;
 }
+
+// Maps a platform's raw owned-game IDs (appids, titleIds, etc.) to the
+// canonical games already linked for them. Used by reconcileMissingOwnership
+// below to see what a platform currently reports as owned independent of any
+// per-sync achievement-fetch skip-cache (see steam/sync.ts) - a game a
+// platform still lists is never "missing" even if this sync skipped
+// re-fetching its achievements.
+export async function getCanonicalGameIdsForPlatformGames(platformId: string, platformGameIds: string[]): Promise<string[]> {
+    if (platformGameIds.length === 0) return [];
+    const result = await pool.query(
+        "select distinct game_id from game_platform_links where platform_id = $1 and platform_game_id = any($2::text[])",
+        [platformId, platformGameIds]
+    );
+    return result.rows.map((r) => r.game_id);
+}
+
+// A previously-owned game has to be missing from this many consecutive syncs
+// in a row before it's treated as a genuine removal rather than a transient
+// API hiccup or partial/paginated response (see #58).
+const MISSING_SYNC_THRESHOLD = 3;
+
+export interface ReconciliationResult {
+    gamesReconciled: number;
+    achievementsRevoked: number;
+}
+
+// See #58: revoking every achievement for a game the instant it's absent
+// from one sync's owned-games response is too risky - a flaky API call could
+// wipe out real progress for a whole library. Instead this tracks consecutive
+// absences per (account, game) and only reconciles (revokes this account's
+// unlocks for it and drops it from user_owned_games) once a game has been
+// missing MISSING_SYNC_THRESHOLD syncs running. A game seen again before
+// that resets its streak back to zero.
+export async function reconcileMissingOwnership(
+    userPlatformAccountId: string,
+    currentlyOwnedGameIds: string[]
+): Promise<ReconciliationResult> {
+    if (currentlyOwnedGameIds.length > 0) {
+        await pool.query(
+            `delete from game_absence_streaks
+             where user_platform_account_id = $1 and game_id = any($2::uuid[])`,
+            [userPlatformAccountId, currentlyOwnedGameIds]
+        );
+    }
+
+    const previouslyOwned = await pool.query("select game_id from user_owned_games where user_platform_account_id = $1", [
+        userPlatformAccountId,
+    ]);
+    const currentSet = new Set(currentlyOwnedGameIds);
+    const missingGameIds = previouslyOwned.rows.map((r) => r.game_id).filter((gameId) => !currentSet.has(gameId));
+
+    let gamesReconciled = 0;
+    let achievementsRevoked = 0;
+
+    for (const gameId of missingGameIds) {
+        const streak = await pool.query(
+            `insert into game_absence_streaks (user_platform_account_id, game_id, consecutive_missing_syncs)
+             values ($1, $2, 1)
+             on conflict (user_platform_account_id, game_id)
+             do update set consecutive_missing_syncs = game_absence_streaks.consecutive_missing_syncs + 1
+             returning consecutive_missing_syncs`,
+            [userPlatformAccountId, gameId]
+        );
+        if (streak.rows[0].consecutive_missing_syncs < MISSING_SYNC_THRESHOLD) continue;
+
+        const revoked = await pool.query(
+            `delete from user_achievement_unlocks
+             where user_platform_account_id = $1
+               and achievement_platform_link_id in (
+                   select apl.id from achievement_platform_links apl
+                   join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+                   where ca.game_id = $2
+               )
+             returning id`,
+            [userPlatformAccountId, gameId]
+        );
+        achievementsRevoked += revoked.rows.length;
+        gamesReconciled++;
+
+        await pool.query("delete from user_owned_games where user_platform_account_id = $1 and game_id = $2", [
+            userPlatformAccountId,
+            gameId,
+        ]);
+        await pool.query("delete from game_absence_streaks where user_platform_account_id = $1 and game_id = $2", [
+            userPlatformAccountId,
+            gameId,
+        ]);
+    }
+
+    return { gamesReconciled, achievementsRevoked };
+}

@@ -1,6 +1,14 @@
 import { pool } from "../db";
 import { getUserTitles, getTitleTrophies, getUserTrophiesEarnedForTitle } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
+import {
+    getOrCreateCanonicalGame,
+    getOrCreateAchievementLink,
+    recordUnlock,
+    revokeUnlockIfPresent,
+    recordOwnership,
+    getCanonicalGameIdsForPlatformGames,
+    reconcileMissingOwnership,
+} from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
@@ -64,9 +72,19 @@ export async function syncPsnAccount(userPlatformAccountId: string, accessToken:
         await normalizeRarityTiersForGame(gameId);
     }
 
+    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames(
+        "psn",
+        titles.map((t) => t.npCommunicationId)
+    );
+    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileMissingOwnership(
+        userPlatformAccountId,
+        currentlyOwnedGameIds
+    );
+    achievementsRevoked += reconciledRevocations;
+
     await pool.query("update user_platform_accounts set last_synced_at = now() where id = $1", [
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed: titles.length, achievementsUnlocked, achievementsRevoked };
+    return { gamesProcessed: titles.length, achievementsUnlocked, achievementsRevoked, gamesReconciled };
 }

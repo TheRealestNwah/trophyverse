@@ -178,6 +178,19 @@ create table user_owned_games (
     unique (user_platform_account_id, game_id)
 );
 
+-- See #58: a game merely missing from one sync's owned-games response isn't
+-- safe to treat as removed immediately - a transient API hiccup or partial
+-- response could wipe out real progress. Tracks how many consecutive syncs
+-- in a row a previously-owned game has been absent; reconcileMissingOwnership
+-- (canonicalStore.ts) only revokes/drops it once this crosses a threshold,
+-- and any sync where the game is seen again resets/removes the row.
+create table game_absence_streaks (
+    user_platform_account_id  uuid not null references user_platform_accounts(id) on delete cascade,
+    game_id                   uuid not null references games(id) on delete cascade,
+    consecutive_missing_syncs smallint not null default 1,
+    primary key (user_platform_account_id, game_id)
+);
+
 -- Lets a user paste their own cover art / achievement icon (see #32),
 -- scoped to that user only - games/canonical_achievements are shared,
 -- deduplicated rows across every user (see docs/data-model.md), so this is

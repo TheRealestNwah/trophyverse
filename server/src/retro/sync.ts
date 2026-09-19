@@ -1,6 +1,14 @@
 import { pool } from "../db";
 import { getUserGames, getGameProgress } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
+import {
+    getOrCreateCanonicalGame,
+    getOrCreateAchievementLink,
+    recordUnlock,
+    revokeUnlockIfPresent,
+    recordOwnership,
+    getCanonicalGameIdsForPlatformGames,
+    reconcileMissingOwnership,
+} from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
@@ -77,9 +85,19 @@ export async function syncRetroAccount(
         await sleep(REQUEST_DELAY_MS);
     }
 
+    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames(
+        "retroachievements",
+        games.map((g) => g.gameId)
+    );
+    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileMissingOwnership(
+        userPlatformAccountId,
+        currentlyOwnedGameIds
+    );
+    achievementsRevoked += reconciledRevocations;
+
     await pool.query("update user_platform_accounts set last_synced_at = now() where id = $1", [
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed: games.length, achievementsUnlocked, achievementsRevoked };
+    return { gamesProcessed: games.length, achievementsUnlocked, achievementsRevoked, gamesReconciled };
 }

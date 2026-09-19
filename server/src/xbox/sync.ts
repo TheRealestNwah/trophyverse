@@ -1,6 +1,14 @@
 import { pool } from "../db";
 import { getTitles, getAchievementsForTitle, getX360AchievementsForTitle } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
+import {
+    getOrCreateCanonicalGame,
+    getOrCreateAchievementLink,
+    recordUnlock,
+    revokeUnlockIfPresent,
+    recordOwnership,
+    getCanonicalGameIdsForPlatformGames,
+    reconcileMissingOwnership,
+} from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
@@ -67,9 +75,19 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
         await normalizeRarityTiersForGame(gameId);
     }
 
+    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames(
+        "xbox",
+        titles.map((t) => t.titleId)
+    );
+    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileMissingOwnership(
+        userPlatformAccountId,
+        currentlyOwnedGameIds
+    );
+    achievementsRevoked += reconciledRevocations;
+
     await pool.query("update user_platform_accounts set last_synced_at = now() where id = $1", [
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed, achievementsUnlocked, achievementsRevoked };
+    return { gamesProcessed, achievementsUnlocked, achievementsRevoked, gamesReconciled };
 }
