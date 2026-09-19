@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
-import { getGamesForUser, getAchievementsForGame, getRecentActivity, getFunStats } from "./queries";
+import { getGamesForUser, getAchievementsForGame, getRecentActivity, getFunStats, getFullExportData } from "./queries";
 import { recomputeUserScore } from "../scoring";
 
 export const gamesRouter = Router();
@@ -65,6 +65,37 @@ gamesRouter.get("/activity", requireAuth, async (req, res, next) => {
 gamesRouter.get("/stats", requireAuth, async (req, res, next) => {
     try {
         res.json(await getFunStats(req.user!.id));
+    } catch (err) {
+        next(err);
+    }
+});
+
+function toCsv(rows: Record<string, unknown>[]): string {
+    if (rows.length === 0) return "";
+    const headers = Object.keys(rows[0]);
+    const escape = (value: unknown) => {
+        const str = value === null || value === undefined ? "" : String(value);
+        return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    return [headers.join(","), ...rows.map((row) => headers.map((h) => escape(row[h])).join(","))].join("\n");
+}
+
+// Scoped to the requesting user's own data only - req.user!.id, no way to
+// pass a different user, no admin/global export (see #26).
+gamesRouter.get("/export", requireAuth, async (req, res, next) => {
+    try {
+        const rows = await getFullExportData(req.user!.id);
+        const wantsCsv =
+            req.query.format === "csv" || (!req.query.format && (req.headers.accept ?? "").includes("text/csv"));
+
+        if (wantsCsv) {
+            res.setHeader("Content-Type", "text/csv");
+            res.setHeader("Content-Disposition", 'attachment; filename="trophyverse-export.csv"');
+            res.send(toCsv(rows));
+        } else {
+            res.setHeader("Content-Disposition", 'attachment; filename="trophyverse-export.json"');
+            res.json(rows);
+        }
     } catch (err) {
         next(err);
     }

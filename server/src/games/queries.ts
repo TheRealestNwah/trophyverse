@@ -169,6 +169,35 @@ export async function getFunStats(userId: string) {
     };
 }
 
+// One row per (achievement, platform link) across the user's whole library -
+// same join pattern as getAchievementsForGame below, just scoped to every
+// owned game instead of one. Backs the "download my data" export (#26).
+export async function getFullExportData(userId: string) {
+    const result = await pool.query(
+        `select
+            g.title as game_title, apl.platform_id,
+            ca.name as achievement_name, ca.description, ca.tier, ca.points,
+            apl.global_unlock_rarity,
+            (uau.id is not null) as unlocked, uau.unlocked_at
+         from games g
+         join canonical_achievements ca on ca.game_id = g.id
+         join achievement_platform_links apl on apl.canonical_achievement_id = ca.id
+         left join user_achievement_unlocks uau
+                on uau.achievement_platform_link_id = apl.id
+               and uau.user_platform_account_id in (
+                   select id from user_platform_accounts where user_id = $1
+               )
+         where exists (
+             select 1 from user_owned_games uog
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where upa.user_id = $1 and uog.game_id = g.id
+         )
+         order by g.title, apl.platform_id, ca.name`,
+        [userId]
+    );
+    return result.rows;
+}
+
 export async function getAchievementsForGame(userId: string, gameId: string) {
     const owns = await pool.query(
         `select 1 from user_owned_games uog
