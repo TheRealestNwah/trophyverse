@@ -3,6 +3,7 @@ import { matchGames } from "./gameMatcher";
 import { matchAchievementsForAllGames } from "./achievementMatcher";
 import { enrichGamesWithSteamCatalog } from "./steamCatalogEnrichment";
 import { enrichGamesWithXboxCatalog } from "./xboxCatalogEnrichment";
+import { enrichGamesWithRetroCatalog } from "./retroCatalogEnrichment";
 import { recomputeUserScore, getUserScore, UserScore } from "../scoring";
 import { normalizeRarityTiersForAllGames } from "../scoring/rarityNormalization";
 
@@ -11,6 +12,7 @@ export interface MatchingSummary {
     gamesRemoved: number;
     steamCatalogGamesEnriched: number;
     xboxCatalogGamesEnriched: number;
+    retroCatalogGamesEnriched: number;
     achievementsMerged: number;
     achievementCandidatesRecorded: number;
     usersRescored: number;
@@ -23,12 +25,14 @@ export interface MatchingSummary {
 export async function runMatching(): Promise<MatchingSummary> {
     const gameResult = await matchGames();
 
-    // Backfills real Steam achievement/rarity data for games no user has
-    // actually linked Steam for - runs before achievement matching below so
-    // anything it adds gets a chance to be merged (and inherit a real tier)
-    // in the same pass, rather than sitting unmatched until the next run.
+    // Backfills real Steam/Xbox/RetroAchievements achievement/rarity data
+    // for games no user has actually linked that platform for - runs before
+    // achievement matching below so anything added gets a chance to be
+    // merged (and inherit a real tier) in the same pass, rather than
+    // sitting unmatched until the next run.
     const catalogResult = await enrichGamesWithSteamCatalog();
     const xboxCatalogResult = await enrichGamesWithXboxCatalog();
+    const retroCatalogResult = await enrichGamesWithRetroCatalog();
 
     const achievementResult = await matchAchievementsForAllGames();
 
@@ -48,6 +52,7 @@ export async function runMatching(): Promise<MatchingSummary> {
         gamesRemoved: gameResult.gamesRemoved,
         steamCatalogGamesEnriched: catalogResult.gamesEnriched,
         xboxCatalogGamesEnriched: xboxCatalogResult.gamesEnriched,
+        retroCatalogGamesEnriched: retroCatalogResult.gamesEnriched,
         achievementsMerged: achievementResult.achievementsMerged,
         achievementCandidatesRecorded: achievementResult.candidatesRecorded,
         usersRescored: users.rows.length,
