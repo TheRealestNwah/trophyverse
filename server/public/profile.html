@@ -121,6 +121,22 @@
     .activity-meta { font-size: 12px; color: var(--text-dim); }
     .activity-time { font-size: 12px; color: var(--text-dim); flex-shrink: 0; white-space: nowrap; }
 
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 16px;
+    }
+    .stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .stat-value { font-size: 15px; font-weight: 600; }
+    .stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
     .achievements { border-top: 1px solid var(--border); padding: 8px 16px; }
     .platform-section { margin-bottom: 12px; }
     .platform-section:last-child { margin-bottom: 0; }
@@ -175,6 +191,11 @@
                 <div class="points" id="points-text">-</div>
                 <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
             </div>
+        </div>
+
+        <h2 style="font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0 0 8px;">Fun stats</h2>
+        <div class="stats-grid" id="stats-grid">
+            <div class="loading-note">Loading...</div>
         </div>
 
         <h2 style="font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0 0 8px;">Recent activity</h2>
@@ -256,6 +277,71 @@ function renderActivity(items) {
     `
         )
         .join("");
+}
+
+function statCard(label, value, sub) {
+    return `
+        <div class="stat-card">
+            <div class="stat-label">${label}</div>
+            <div class="stat-value">${value}</div>
+            ${sub ? `<div class="stat-sub">${sub}</div>` : ""}
+        </div>
+    `;
+}
+
+function renderStats(stats) {
+    const grid = document.getElementById("stats-grid");
+    const cards = [];
+
+    if (stats.rarestAchievement) {
+        const r = stats.rarestAchievement;
+        cards.push(
+            statCard(
+                "Rarest achievement owned",
+                r.name,
+                `${r.game_title} (${r.platform_id}) — ${Number(r.global_unlock_rarity).toFixed(2)}% of players`
+            )
+        );
+    }
+    if (stats.busiestPointsDay) {
+        cards.push(
+            statCard(
+                "Best day (points)",
+                `${Number(stats.busiestPointsDay.points).toLocaleString()} points`,
+                new Date(stats.busiestPointsDay.day).toLocaleDateString()
+            )
+        );
+    }
+    if (stats.busiestUnlockDay) {
+        cards.push(
+            statCard(
+                "Busiest day (unlocks)",
+                `${stats.busiestUnlockDay.unlocks} achievements`,
+                new Date(stats.busiestUnlockDay.day).toLocaleDateString()
+            )
+        );
+    }
+    if (stats.oldestUnlock) {
+        cards.push(
+            statCard(
+                "Oldest unlock still tracked",
+                stats.oldestUnlock.name,
+                `${stats.oldestUnlock.game_title} — ${new Date(stats.oldestUnlock.unlocked_at).toLocaleDateString()}`
+            )
+        );
+    }
+    cards.push(
+        statCard(
+            "Platinums / full completions",
+            `${stats.totalPlatinums} platinum${stats.totalPlatinums === 1 ? "" : "s"}`,
+            `${stats.fullyCompletedGames} game${stats.fullyCompletedGames === 1 ? "" : "s"} 100% complete`
+        )
+    );
+    if (stats.longestPlatinumGapDays !== null) {
+        cards.push(statCard("Longest platinum drought", `${stats.longestPlatinumGapDays} days`, "between two platinums"));
+    }
+
+    grid.innerHTML = cards.length > 0 ? cards.join("") : `<div class="loading-note">Not enough data yet.</div>`;
 }
 
 function platformBadges(game) {
@@ -375,6 +461,7 @@ async function init() {
     renderScore(profile.username, profile.score);
     renderGames(await api(`/api/public/${slug}/games`));
     renderActivity(await api(`/api/public/${slug}/activity`));
+    renderStats(await api(`/api/public/${slug}/stats`));
 }
 
 init();

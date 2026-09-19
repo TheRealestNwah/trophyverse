@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
-import { getGamesForUser, getAchievementsForGame, getRecentActivity } from "./queries";
+import { getGamesForUser, getAchievementsForGame, getRecentActivity, getFunStats } from "./queries";
 import { recomputeUserScore } from "../scoring";
 
 export const gamesRouter = Router();
@@ -57,6 +57,14 @@ gamesRouter.get("/games", requireAuth, async (req, res, next) => {
 gamesRouter.get("/activity", requireAuth, async (req, res, next) => {
     try {
         res.json(await getRecentActivity(req.user!.id));
+    } catch (err) {
+        next(err);
+    }
+});
+
+gamesRouter.get("/stats", requireAuth, async (req, res, next) => {
+    try {
+        res.json(await getFunStats(req.user!.id));
     } catch (err) {
         next(err);
     }

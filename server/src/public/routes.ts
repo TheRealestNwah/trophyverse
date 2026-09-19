@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db";
 import { getUserScore } from "../scoring";
-import { getGamesForUser, getAchievementsForGame, getRecentActivity } from "../games/queries";
+import { getGamesForUser, getAchievementsForGame, getRecentActivity, getFunStats } from "../games/queries";
 
 export const publicRouter = Router();
 
@@ -68,6 +68,17 @@ publicRouter.get("/:slug/activity", async (req, res, next) => {
         if (!user) return res.status(404).json({ error: "No public profile with that name" });
 
         res.json(await getRecentActivity(user.id));
+    } catch (err) {
+        next(err);
+    }
+});
+
+publicRouter.get("/:slug/stats", async (req, res, next) => {
+    try {
+        const user = await getPublicUserId(req.params.slug);
+        if (!user) return res.status(404).json({ error: "No public profile with that name" });
+
+        res.json(await getFunStats(user.id));
     } catch (err) {
         next(err);
     }
