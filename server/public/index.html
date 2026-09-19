@@ -6,132 +6,271 @@
 <title>Unified Achievement Manager</title>
 <style>
     :root {
-        --bg: #0f1115;
-        --card: #1b1e24;
-        --card-hover: #22262e;
-        --border: #2a2e37;
-        --text: #e8e9ec;
-        --text-dim: #9aa0ab;
-        --accent: #6d8dfa;
-        --bronze: #cd7f32;
-        --silver: #b8bec7;
-        --gold: #f0c341;
-        --platinum: #7dd3fc;
+        --bg: #0B0B0E;
+        --sidebar-bg: rgba(18,19,24,0.92);
+        --topbar-bg: rgba(15,16,20,0.6);
+        --card: rgba(23,24,29,0.6);
+        --card-hover: rgba(35,37,44,0.75);
+        --border: rgba(255,255,255,.08);
+        --border-2: rgba(255,255,255,.05);
+        --text: #ECEDF1;
+        --text-dim: #9498A6;
+        --text-dimmer: #65697A;
+        --accent: #4C8DFF;
+        --active: #35C46B;
+        --bronze: #9C6B45;
+        --silver: #A9AEBB;
+        --gold: #D6AD57;
+        --platinum: #C9CEDB;
+        --glass-sheen: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 45%);
+        --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+        --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --font-display: "Helvetica Neue", Helvetica, Arial, sans-serif;
     }
     * { box-sizing: border-box; }
     body {
         margin: 0;
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-family: var(--font-ui);
         background: var(--bg);
         color: var(--text);
+        -webkit-font-smoothing: antialiased;
     }
-    header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--border);
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+    @keyframes ringShimmer { 0%, 100% { opacity: .3; } 50% { opacity: .9; } }
+    @media (prefers-reduced-motion: reduce) {
+        * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
     }
-    header h1 { font-size: 20px; margin: 0; }
-    header h1 span { color: var(--accent); }
-    main { max-width: 960px; margin: 0 auto; padding: 24px; }
     .hidden { display: none !important; }
 
-    button {
-        background: var(--accent);
-        color: #0b0d10;
+    /* ---------- App shell: sidebar + topbar + scrolling content ---------- */
+    .app-shell { display: flex; height: 100vh; overflow: hidden; }
+
+    .sidebar {
+        width: 228px;
+        flex-shrink: 0;
+        height: 100%;
+        background: var(--glass-sheen), var(--sidebar-bg);
+        backdrop-filter: blur(34px) saturate(180%);
+        -webkit-backdrop-filter: blur(34px) saturate(180%);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+    .sidebar-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 18px 16px 16px;
+        flex-shrink: 0;
+    }
+    .sidebar-brand span {
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+    .sidebar-section { padding: 0 10px; margin-bottom: 16px; }
+    .sidebar-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-dimmer);
+        padding: 0 10px 5px;
+    }
+    .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        height: 29px;
+        padding: 0 10px;
+        border-radius: 999px;
         border: none;
-        padding: 9px 16px;
-        border-radius: 6px;
+        background: transparent;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 500;
+        font-family: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+    .nav-item svg { flex-shrink: 0; }
+    .nav-item .nav-item-label { flex: 1; }
+    .nav-item.active {
+        background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 60%), var(--accent);
+        color: #fff;
+        font-weight: 600;
+        box-shadow: 0 3px 12px rgba(76,141,255,0.45);
+    }
+    .sidebar-footer {
+        margin-top: auto;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12.5px;
+        color: var(--text-dim);
+        flex-wrap: wrap;
+    }
+    .sidebar-footer a { color: var(--text-dim); font-size: 12.5px; }
+    .sidebar-footer a:hover { color: var(--text); }
+
+    .content-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+    .topbar {
+        height: 52px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 28px;
+        border-bottom: 1px solid var(--border);
+        background: var(--glass-sheen), var(--topbar-bg);
+        backdrop-filter: blur(24px) saturate(160%);
+        -webkit-backdrop-filter: blur(24px) saturate(160%);
+    }
+    .topbar-title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; flex: 1; }
+
+    main { max-width: 1040px; margin: 0 auto; padding: 28px; overflow-y: auto; flex: 1; }
+
+    button {
+        background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 60%), var(--accent);
+        color: #fff;
+        border: none;
+        padding: 9px 18px;
+        border-radius: 999px;
         font-weight: 600;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 13px;
+        font-family: inherit;
+        box-shadow: 0 3px 12px rgba(76,141,255,0.35);
     }
-    button:disabled { opacity: 0.5; cursor: default; }
+    button:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
     button.secondary {
-        background: transparent;
-        color: var(--text-dim);
+        background: rgba(255,255,255,0.06);
+        color: var(--text);
         border: 1px solid var(--border);
+        box-shadow: none;
     }
 
     #signin-view { text-align: center; padding: 80px 24px; }
     #signin-view p { color: var(--text-dim); margin-bottom: 24px; }
 
+    /* ---------- Level ring (signature element) ---------- */
     .score-card {
         display: flex;
         align-items: center;
         gap: 24px;
-        background: var(--card);
+        background: var(--glass-sheen), var(--card);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
         border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 20px 24px;
+        border-radius: 16px;
+        padding: 22px 26px;
         margin-bottom: 24px;
     }
-    .level-badge {
-        width: 72px;
-        height: 72px;
+    .level-ring {
+        position: relative;
+        width: 108px;
+        height: 108px;
+        flex-shrink: 0;
         border-radius: 50%;
-        background: linear-gradient(135deg, var(--accent), #a06dfa);
+        background: radial-gradient(circle at 34% 28%, rgba(255,255,255,0.16), rgba(255,255,255,0.02) 60%), rgba(255,255,255,0.03);
+        box-shadow: inset 0 2px 6px rgba(255,255,255,0.16), inset 0 -8px 14px rgba(0,0,0,0.4), 0 14px 28px rgba(0,0,0,0.35);
+    }
+    .level-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .level-ring .ring-shimmer { animation: ringShimmer 5s ease-in-out infinite; }
+    .level-ring .n {
+        position: absolute;
+        inset: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        flex-shrink: 0;
+        gap: 1px;
     }
-    .level-badge .n { font-size: 24px; font-weight: 700; line-height: 1; }
-    .level-badge .l { font-size: 9px; letter-spacing: 1px; opacity: 0.85; }
-    .score-info { flex: 1; }
-    .score-info .points { font-size: 14px; color: var(--text-dim); margin-bottom: 6px; }
-    .progress-track {
-        background: #0b0d10;
-        border-radius: 4px;
-        height: 8px;
-        overflow: hidden;
-    }
-    .progress-fill {
-        background: linear-gradient(90deg, var(--accent), #a06dfa);
-        height: 100%;
-    }
+    .level-ring .n .num { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+    .level-ring .n .lbl { font-size: 8px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+    .score-info { flex: 1; min-width: 0; }
+    .score-info .points { font-family: var(--font-mono); font-size: 14px; color: var(--text-dim); }
 
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .toolbar h2 { font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+    .toolbar h2 { font-size: 17px; color: var(--text); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+    .toolbar > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .filter-chip {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 10px 0 12px;
+        border-radius: 999px;
+        background: rgba(76,141,255,0.16);
+        border: 1px solid rgba(76,141,255,0.35);
+        color: var(--accent);
+        font-size: 12.5px;
+        font-weight: 600;
+        margin-bottom: 12px;
+    }
+    .filter-chip.showing { display: inline-flex; }
+    .filter-chip button {
+        background: none;
+        box-shadow: none;
+        color: var(--accent);
+        padding: 0;
+        width: 16px;
+        height: 16px;
+        font-size: 13px;
+        line-height: 1;
+        border-radius: 999px;
+    }
 
     .platforms { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
     .platform-row {
         display: flex;
         align-items: center;
         gap: 10px;
-        background: var(--card);
+        background: var(--glass-sheen), var(--card);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
         border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 12px 16px;
+        border-radius: 14px;
+        padding: 12px 18px;
     }
     .platform-name { font-weight: 600; flex-shrink: 0; white-space: nowrap; margin-right: 4px; }
     .platform-note { font-size: 12px; color: var(--text-dim); flex: 1; }
     .platform-row input[type="text"] {
         flex: 1;
-        background: #0b0d10;
+        background: rgba(0,0,0,0.25);
         border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 8px 10px;
+        border-radius: 999px;
+        padding: 8px 14px;
         color: var(--text);
         font-size: 13px;
+        font-family: inherit;
     }
     .platform-badge {
         font-size: 10px;
         font-weight: 700;
         text-transform: uppercase;
         color: var(--text-dim);
-        background: #0b0d10;
+        background: rgba(0,0,0,0.25);
         border: 1px solid var(--border);
-        border-radius: 4px;
-        padding: 1px 5px;
+        border-radius: 999px;
+        padding: 2px 8px;
     }
 
     .game {
-        background: var(--card);
+        background: var(--glass-sheen), var(--card);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 14px;
         margin-bottom: 8px;
         overflow: hidden;
     }
@@ -139,18 +278,18 @@
         display: flex;
         align-items: center;
         gap: 16px;
-        padding: 14px 16px;
+        padding: 14px 18px;
         cursor: pointer;
     }
-    .game-row:hover { background: var(--card-hover); }
-    .game-row.link-selected { background: var(--card-hover); box-shadow: inset 0 0 0 2px var(--accent); }
+    .game-row:hover { background: rgba(255,255,255,0.03); }
+    .game-row.link-selected { background: rgba(255,255,255,0.03); box-shadow: inset 0 0 0 2px var(--accent); }
     .game-cover {
         width: 48px;
         height: 48px;
-        border-radius: 6px;
+        border-radius: 10px;
         object-fit: cover;
         flex-shrink: 0;
-        background: #0b0d10;
+        background: rgba(255,255,255,0.05);
     }
     .game-cover-wrap { position: relative; flex-shrink: 0; }
     .cover-edit-btn {
@@ -160,7 +299,7 @@
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: var(--card);
+        background: #1b1e24;
         border: 1px solid var(--border);
         color: var(--text-dim);
         font-size: 10px;
@@ -170,6 +309,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        box-shadow: none;
     }
     .cover-edit-btn:hover { color: var(--text); border-color: var(--accent); }
     .cover-upload-btn {
@@ -179,7 +319,7 @@
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: var(--card);
+        background: #1b1e24;
         border: 1px solid var(--border);
         color: var(--text-dim);
         font-size: 10px;
@@ -189,13 +329,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        box-shadow: none;
     }
     .cover-upload-btn:hover { color: var(--text); border-color: var(--accent); }
     .icon-edit-btn {
         width: 16px;
         height: 16px;
         border-radius: 50%;
-        background: var(--card);
+        background: #1b1e24;
         border: 1px solid var(--border);
         color: var(--text-dim);
         font-size: 9px;
@@ -206,13 +347,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        box-shadow: none;
     }
     .icon-edit-btn:hover { color: var(--text); border-color: var(--accent); }
     .icon-upload-btn {
         width: 16px;
         height: 16px;
         border-radius: 50%;
-        background: var(--card);
+        background: #1b1e24;
         border: 1px solid var(--border);
         color: var(--text-dim);
         font-size: 9px;
@@ -223,10 +365,11 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        box-shadow: none;
     }
     .icon-upload-btn:hover { color: var(--text); border-color: var(--accent); }
     .game-title { flex: 1; font-weight: 600; }
-    .game-progress-text { font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
+    .game-progress-text { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
     .tier-pips { display: flex; gap: 6px; font-size: 12px; }
     .pip { display: flex; align-items: center; gap: 3px; }
     .dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -236,10 +379,12 @@
     .dot.bronze { background: var(--bronze); }
 
     .activity-panel {
-        background: var(--card);
+        background: var(--glass-sheen), var(--card);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
         border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 4px 16px;
+        border-radius: 16px;
+        padding: 4px 20px;
         margin-bottom: 24px;
     }
     .activity-item {
@@ -247,7 +392,7 @@
         align-items: center;
         gap: 12px;
         padding: 10px 0;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--border-2);
     }
     .activity-item:last-child { border-bottom: none; }
     .activity-body { flex: 1; min-width: 0; }
@@ -262,16 +407,18 @@
         margin-bottom: 24px;
     }
     .stat-card {
-        background: var(--card);
+        background: var(--glass-sheen), var(--card);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
         border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 14px 16px;
+        border-radius: 16px;
+        padding: 16px 18px;
     }
     .stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .stat-value { font-size: 15px; font-weight: 600; }
+    .stat-value { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
     .stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 
-    .achievements { border-top: 1px solid var(--border); padding: 8px 16px; }
+    .achievements { border-top: 1px solid var(--border); padding: 8px 18px; }
     .platform-section { margin-bottom: 12px; }
     .platform-section:last-child { margin-bottom: 0; }
     .platform-section-header {
@@ -297,27 +444,26 @@
         align-items: center;
         gap: 12px;
         padding: 10px 0;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--border-2);
     }
     .achievement:last-child { border-bottom: none; }
     .achievement.locked { opacity: 0.45; }
     .achievement-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 4px;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
         object-fit: cover;
         flex-shrink: 0;
-        background: #0b0d10;
+        background: rgba(255,255,255,0.05);
     }
     .tier-tag {
         font-size: 10px;
         font-weight: 700;
         text-transform: uppercase;
-        padding: 2px 6px;
-        border-radius: 4px;
+        padding: 3px 8px;
+        border-radius: 999px;
         color: #0b0d10;
         flex-shrink: 0;
-        width: 72px;
         white-space: nowrap;
         text-align: center;
     }
@@ -328,136 +474,217 @@
     .achievement-body { flex: 1; min-width: 0; }
     .achievement-name { font-weight: 600; font-size: 14px; }
     .achievement-desc { font-size: 12px; color: var(--text-dim); }
-    .achievement-rarity { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+    .achievement-rarity { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
 
     .loading-note { color: var(--text-dim); font-size: 13px; padding: 16px; }
 
     .review-list {
-        background: var(--card);
+        background: var(--glass-sheen), var(--card);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 14px;
         margin-bottom: 16px;
     }
     .review-row {
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border);
+        padding: 12px 18px;
+        border-bottom: 1px solid var(--border-2);
     }
     .review-row:last-child { border-bottom: none; }
     .review-game { font-size: 11px; color: var(--text-dim); width: 110px; flex-shrink: 0; }
     .review-compare { flex: 1; font-size: 13px; min-width: 0; }
     .review-compare .arrow { color: var(--text-dim); margin: 0 6px; }
-    .review-confidence { font-size: 11px; color: var(--text-dim); width: 50px; flex-shrink: 0; text-align: right; }
+    .review-confidence { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); width: 50px; flex-shrink: 0; text-align: right; }
     .review-actions { display: flex; gap: 6px; flex-shrink: 0; }
-    .review-actions button { padding: 5px 10px; font-size: 12px; }
-    .review-actions button.reject { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+    .review-actions button { padding: 5px 12px; font-size: 12px; }
+    .review-actions button.reject { background: transparent; color: var(--text-dim); border: 1px solid var(--border); box-shadow: none; }
+
+    input[type="search"], input[type="text"], select {
+        font-family: inherit;
+    }
+
+    /* Below this width the sidebar collapses to an icon-only rail (the same
+       "compact window" pattern as a resized native app) instead of eating
+       into the content area or forcing horizontal scroll. */
+    @media (max-width: 900px) {
+        .sidebar { width: 60px; align-items: center; }
+        .sidebar-brand span, .sidebar-label, .nav-item-label { display: none; }
+        .sidebar-brand { justify-content: center; padding: 18px 0 16px; }
+        .sidebar-section { padding: 0 8px; width: 100%; }
+        .nav-item { justify-content: center; padding: 0; width: 40px; height: 34px; margin: 0 auto 4px; }
+        .sidebar-footer { flex-direction: column; padding: 12px 6px; }
+        .sidebar-footer a, .sidebar-footer span { display: none; }
+        .sidebar-footer button { font-size: 11px; padding: 8px 4px; width: 48px; }
+        main { padding: 20px; }
+        .toolbar { flex-direction: column; align-items: flex-start; }
+    }
 </style>
 </head>
 <body>
 
-<header>
-    <h1>Trophy<span>verse</span></h1>
-    <div id="header-actions"></div>
-</header>
+<div class="app-shell">
+    <nav class="sidebar" id="sidebar" aria-label="Sections">
+        <div class="sidebar-brand">
+            <svg width="18" height="18" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="8.5" stroke="var(--text)" stroke-width="1.6"/>
+                <path d="M11 2.5A8.5 8.5 0 0 1 19.5 11" stroke="var(--gold)" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <span>Achievements</span>
+        </div>
+        <div class="sidebar-section">
+            <span class="sidebar-label">Library</span>
+            <button type="button" class="nav-item active" data-nav="overview">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M8 8L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                <span class="nav-item-label">Overview</span>
+            </button>
+            <button type="button" class="nav-item" data-nav="platforms">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+                <span class="nav-item-label">Platforms</span>
+            </button>
+            <button type="button" class="nav-item" data-nav="games">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2" y="2.5" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="7" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="11.5" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>
+                <span class="nav-item-label">All Games</span>
+            </button>
+        </div>
+        <div class="sidebar-section">
+            <span class="sidebar-label">Smart Views</span>
+            <button type="button" class="nav-item" data-nav="in-progress">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3l2.2 2.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="nav-item-label">In Progress</span>
+            </button>
+            <button type="button" class="nav-item" data-nav="completed">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 8.2l1.8 1.8 3.2-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="nav-item-label">Completed</span>
+            </button>
+        </div>
+        <div class="sidebar-footer" id="header-actions"></div>
+    </nav>
 
-<main>
-    <section id="signin-view" class="hidden">
-        <p>Connect your Steam account to see your achievements in one place.</p>
-        <a href="/auth/steam"><button>Sign in with Steam</button></a>
-    </section>
-
-    <section id="dashboard-view" class="hidden">
-        <div class="score-card">
-            <div class="level-badge">
-                <div class="n" id="level-number">-</div>
-                <div class="l">LEVEL</div>
-            </div>
-            <div class="score-info">
-                <div class="points" id="points-text">-</div>
-                <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-            </div>
+    <div class="content-pane">
+        <div class="topbar">
+            <span class="topbar-title" id="topbar-title">Overview</span>
         </div>
 
-        <h2 style="font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0 0 8px;">Fun stats</h2>
-        <div class="stats-grid" id="stats-grid">
-            <div class="loading-note">Loading...</div>
-        </div>
+        <main>
+            <section id="signin-view" class="hidden">
+                <p>Connect your Steam account to see your achievements in one place.</p>
+                <a href="/auth/steam"><button type="button">Sign in with Steam</button></a>
+            </section>
 
-        <h2 style="font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0 0 8px;">Recent activity</h2>
-        <div class="activity-panel" id="activity-panel">
-            <div class="loading-note">Loading...</div>
-        </div>
+            <section id="dashboard-view" class="hidden">
+                <div class="score-card" id="section-overview">
+                    <div class="level-ring">
+                        <svg width="108" height="108" viewBox="0 0 108 108">
+                            <defs>
+                                <linearGradient id="tierSweep" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="var(--bronze)"/>
+                                    <stop offset="35%" stop-color="var(--silver)"/>
+                                    <stop offset="68%" stop-color="var(--gold)"/>
+                                    <stop offset="100%" stop-color="var(--platinum)"/>
+                                </linearGradient>
+                            </defs>
+                            <circle cx="54" cy="54" r="46" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="9"/>
+                            <circle id="level-ring-fill" cx="54" cy="54" r="46" fill="none" stroke="url(#tierSweep)" stroke-width="9" stroke-linecap="round" stroke-dasharray="289.03" stroke-dashoffset="289.03"/>
+                            <path d="M18 30A46 46 0 0 1 54 8" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" stroke-linecap="round" class="ring-shimmer"/>
+                        </svg>
+                        <div class="n">
+                            <span class="num" id="level-number">-</span>
+                            <span class="lbl">Level</span>
+                        </div>
+                    </div>
+                    <div class="score-info">
+                        <div class="points" id="points-text">-</div>
+                    </div>
+                </div>
 
-        <div class="toolbar">
-            <h2 style="font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0;">Platforms</h2>
-            <div>
-                <span class="platform-note" id="sync-all-status"></span>
-                <button class="secondary" id="sync-all-btn">Sync all</button>
-            </div>
-        </div>
-        <div class="platforms" id="platforms-list"></div>
-        <p class="loading-note" style="margin: -8px 0 20px;">
-            PSN has no public login - to connect it, log into
-            <a href="https://www.playstation.com" target="_blank" style="color: var(--accent);">playstation.com</a>,
-            then visit
-            <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" style="color: var(--accent);">this page</a>
-            in the same browser and copy the <code>npsso</code> value from the JSON it shows.
-        </p>
-        <p class="loading-note" style="margin: -8px 0 20px;">
-            RetroAchievements also has no OAuth - get a Web API key from your
-            <a href="https://retroachievements.org/settings" target="_blank" style="color: var(--accent);">account settings page</a>
-            and paste it in along with your username.
-        </p>
+                <h2 style="font-size: 17px; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.01em;">Fun stats</h2>
+                <div class="stats-grid" id="stats-grid">
+                    <div class="loading-note">Loading...</div>
+                </div>
 
-        <div class="platform-row" id="public-profile-row" style="margin-bottom: 24px;">
-            <span class="platform-name">Public profile</span>
-            <span class="platform-note" id="public-profile-note">-</span>
-            <button class="secondary" id="public-profile-toggle-btn">-</button>
-        </div>
+                <h2 style="font-size: 17px; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.01em;">Recent activity</h2>
+                <div class="activity-panel" id="activity-panel">
+                    <div class="loading-note">Loading...</div>
+                </div>
 
-        <div class="toolbar">
-            <h2 id="games-heading">Your games</h2>
-            <div>
-                <span class="platform-note" id="match-status"></span>
-                <button class="secondary" id="review-btn">Review matches</button>
-                <button class="secondary" id="match-btn">Find matches</button>
-                <button class="secondary" id="link-games-btn">Link games</button>
-                <button class="secondary" id="export-json-btn">Export JSON</button>
-                <button class="secondary" id="export-csv-btn">Export CSV</button>
-            </div>
-        </div>
+                <div class="toolbar" id="section-platforms">
+                    <h2>Platforms</h2>
+                    <div>
+                        <span class="platform-note" id="sync-all-status"></span>
+                        <button type="button" class="secondary" id="sync-all-btn">Sync all</button>
+                    </div>
+                </div>
+                <div class="platforms" id="platforms-list"></div>
+                <p class="loading-note" style="margin: -8px 0 20px;">
+                    PSN has no public login - to connect it, log into
+                    <a href="https://www.playstation.com" target="_blank" style="color: var(--accent);">playstation.com</a>,
+                    then visit
+                    <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" style="color: var(--accent);">this page</a>
+                    in the same browser and copy the <code>npsso</code> value from the JSON it shows.
+                </p>
+                <p class="loading-note" style="margin: -8px 0 20px;">
+                    RetroAchievements also has no OAuth - get a Web API key from your
+                    <a href="https://retroachievements.org/settings" target="_blank" style="color: var(--accent);">account settings page</a>
+                    and paste it in along with your username.
+                </p>
 
-        <div id="review-panel" class="hidden"></div>
+                <div class="platform-row" id="public-profile-row" style="margin-bottom: 24px;">
+                    <span class="platform-name">Public profile</span>
+                    <span class="platform-note" id="public-profile-note">-</span>
+                    <button type="button" class="secondary" id="public-profile-toggle-btn">-</button>
+                </div>
 
-        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input
-                type="text"
-                id="games-filter"
-                placeholder="Filter your games..."
-                style="flex: 1; background: #0b0d10; border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: var(--text); font-size: 14px;"
-            />
-            <select
-                id="games-sort"
-                style="background: #0b0d10; border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: var(--text); font-size: 14px;"
-            >
-                <option value="unlocked-desc">Most unlocked</option>
-                <option value="completion-desc">Completion % (high to low)</option>
-                <option value="completion-asc">Completion % (low to high)</option>
-                <option value="alpha">Alphabetical</option>
-                <option value="total-desc">Most achievements</option>
-                <option value="total-asc">Fewest achievements</option>
-                <option value="platform">Platform</option>
-            </select>
-        </div>
+                <div class="toolbar" id="section-games">
+                    <h2 id="games-heading">Your games</h2>
+                    <div>
+                        <span class="platform-note" id="match-status"></span>
+                        <button type="button" class="secondary" id="review-btn">Review matches</button>
+                        <button type="button" class="secondary" id="match-btn">Find matches</button>
+                        <button type="button" class="secondary" id="link-games-btn">Link games</button>
+                        <button type="button" class="secondary" id="export-json-btn">Export JSON</button>
+                        <button type="button" class="secondary" id="export-csv-btn">Export CSV</button>
+                    </div>
+                </div>
 
-        <div id="games-list"></div>
-    </section>
-</main>
+                <div id="review-panel" class="hidden"></div>
+
+                <div class="filter-chip" id="preset-filter-chip">
+                    <span id="preset-filter-label"></span>
+                    <button type="button" id="preset-filter-clear" aria-label="Clear this filter">&times;</button>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <input
+                        type="text"
+                        id="games-filter"
+                        placeholder="Filter your games..."
+                        style="flex: 1; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px; color: var(--text); font-size: 14px;"
+                    />
+                    <select
+                        id="games-sort"
+                        style="background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px; color: var(--text); font-size: 14px;"
+                    >
+                        <option value="unlocked-desc">Most unlocked</option>
+                        <option value="completion-desc">Completion % (high to low)</option>
+                        <option value="completion-asc">Completion % (low to high)</option>
+                        <option value="alpha">Alphabetical</option>
+                        <option value="total-desc">Most achievements</option>
+                        <option value="total-asc">Fewest achievements</option>
+                        <option value="platform">Platform</option>
+                    </select>
+                </div>
+
+                <div id="games-list"></div>
+            </section>
+        </main>
+    </div>
+</div>
 
 <script>
-const state = { games: [], linkMode: false, linkSelection: null };
+const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null };
 
 async function api(path, options) {
     const res = await fetch(path, { credentials: "same-origin", ...options });
@@ -483,6 +710,9 @@ function tierDots(game) {
         .join("");
 }
 
+// Level ring's circumference (r=46): 2 * PI * 46 = 289.03.
+const LEVEL_RING_CIRCUMFERENCE = 289.03;
+
 function renderScore(score) {
     document.getElementById("level-number").textContent = score.level;
     document.getElementById("points-text").textContent =
@@ -494,7 +724,8 @@ function renderScore(score) {
     const span = score.pointsForNextLevel != null ? score.pointsForNextLevel - score.pointsForCurrentLevel : 1;
     const progressed = score.totalPoints - score.pointsForCurrentLevel;
     const pct = score.pointsForNextLevel != null ? Math.min(100, (progressed / span) * 100) : 100;
-    document.getElementById("progress-fill").style.width = `${pct}%`;
+    document.getElementById("level-ring-fill").style.strokeDashoffset =
+        String(LEVEL_RING_CIRCUMFERENCE * (1 - pct / 100));
 }
 
 function relativeTime(isoString) {
@@ -711,19 +942,48 @@ function uploadAchievementIcon(achievementId, gameEl, gameId) {
     });
 }
 
+// Presets set from the sidebar's "In Progress"/"Completed" smart views -
+// applied alongside the existing text filter rather than replacing it, so a
+// user can still narrow a smart view down further by typing.
+const PRESET_LABELS = {
+    "in-progress": "In Progress",
+    completed: "Completed",
+};
+
+function presetMatches(game) {
+    if (state.completionPreset === "in-progress") return game.total_achievements > 0 && game.unlocked_achievements < game.total_achievements;
+    if (state.completionPreset === "completed") return game.total_achievements > 0 && game.unlocked_achievements === game.total_achievements;
+    return true;
+}
+
+function renderPresetChip() {
+    const chip = document.getElementById("preset-filter-chip");
+    const label = document.getElementById("preset-filter-label");
+    if (state.completionPreset) {
+        label.textContent = `Showing: ${PRESET_LABELS[state.completionPreset]}`;
+        chip.classList.add("showing");
+    } else {
+        chip.classList.remove("showing");
+    }
+}
+
 function renderGames(games) {
     document.getElementById("games-heading").textContent =
         `Your games (${games.length})`;
 
     const filterText = document.getElementById("games-filter").value.trim().toLowerCase();
     const sortMode = document.getElementById("games-sort").value;
-    const visible = (filterText ? games.filter((g) => g.title.toLowerCase().includes(filterText)) : games.slice())
+    const visible = games
+        .filter((g) => !filterText || g.title.toLowerCase().includes(filterText))
+        .filter(presetMatches)
         .sort(gameSorters[sortMode] || gameSorters["unlocked-desc"]);
+
+    renderPresetChip();
 
     const list = document.getElementById("games-list");
     list.innerHTML = "";
     if (visible.length === 0) {
-        list.innerHTML = `<div class="loading-note">No games match "${filterText}".</div>`;
+        list.innerHTML = `<div class="loading-note">No games match${filterText ? ` "${filterText}"` : " this view"}.</div>`;
         return;
     }
 
@@ -1358,6 +1618,50 @@ function renderPublicProfile(user) {
     };
 }
 
+// Sidebar nav: "Overview"/"Platforms"/"All Games" just scroll to the section
+// they name (everything already lives on one page - no separate views to
+// fetch); "In Progress"/"Completed" additionally set a completion preset
+// consumed by renderGames() above. Highlighting is click-driven, not
+// scroll-spy, since a click always has one unambiguous target.
+const NAV_SECTIONS = {
+    overview: "section-overview",
+    platforms: "section-platforms",
+    games: "section-games",
+    "in-progress": "section-games",
+    completed: "section-games",
+};
+const NAV_TITLES = {
+    overview: "Overview",
+    platforms: "Platforms",
+    games: "All Games",
+    "in-progress": "In Progress",
+    completed: "Completed",
+};
+
+function setActiveNav(key) {
+    document.querySelectorAll(".nav-item").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.nav === key);
+    });
+    document.getElementById("topbar-title").textContent = NAV_TITLES[key] || "Overview";
+}
+
+function initSidebarNav() {
+    document.querySelectorAll(".nav-item").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const key = btn.dataset.nav;
+            state.completionPreset = key === "in-progress" || key === "completed" ? key : null;
+            setActiveNav(key);
+            document.getElementById(NAV_SECTIONS[key])?.scrollIntoView({ behavior: "smooth", block: "start" });
+            renderGames(state.games);
+        });
+    });
+    document.getElementById("preset-filter-clear").addEventListener("click", () => {
+        state.completionPreset = null;
+        setActiveNav("games");
+        renderGames(state.games);
+    });
+}
+
 async function init() {
     let user;
     try {
@@ -1369,16 +1673,17 @@ async function init() {
 
     document.getElementById("dashboard-view").classList.remove("hidden");
     document.getElementById("header-actions").innerHTML = `
-        <a href="/compare" style="color: var(--text-dim); margin-right: 16px; font-size: 13px;">Compare</a>
-        <a href="/leaderboard" style="color: var(--text-dim); margin-right: 16px; font-size: 13px;">Leaderboard</a>
-        <span style="color: var(--text-dim); margin-right: 12px;">${user.username}</span>
-        <button class="secondary" id="logout-btn">Log out</button>
+        <a href="/compare">Compare</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <span style="color: var(--text-dim);">${user.username}</span>
+        <button type="button" class="secondary" id="logout-btn" style="margin-left: auto;">Log out</button>
     `;
     document.getElementById("logout-btn").addEventListener("click", async () => {
         await fetch("/auth/logout", { method: "POST" });
         location.reload();
     });
     renderPublicProfile(user);
+    initSidebarNav();
     document.getElementById("sync-all-btn").addEventListener("click", (e) => {
         syncAllPlatforms(e.target, document.getElementById("sync-all-status"));
     });
