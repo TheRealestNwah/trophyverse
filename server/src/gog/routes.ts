@@ -3,7 +3,7 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { GOG_LOGIN_URL, exchangeCodeForTokens, getUsername, GogApiError } from "./client";
 import { runAccountSync, PlatformAccountRow } from "../sync/runAccountSync";
-import { recomputeUserScore } from "../scoring";
+import { runMatchingAndGetScore } from "../matching";
 
 export const gogRouter = Router();
 
@@ -64,7 +64,7 @@ gogRouter.post("/sync", requireAuth, async (req, res, next) => {
         // Same refresh-then-sync dance as PSN - GOG access tokens last
         // roughly an hour, so every sync refreshes unconditionally.
         const summary = await runAccountSync(account);
-        const score = await recomputeUserScore(req.user!.id);
+        const score = await runMatchingAndGetScore(req.user!.id);
         res.json({ ...summary, score });
     } catch (err) {
         if (err instanceof GogApiError && err.status === 401) {

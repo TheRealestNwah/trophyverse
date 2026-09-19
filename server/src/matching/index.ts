@@ -1,7 +1,7 @@
 import { pool } from "../db";
 import { matchGames } from "./gameMatcher";
 import { matchAchievementsForAllGames } from "./achievementMatcher";
-import { recomputeUserScore } from "../scoring";
+import { recomputeUserScore, getUserScore, UserScore } from "../scoring";
 import { normalizeRarityTiersForAllGames } from "../scoring/rarityNormalization";
 
 export interface MatchingSummary {
@@ -38,4 +38,18 @@ export async function runMatching(): Promise<MatchingSummary> {
         achievementCandidatesRecorded: achievementResult.candidatesRecorded,
         usersRescored: users.rows.length,
     };
+}
+
+// Called from every platform's on-demand /sync route (not from
+// runAccountSync/scheduler.ts itself - the scheduler already batches this
+// into one runMatching() call after every account finishes, and having
+// runAccountSync call it too would re-run the whole-library job once per
+// account instead of once per batch). Without this, a newly-synced game that
+// exists on another already-linked platform sits unmatched - e.g. a rarity-
+// fallback GOG achievement stays bronze even when this same user's PSN
+// account already has the real trophy tier for it - until someone remembers
+// to hit "Link games" or POST /api/matching/run manually.
+export async function runMatchingAndGetScore(userId: string): Promise<UserScore> {
+    await runMatching();
+    return getUserScore(userId);
 }
