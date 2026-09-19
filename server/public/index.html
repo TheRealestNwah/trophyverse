@@ -172,6 +172,25 @@
         justify-content: center;
     }
     .cover-edit-btn:hover { color: var(--text); border-color: var(--accent); }
+    .cover-upload-btn {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        font-size: 10px;
+        line-height: 1;
+        padding: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .cover-upload-btn:hover { color: var(--text); border-color: var(--accent); }
     .icon-edit-btn {
         width: 16px;
         height: 16px;
@@ -189,6 +208,23 @@
         justify-content: center;
     }
     .icon-edit-btn:hover { color: var(--text); border-color: var(--accent); }
+    .icon-upload-btn {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        font-size: 9px;
+        line-height: 1;
+        padding: 0;
+        cursor: pointer;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .icon-upload-btn:hover { color: var(--text); border-color: var(--accent); }
     .game-title { flex: 1; font-weight: 600; }
     .game-progress-text { font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
     .tier-pips { display: flex; gap: 6px; font-size: 12px; }
@@ -582,6 +618,29 @@ const gameSorters = {
     platform: (a, b) => (a.platforms || []).join(",").localeCompare((b.platforms || []).join(",")) || a.title.localeCompare(b.title),
 };
 
+// Opens a native file picker and POSTs the chosen image as multipart form
+// data. If the user cancels the picker, nothing happens - no fallback to the
+// URL-paste flow, since there's no reliable cross-browser "cancel" signal on
+// a file input to detect that case.
+function pickAndUploadImage(uploadUrl, onSuccess) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/png,image/webp,image/gif";
+    input.addEventListener("change", async () => {
+        const file = input.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+            const result = await api(uploadUrl, { method: "POST", body: formData });
+            await onSuccess(result);
+        } catch (err) {
+            alert(`Couldn't upload image: ${err.message}`);
+        }
+    });
+    input.click();
+}
+
 async function setCoverArt(gameId) {
     const url = prompt(
         "Paste an image URL to use as this game's cover art.\nLeave blank to remove your override and use the auto-detected one."
@@ -601,6 +660,10 @@ async function setCoverArt(gameId) {
     } catch (err) {
         alert(`Couldn't update cover art: ${err.message}`);
     }
+}
+
+function uploadCoverArt(gameId) {
+    pickAndUploadImage(`/api/me/games/${gameId}/cover/upload`, () => refreshGamesAndScore());
 }
 
 async function setAchievementIcon(achievementId, gameEl, gameId) {
@@ -623,6 +686,13 @@ async function setAchievementIcon(achievementId, gameEl, gameId) {
     } catch (err) {
         alert(`Couldn't update achievement icon: ${err.message}`);
     }
+}
+
+function uploadAchievementIcon(achievementId, gameEl, gameId) {
+    pickAndUploadImage(`/api/me/achievements/${achievementId}/icon/upload`, async () => {
+        gameEl.querySelector(".achievements")?.remove();
+        await toggleAchievements(gameEl, gameId);
+    });
 }
 
 function renderGames(games) {
@@ -652,7 +722,8 @@ function renderGames(games) {
                             ? `<img class="game-cover" src="${game.cover_image_url}" alt="" loading="lazy" onerror="this.remove()" />`
                             : `<div class="game-cover"></div>`
                     }
-                    <button class="cover-edit-btn" title="Set your own cover art">✎</button>
+                    <button class="cover-edit-btn" title="Paste an image URL">✎</button>
+                    <button class="cover-upload-btn" title="Upload an image">⇪</button>
                 </div>
                 <div class="game-title">${game.title}</div>
                 ${platformBadges(game)}
@@ -670,6 +741,10 @@ function renderGames(games) {
         el.querySelector(".cover-edit-btn").addEventListener("click", (e) => {
             e.stopPropagation();
             setCoverArt(game.id);
+        });
+        el.querySelector(".cover-upload-btn").addEventListener("click", (e) => {
+            e.stopPropagation();
+            uploadCoverArt(game.id);
         });
         list.appendChild(el);
     }
@@ -757,7 +832,8 @@ async function toggleAchievements(gameEl, gameId) {
                             ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
                             : `<div class="achievement-icon"></div>`
                     }
-                    <button class="icon-edit-btn" title="Set your own icon">✎</button>
+                    <button class="icon-edit-btn" title="Paste an image URL">✎</button>
+                    <button class="icon-upload-btn" title="Upload an image">⇪</button>
                     <span class="tier-tag ${a.tier}">${a.tier}</span>
                     <div class="achievement-body">
                         <div class="achievement-name">${a.name}</div>
@@ -778,6 +854,13 @@ async function toggleAchievements(gameEl, gameId) {
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
             setAchievementIcon(achievementId, gameEl, gameId);
+        });
+    });
+    panel.querySelectorAll(".icon-upload-btn").forEach((btn) => {
+        const achievementId = btn.closest(".achievement").dataset.achievementId;
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            uploadAchievementIcon(achievementId, gameEl, gameId);
         });
     });
 }

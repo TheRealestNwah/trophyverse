@@ -3,6 +3,7 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { getGamesForUser, getAchievementsForGame, getRecentActivity, getFunStats, getFullExportData } from "./queries";
 import { recomputeUserScore } from "../scoring";
+import { uploadCoverImage, uploadIconImage, publicUploadUrl, deleteIfUploaded } from "./uploads";
 
 export const gamesRouter = Router();
 
@@ -131,77 +132,164 @@ function isHttpUrl(value: unknown): value is string {
 // db/schema.sql's user_game_cover_overrides/user_achievement_icon_overrides)
 // since games/canonical_achievements are shared canonical rows across every
 // user, not owned by any one of them.
+async function userOwnsGame(userId: string, gameId: string): Promise<boolean> {
+    const owns = await pool.query(
+        `select 1 from user_owned_games uog
+         join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+         where upa.user_id = $1 and uog.game_id = $2
+         limit 1`,
+        [userId, gameId]
+    );
+    return owns.rows.length > 0;
+}
+
 gamesRouter.put("/games/:gameId/cover", requireAuth, async (req, res, next) => {
     try {
         if (!isHttpUrl(req.body?.url)) {
             return res.status(400).json({ error: "url must be a valid http(s) URL" });
         }
-        const owns = await pool.query(
-            `select 1 from user_owned_games uog
-             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
-             where upa.user_id = $1 and uog.game_id = $2
-             limit 1`,
+        if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+
+        // Read the old value before overwriting it - pasting a URL over a
+        // previously uploaded file orphans that file on disk otherwise, the
+        // same cleanup the dedicated DELETE/upload endpoints below do.
+        const previous = await pool.query(
+            "select cover_image_url from user_game_cover_overrides where user_id = $1 and game_id = $2",
             [req.user!.id, req.params.gameId]
         );
-        if (!owns.rows[0]) return res.status(404).json({ error: "Game not found in your library" });
-
         await pool.query(
             `insert into user_game_cover_overrides (user_id, game_id, cover_image_url)
              values ($1, $2, $3)
              on conflict (user_id, game_id) do update set cover_image_url = excluded.cover_image_url`,
             [req.user!.id, req.params.gameId, req.body.url]
         );
+        deleteIfUploaded(previous.rows[0]?.cover_image_url);
         res.json({ ok: true });
     } catch (err) {
         next(err);
     }
 });
 
+gamesRouter.post("/games/:gameId/cover/upload", requireAuth, (req, res, next) => {
+    uploadCoverImage(req, res, async (err) => {
+        try {
+            if (err) return res.status(400).json({ error: err.message || "Upload failed" });
+            if (!req.file) return res.status(400).json({ error: "file is required" });
+
+            if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+                deleteIfUploaded(publicUploadUrl("covers", req.file));
+                return res.status(404).json({ error: "Game not found in your library" });
+            }
+
+            const url = publicUploadUrl("covers", req.file);
+            const previous = await pool.query(
+                "select cover_image_url from user_game_cover_overrides where user_id = $1 and game_id = $2",
+                [req.user!.id, req.params.gameId]
+            );
+            await pool.query(
+                `insert into user_game_cover_overrides (user_id, game_id, cover_image_url)
+                 values ($1, $2, $3)
+                 on conflict (user_id, game_id) do update set cover_image_url = excluded.cover_image_url`,
+                [req.user!.id, req.params.gameId, url]
+            );
+            deleteIfUploaded(previous.rows[0]?.cover_image_url);
+            res.json({ ok: true, url });
+        } catch (e) {
+            next(e);
+        }
+    });
+});
+
 gamesRouter.delete("/games/:gameId/cover", requireAuth, async (req, res, next) => {
     try {
-        await pool.query("delete from user_game_cover_overrides where user_id = $1 and game_id = $2", [
-            req.user!.id,
-            req.params.gameId,
-        ]);
+        const result = await pool.query(
+            "delete from user_game_cover_overrides where user_id = $1 and game_id = $2 returning cover_image_url",
+            [req.user!.id, req.params.gameId]
+        );
+        deleteIfUploaded(result.rows[0]?.cover_image_url);
         res.json({ ok: true });
     } catch (err) {
         next(err);
     }
 });
+
+async function userOwnsAchievement(userId: string, achievementId: string): Promise<boolean> {
+    const owns = await pool.query(
+        `select 1 from canonical_achievements ca
+         join user_owned_games uog on uog.game_id = ca.game_id
+         join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+         where upa.user_id = $1 and ca.id = $2
+         limit 1`,
+        [userId, achievementId]
+    );
+    return owns.rows.length > 0;
+}
 
 gamesRouter.put("/achievements/:achievementId/icon", requireAuth, async (req, res, next) => {
     try {
         if (!isHttpUrl(req.body?.url)) {
             return res.status(400).json({ error: "url must be a valid http(s) URL" });
         }
-        const owns = await pool.query(
-            `select 1 from canonical_achievements ca
-             join user_owned_games uog on uog.game_id = ca.game_id
-             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
-             where upa.user_id = $1 and ca.id = $2
-             limit 1`,
+        if (!(await userOwnsAchievement(req.user!.id, req.params.achievementId))) {
+            return res.status(404).json({ error: "Achievement not found in your library" });
+        }
+
+        const previous = await pool.query(
+            "select icon_url from user_achievement_icon_overrides where user_id = $1 and canonical_achievement_id = $2",
             [req.user!.id, req.params.achievementId]
         );
-        if (!owns.rows[0]) return res.status(404).json({ error: "Achievement not found in your library" });
-
         await pool.query(
             `insert into user_achievement_icon_overrides (user_id, canonical_achievement_id, icon_url)
              values ($1, $2, $3)
              on conflict (user_id, canonical_achievement_id) do update set icon_url = excluded.icon_url`,
             [req.user!.id, req.params.achievementId, req.body.url]
         );
+        deleteIfUploaded(previous.rows[0]?.icon_url);
         res.json({ ok: true });
     } catch (err) {
         next(err);
     }
 });
 
+gamesRouter.post("/achievements/:achievementId/icon/upload", requireAuth, (req, res, next) => {
+    uploadIconImage(req, res, async (err) => {
+        try {
+            if (err) return res.status(400).json({ error: err.message || "Upload failed" });
+            if (!req.file) return res.status(400).json({ error: "file is required" });
+
+            if (!(await userOwnsAchievement(req.user!.id, req.params.achievementId))) {
+                deleteIfUploaded(publicUploadUrl("icons", req.file));
+                return res.status(404).json({ error: "Achievement not found in your library" });
+            }
+
+            const url = publicUploadUrl("icons", req.file);
+            const previous = await pool.query(
+                "select icon_url from user_achievement_icon_overrides where user_id = $1 and canonical_achievement_id = $2",
+                [req.user!.id, req.params.achievementId]
+            );
+            await pool.query(
+                `insert into user_achievement_icon_overrides (user_id, canonical_achievement_id, icon_url)
+                 values ($1, $2, $3)
+                 on conflict (user_id, canonical_achievement_id) do update set icon_url = excluded.icon_url`,
+                [req.user!.id, req.params.achievementId, url]
+            );
+            deleteIfUploaded(previous.rows[0]?.icon_url);
+            res.json({ ok: true, url });
+        } catch (e) {
+            next(e);
+        }
+    });
+});
+
 gamesRouter.delete("/achievements/:achievementId/icon", requireAuth, async (req, res, next) => {
     try {
-        await pool.query(
-            "delete from user_achievement_icon_overrides where user_id = $1 and canonical_achievement_id = $2",
+        const result = await pool.query(
+            "delete from user_achievement_icon_overrides where user_id = $1 and canonical_achievement_id = $2 returning icon_url",
             [req.user!.id, req.params.achievementId]
         );
+        deleteIfUploaded(result.rows[0]?.icon_url);
         res.json({ ok: true });
     } catch (err) {
         next(err);
