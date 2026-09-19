@@ -282,7 +282,16 @@
         font-size: 12px;
         color: var(--text-dim);
         font-weight: 600;
+        cursor: pointer;
+        user-select: none;
     }
+    .platform-section-collapse-chevron {
+        display: inline-block;
+        transition: transform 0.15s ease;
+        font-size: 10px;
+    }
+    .platform-section.collapsed .platform-section-collapse-chevron { transform: rotate(-90deg); }
+    .platform-section.collapsed .achievement { display: none; }
     .achievement {
         display: flex;
         align-items: center;
@@ -790,6 +799,35 @@ async function handleLinkClick(game) {
     }
 }
 
+// Which platform sections the user has minimized within a game's expanded
+// achievements panel (see #52) - a plain per-viewer preference, so it's kept
+// in localStorage rather than synced server-side. Once a platform is
+// collapsed it stays collapsed for every game, not just the one it was
+// toggled on, since a long platform's list (e.g. Steam) burying a shorter
+// one is a recurring annoyance across a whole library, not a one-off.
+const COLLAPSED_PLATFORMS_KEY = "trophyverse:collapsedPlatforms";
+
+function getCollapsedPlatforms() {
+    try {
+        return new Set(JSON.parse(localStorage.getItem(COLLAPSED_PLATFORMS_KEY) || "[]"));
+    } catch {
+        return new Set();
+    }
+}
+
+function toggleCollapsedPlatform(platformId, collapsed) {
+    try {
+        const platforms = getCollapsedPlatforms();
+        if (collapsed) platforms.add(platformId);
+        else platforms.delete(platformId);
+        localStorage.setItem(COLLAPSED_PLATFORMS_KEY, JSON.stringify([...platforms]));
+    } catch {
+        // Storage unavailable (private browsing, disabled) - the toggle
+        // still works for this view via the "collapsed" class itself, it
+        // just won't be remembered next time.
+    }
+}
+
 async function toggleAchievements(gameEl, gameId) {
     const existing = gameEl.querySelector(".achievements");
     if (existing) {
@@ -813,13 +851,16 @@ async function toggleAchievements(gameEl, gameId) {
         byPlatform.get(a.platform_id).push(a);
     }
 
+    const collapsedPlatforms = getCollapsedPlatforms();
     panel.innerHTML = [...byPlatform.entries()]
         .map(([platformId, list]) => {
             const unlockedCount = list.filter((a) => a.unlocked).length;
             const variant = list.find((a) => a.console_variant)?.console_variant;
+            const collapsed = collapsedPlatforms.has(platformId);
             return `
-        <div class="platform-section">
+        <div class="platform-section${collapsed ? " collapsed" : ""}" data-platform-id="${platformId}">
             <div class="platform-section-header">
+                <span class="platform-section-collapse-chevron">▾</span>
                 <span class="platform-badge">${platformId}${variant ? ` (${variant})` : ""}</span>
                 <span>${unlockedCount}/${list.length}</span>
             </div>
@@ -849,6 +890,13 @@ async function toggleAchievements(gameEl, gameId) {
         })
         .join("");
 
+    panel.querySelectorAll(".platform-section-header").forEach((header) => {
+        header.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const section = header.closest(".platform-section");
+            toggleCollapsedPlatform(section.dataset.platformId, section.classList.toggle("collapsed"));
+        });
+    });
     panel.querySelectorAll(".icon-edit-btn").forEach((btn) => {
         const achievementId = btn.closest(".achievement").dataset.achievementId;
         btn.addEventListener("click", (e) => {
