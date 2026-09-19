@@ -152,3 +152,23 @@ export async function recordUnlock(
     );
     return result.rows.length > 0;
 }
+
+// recordUnlock's own ON CONFLICT DO NOTHING means an unlock, once recorded,
+// is never touched again by a normal sync - correct for the common case
+// (achievements don't usually un-unlock), but a platform can legitimately
+// report a previously-earned achievement as no longer achieved: a Steam
+// stats reset, or achievements unlocked and later removed with a tool like
+// Steam Achievement Manager (see #57). Every platform's sync calls this when
+// it sees "not achieved" for something, so a reversal actually corrects the
+// stored unlock instead of leaving it credited forever. A no-op (and cheap
+// - an indexed delete) for the overwhelmingly common case where nothing was
+// ever recorded for this achievement to begin with.
+export async function revokeUnlockIfPresent(userPlatformAccountId: string, achievementLinkId: string): Promise<boolean> {
+    const result = await pool.query(
+        `delete from user_achievement_unlocks
+         where user_platform_account_id = $1 and achievement_platform_link_id = $2
+         returning id`,
+        [userPlatformAccountId, achievementLinkId]
+    );
+    return result.rows.length > 0;
+}

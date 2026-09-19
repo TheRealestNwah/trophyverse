@@ -976,7 +976,9 @@ async function syncPlatform(platformId, button, noteEl) {
         : "Syncing...";
     try {
         const summary = await api(`/api/${platformId}/sync`, { method: "POST" });
-        noteEl.textContent = `Synced ${summary.gamesProcessed} games, ${summary.achievementsUnlocked} new unlocks.`;
+        noteEl.textContent = `Synced ${summary.gamesProcessed} games, ${summary.achievementsUnlocked} new unlocks${
+            summary.achievementsRevoked > 0 ? `, ${summary.achievementsRevoked} corrected (no longer unlocked)` : ""
+        }.`;
         renderScore(summary.score);
         await refreshGamesAndScore();
         await refreshActivity();
