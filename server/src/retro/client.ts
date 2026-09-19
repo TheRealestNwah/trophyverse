@@ -141,3 +141,70 @@ export async function getGameProgress(
         iconUrl: a.BadgeName ? `${MEDIA_BASE_URL}/Badge/${a.BadgeName}.png` : undefined,
     }));
 }
+
+export interface RetroConsole {
+    id: number;
+    name: string;
+}
+
+// Used to enumerate the whole site's game catalog for title lookups (see
+// matching/retroCatalogEnrichment.ts) - RA has no free-text game search, so
+// finding a game by title means walking every console's list and matching
+// client-side. IsGameSystem excludes non-game groupings RA's console list
+// otherwise includes (e.g. "Hubs", "Events").
+export async function getConsoleIds(apiKey: string): Promise<RetroConsole[]> {
+    const data = await get<Array<{ ID: number; Name: string; IsGameSystem?: boolean }>>("API_GetConsoleIDs.php", {
+        y: apiKey,
+    });
+    return data.filter((c) => c.IsGameSystem !== false).map((c) => ({ id: c.ID, name: c.Name }));
+}
+
+export interface RetroCatalogGame {
+    gameId: string;
+    title: string;
+}
+
+// f=1 restricts to games that actually have an achievement set - anything
+// else has nothing for tier enrichment to use.
+export async function getGamesForConsole(apiKey: string, consoleId: number): Promise<RetroCatalogGame[]> {
+    const data = await get<Array<{ ID: number; Title: string }>>("API_GetGameList.php", {
+        y: apiKey,
+        i: String(consoleId),
+        f: "1",
+    });
+    return data.map((g) => ({ gameId: String(g.ID), title: g.Title }));
+}
+
+interface RawExtendedAchievement {
+    ID: number;
+    Title: string;
+    Description: string;
+    NumAwarded: number;
+    BadgeName?: string;
+}
+
+interface RawGameExtended {
+    NumDistinctPlayersCasual?: number | string;
+    Achievements?: Record<string, RawExtendedAchievement>;
+}
+
+// Same shape as getGameProgress above, but needs only a game ID - no
+// username, so no requirement that any particular account has played it
+// (confirmed live against a real game ID - see #50). Used for catalog
+// enrichment; getGameProgress (with real per-user unlock status) is still
+// what a real synced RA account's own sync uses.
+export async function getGameCatalogEntry(apiKey: string, gameId: string): Promise<RetroAchievement[]> {
+    const data = await get<RawGameExtended>("API_GetGameExtended.php", { y: apiKey, i: gameId });
+
+    const totalPlayers = Number(data.NumDistinctPlayersCasual ?? 0);
+    const achievements = Object.values(data.Achievements ?? {});
+
+    return achievements.map((a) => ({
+        id: String(a.ID),
+        name: a.Title,
+        description: a.Description,
+        isUnlocked: false,
+        globalUnlockRarity: totalPlayers > 0 ? (a.NumAwarded / totalPlayers) * 100 : undefined,
+        iconUrl: a.BadgeName ? `${MEDIA_BASE_URL}/Badge/${a.BadgeName}.png` : undefined,
+    }));
+}

@@ -2,6 +2,7 @@ import { pool } from "../db";
 import { matchGames } from "./gameMatcher";
 import { matchAchievementsForAllGames } from "./achievementMatcher";
 import { enrichGamesWithSteamCatalog } from "./steamCatalogEnrichment";
+import { enrichGamesWithRetroCatalog } from "./retroCatalogEnrichment";
 import { recomputeUserScore, getUserScore, UserScore } from "../scoring";
 import { normalizeRarityTiersForAllGames } from "../scoring/rarityNormalization";
 
@@ -9,6 +10,7 @@ export interface MatchingSummary {
     gameGroupsMerged: number;
     gamesRemoved: number;
     steamCatalogGamesEnriched: number;
+    retroCatalogGamesEnriched: number;
     achievementsMerged: number;
     achievementCandidatesRecorded: number;
     usersRescored: number;
@@ -26,6 +28,7 @@ export async function runMatching(): Promise<MatchingSummary> {
     // anything it adds gets a chance to be merged (and inherit a real tier)
     // in the same pass, rather than sitting unmatched until the next run.
     const catalogResult = await enrichGamesWithSteamCatalog();
+    const retroCatalogResult = await enrichGamesWithRetroCatalog();
 
     const achievementResult = await matchAchievementsForAllGames();
 
@@ -44,6 +47,7 @@ export async function runMatching(): Promise<MatchingSummary> {
         gameGroupsMerged: gameResult.groupsMerged,
         gamesRemoved: gameResult.gamesRemoved,
         steamCatalogGamesEnriched: catalogResult.gamesEnriched,
+        retroCatalogGamesEnriched: retroCatalogResult.gamesEnriched,
         achievementsMerged: achievementResult.achievementsMerged,
         achievementCandidatesRecorded: achievementResult.candidatesRecorded,
         usersRescored: users.rows.length,
