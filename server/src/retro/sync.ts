@@ -6,8 +6,7 @@ import {
     recordUnlock,
     revokeUnlockIfPresent,
     recordOwnership,
-    getCanonicalGameIdsForPlatformGames,
-    reconcileMissingOwnership,
+    reconcileOwnershipForPlatform,
 } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
@@ -85,13 +84,10 @@ export async function syncRetroAccount(
         await sleep(REQUEST_DELAY_MS);
     }
 
-    const currentlyOwnedGameIds = await getCanonicalGameIdsForPlatformGames(
+    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileOwnershipForPlatform(
+        userPlatformAccountId,
         "retroachievements",
         games.map((g) => g.gameId)
-    );
-    const { gamesReconciled, achievementsRevoked: reconciledRevocations } = await reconcileMissingOwnership(
-        userPlatformAccountId,
-        currentlyOwnedGameIds
     );
     achievementsRevoked += reconciledRevocations;
 
