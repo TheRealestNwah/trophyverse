@@ -19,6 +19,7 @@ export interface OwnedGame {
     appid: number;
     name: string;
     playtime_forever: number;
+    rtime_last_played: number;
 }
 
 export async function getOwnedGames(steamId: string): Promise<OwnedGame[]> {

@@ -173,6 +173,18 @@ create table user_owned_games (
     unique (user_platform_account_id, game_id)
 );
 
+-- Lets Steam sync skip re-fetching a game's achievement schema/unlocks/global
+-- rarity when nothing about that game could have changed since last sync -
+-- see #21. Steam-specific (keyed on appid, not a canonical game_id) since
+-- this is purely a sync-performance cache, not shared account/library state.
+create table steam_game_sync_state (
+    user_platform_account_id uuid not null references user_platform_accounts(id) on delete cascade,
+    appid                    integer not null,
+    playtime_forever         integer not null,
+    rtime_last_played        integer not null,
+    primary key (user_platform_account_id, appid)
+);
+
 -- Point value per tier. A table rather than a hardcoded constant so it can
 -- be tuned without a migration; seeded with PSN's published values.
 create table tier_points (
