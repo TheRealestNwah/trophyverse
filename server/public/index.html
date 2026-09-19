@@ -390,6 +390,13 @@
             <div class="loading-note">Loading...</div>
         </div>
 
+        <div class="toolbar">
+            <h2 style="font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0;">Platforms</h2>
+            <div>
+                <span class="platform-note" id="sync-all-status"></span>
+                <button class="secondary" id="sync-all-btn">Sync all</button>
+            </div>
+        </div>
         <div class="platforms" id="platforms-list"></div>
         <p class="loading-note" style="margin: -8px 0 20px;">
             PSN has no public login - to connect it, log into
@@ -969,6 +976,72 @@ async function resolveCandidate(id, action) {
     if (action === "confirm") await refreshGamesAndScore();
 }
 
+// /api/me/accounts reports platform_id the way the DB stores it
+// ("retroachievements"), but that platform's routes are mounted at
+// /api/retro (see index.ts) - every per-platform sync button already
+// hardcodes this slug per-row, this is the same mapping for the "sync all"
+// button, which has to work it out from whichever platforms happen to be
+// linked instead of a fixed row per platform.
+const PLATFORM_SYNC_SLUGS = {
+    steam: "steam",
+    xbox: "xbox",
+    psn: "psn",
+    retroachievements: "retro",
+    gog: "gog",
+};
+
+async function syncAllPlatforms(button, statusEl) {
+    button.disabled = true;
+    try {
+        const accounts = await api("/api/me/accounts");
+        const linked = accounts.filter((a) => PLATFORM_SYNC_SLUGS[a.platform_id]);
+
+        if (linked.length === 0) {
+            statusEl.textContent = "No linked platforms to sync.";
+            return;
+        }
+
+        // Sequential, not parallel - several of these hit platform APIs with
+        // real rate limits (Xbox/RetroAchievements especially, see #54/#55),
+        // and each sync's automatic matching pass (see #49) touches the same
+        // shared tables, so overlapping runs risk racing each other.
+        const results = [];
+        for (let i = 0; i < linked.length; i++) {
+            const account = linked[i];
+            const slug = PLATFORM_SYNC_SLUGS[account.platform_id];
+            statusEl.textContent = `Syncing ${account.platform_id} (${i + 1}/${linked.length})...`;
+            try {
+                const summary = await api(`/api/${slug}/sync`, { method: "POST" });
+                renderScore(summary.score);
+                results.push(`${account.platform_id}: ${summary.achievementsUnlocked} new`);
+            } catch (err) {
+                results.push(`${account.platform_id}: failed (${err.message})`);
+                console.error(err);
+            }
+        }
+        statusEl.textContent = results.join(" · ");
+
+        // Not wrapped per-call like the sync loop above - if these fail
+        // it's a real connectivity problem (the syncs themselves just
+        // succeeded), not a single platform's issue, so one message covers
+        // all of them rather than silently leaving stale data on screen.
+        try {
+            await refreshGamesAndScore();
+            await refreshActivity();
+            await refreshStats();
+            await refreshPlatforms();
+        } catch (err) {
+            statusEl.textContent += " (couldn't refresh the page - reload to see the results)";
+            console.error(err);
+        }
+    } catch (err) {
+        statusEl.textContent = `Sync all failed: ${err.message}`;
+        console.error(err);
+    } finally {
+        button.disabled = false;
+    }
+}
+
 async function syncPlatform(platformId, button, noteEl) {
     button.disabled = true;
     noteEl.textContent = platformId === "steam"
@@ -1276,6 +1349,9 @@ async function init() {
         location.reload();
     });
     renderPublicProfile(user);
+    document.getElementById("sync-all-btn").addEventListener("click", (e) => {
+        syncAllPlatforms(e.target, document.getElementById("sync-all-status"));
+    });
     document.getElementById("match-btn").addEventListener("click", async (e) => {
         const btn = e.target;
         const status = document.getElementById("match-status");
