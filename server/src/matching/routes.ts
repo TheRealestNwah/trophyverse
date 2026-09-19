@@ -2,9 +2,10 @@ import { Router } from "express";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { runMatching } from "./index";
-import { confirmMatchCandidate, rejectMatchCandidate } from "./achievementMatcher";
+import { confirmMatchCandidate, rejectMatchCandidate, matchAchievementsForGame } from "./achievementMatcher";
+import { mergeGames } from "./gameMatcher";
 import { recomputeUserScore } from "../scoring";
-import { normalizeRarityTiersForAllGames } from "../scoring/rarityNormalization";
+import { normalizeRarityTiersForAllGames, normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 
 export const matchingRouter = Router();
 
@@ -14,6 +15,61 @@ export const matchingRouter = Router();
 matchingRouter.post("/run", requireAuth, async (_req, res, next) => {
     try {
         res.json(await runMatching());
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Manual game merge: automatic matching (runMatching, above) only merges on
+// exact normalized title, which deliberately misses genuine same-game cases
+// with differently formatted titles across platforms (e.g. "Skyrim" on PSN
+// vs "The Elder Scrolls V: Skyrim" on Steam - a fuzzy title match risks
+// merging genuinely different games, so this needs a human to confirm it).
+matchingRouter.post("/games/merge", requireAuth, async (req, res, next) => {
+    try {
+        const { keepGameId, mergeGameId } = req.body ?? {};
+        if (!keepGameId || !mergeGameId || typeof keepGameId !== "string" || typeof mergeGameId !== "string") {
+            return res.status(400).json({ error: "keepGameId and mergeGameId are required" });
+        }
+        if (keepGameId === mergeGameId) {
+            return res.status(400).json({ error: "Can't merge a game with itself" });
+        }
+
+        // Scoped to games this user actually owns - canonical tables are
+        // shared across every user of the app, so without this a user could
+        // merge two games from the global catalog they've never even synced.
+        const owned = await pool.query(
+            `select game_id from user_owned_games uog
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where upa.user_id = $1 and uog.game_id in ($2, $3)`,
+            [req.user!.id, keepGameId, mergeGameId]
+        );
+        if (owned.rows.length < 2) {
+            return res.status(404).json({ error: "One or both games aren't in your library" });
+        }
+
+        await mergeGames(keepGameId, mergeGameId);
+
+        // Scoped to just this game rather than the full runMatching() pass -
+        // a merge only changes this one game's achievement set, so re-running
+        // matching/rarity-tiering for the whole library (hundreds of
+        // unrelated games) would make an interactive "click to merge" action
+        // take many seconds for no benefit.
+        const achievementResult = await matchAchievementsForGame(keepGameId);
+        await normalizeRarityTiersForGame(keepGameId);
+
+        // Still rescore every user who owns this (shared, canonical) game,
+        // not just whoever clicked - the same reasoning as the candidate
+        // confirm/reject handlers below.
+        const affectedUsers = await pool.query(
+            `select distinct upa.user_id from user_owned_games uog
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where uog.game_id = $1`,
+            [keepGameId]
+        );
+        for (const user of affectedUsers.rows) await recomputeUserScore(user.user_id);
+
+        res.json({ ...achievementResult, usersRescored: affectedUsers.rows.length });
     } catch (err) {
         next(err);
     }

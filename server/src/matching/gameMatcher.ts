@@ -49,7 +49,19 @@ export async function matchGames(): Promise<GameMatchResult> {
     return { groupsMerged, gamesRemoved };
 }
 
-async function mergeGames(winnerId: string, loserId: string): Promise<void> {
+// Exported for manual merges (matching/routes.ts) - automatic matching above
+// only merges on exact normalized title, which deliberately misses genuine
+// same-game cases with differently formatted titles across platforms (e.g.
+// "Skyrim" on PSN vs "The Elder Scrolls V: Skyrim" on Steam). A human
+// confirming those is safer than loosening the automatic match to fuzzy
+// title comparison, which risks merging genuinely different games.
+export async function mergeGames(winnerId: string, loserId: string): Promise<void> {
+    // Defense in depth for the manual-merge route, which takes arbitrary ids
+    // from a request body - the automatic path above never pairs a game with
+    // itself, but a manual merge could if given the same id twice, and this
+    // would otherwise fall through to deleting the row out from under itself.
+    if (winnerId === loserId) return;
+
     const client = await pool.connect();
     try {
         await client.query("begin");
