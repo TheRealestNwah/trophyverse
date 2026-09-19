@@ -253,6 +253,11 @@
             <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" style="color: var(--accent);">this page</a>
             in the same browser and copy the <code>npsso</code> value from the JSON it shows.
         </p>
+        <p class="loading-note" style="margin: -8px 0 20px;">
+            RetroAchievements also has no OAuth - get a Web API key from your
+            <a href="https://retroachievements.org/settings" target="_blank" style="color: var(--accent);">account settings page</a>
+            and paste it in along with your username.
+        </p>
 
         <div class="platform-row" id="public-profile-row" style="margin-bottom: 24px;">
             <span class="platform-name">Public profile</span>
@@ -572,6 +577,51 @@ function renderPlatforms(accounts) {
                 await refreshPlatforms();
             } catch (err) {
                 alert(err.message || "Couldn't connect that PlayStation account.");
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
+    const retroRow = document.createElement("div");
+    retroRow.className = "platform-row";
+    if (byPlatform.retroachievements) {
+        retroRow.innerHTML = `
+            <span class="platform-name">RetroAchievements</span>
+            <span class="platform-note" id="retro-note">${byPlatform.retroachievements.display_name} — ${
+                byPlatform.retroachievements.last_synced_at
+                    ? `last synced ${new Date(byPlatform.retroachievements.last_synced_at).toLocaleString()}`
+                    : "not synced yet"
+            }</span>
+            <button id="retro-sync-btn">Sync</button>
+        `;
+        list.appendChild(retroRow);
+        retroRow.querySelector("#retro-sync-btn").addEventListener("click", (e) =>
+            syncPlatform("retro", e.target, retroRow.querySelector("#retro-note"))
+        );
+    } else {
+        retroRow.innerHTML = `
+            <span class="platform-name">RetroAchievements</span>
+            <input type="text" id="retro-user-input" placeholder="Username" style="max-width: 140px;" />
+            <input type="text" id="retro-key-input" placeholder="Paste your Web API key" />
+            <button id="retro-connect-btn">Connect</button>
+        `;
+        list.appendChild(retroRow);
+        retroRow.querySelector("#retro-connect-btn").addEventListener("click", async () => {
+            const userInput = retroRow.querySelector("#retro-user-input");
+            const keyInput = retroRow.querySelector("#retro-key-input");
+            const btn = retroRow.querySelector("#retro-connect-btn");
+            btn.disabled = true;
+            try {
+                await api("/api/retro/connect", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: userInput.value.trim(), apiKey: keyInput.value.trim() }),
+                });
+                await refreshPlatforms();
+            } catch (err) {
+                alert(err.message || "Couldn't connect that RetroAchievements account.");
                 console.error(err);
             } finally {
                 btn.disabled = false;
