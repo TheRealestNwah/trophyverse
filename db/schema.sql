@@ -232,6 +232,13 @@ create table steam_catalog_enrichment_attempts (
     attempted_at timestamptz not null default now()
 );
 
+-- Same purpose as steam_catalog_enrichment_attempts above, for
+-- matching/xboxCatalogEnrichment.ts.
+create table xbox_catalog_enrichment_attempts (
+    game_id      uuid primary key references games(id) on delete cascade,
+    attempted_at timestamptz not null default now()
+);
+
 -- Point value per tier. A table rather than a hardcoded constant so it can
 -- be tuned without a migration; seeded with PSN's published values.
 create table tier_points (
