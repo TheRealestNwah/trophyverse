@@ -75,7 +75,7 @@ const jsonErrorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 app.use(jsonErrorHandler);
 
 app.listen(config.port, () => {
-    console.log(`Trophyverse server listening on ${config.baseUrl}`);
+    console.log(`Unified Achievement Manager server listening on ${config.baseUrl}`);
 });
 
 if (config.schedulerEnabled) {

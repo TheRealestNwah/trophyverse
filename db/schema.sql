@@ -1,4 +1,4 @@
--- Trophyverse data model (PostgreSQL)
+-- Unified Achievement Manager data model (PostgreSQL)
 -- See docs/data-model.md for the reasoning behind these tables.
 
 create extension if not exists "uuid-ossp";
