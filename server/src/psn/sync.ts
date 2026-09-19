@@ -1,12 +1,13 @@
 import { pool } from "../db";
 import { getUserTitles, getTitleTrophies, getUserTrophiesEarnedForTitle } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
 export async function syncPsnAccount(userPlatformAccountId: string, accessToken: string): Promise<SyncSummary> {
     const titles = await getUserTitles(accessToken);
     let achievementsUnlocked = 0;
+    let achievementsRevoked = 0;
 
     for (const title of titles) {
         const [definitions, earned] = await Promise.all([
@@ -41,7 +42,13 @@ export async function syncPsnAccount(userPlatformAccountId: string, accessToken:
                 trophy.trophyIconUrl
             );
 
-            if (!status?.earned) continue;
+            if (!status?.earned) {
+                // See #57 - correct a previously recorded unlock if PSN now
+                // reports this as not earned, rather than leaving it
+                // credited forever.
+                if (await revokeUnlockIfPresent(userPlatformAccountId, linkId)) achievementsRevoked++;
+                continue;
+            }
 
             const isNew = await recordUnlock(
                 userPlatformAccountId,
@@ -61,5 +68,5 @@ export async function syncPsnAccount(userPlatformAccountId: string, accessToken:
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed: titles.length, achievementsUnlocked };
+    return { gamesProcessed: titles.length, achievementsUnlocked, achievementsRevoked };
 }

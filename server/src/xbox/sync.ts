@@ -1,12 +1,13 @@
 import { pool } from "../db";
 import { getTitles, getAchievementsForTitle, getX360AchievementsForTitle } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
 export async function syncXboxAccount(userPlatformAccountId: string, apiKey: string, xuid: string): Promise<SyncSummary> {
     const titles = await getTitles(apiKey);
     let achievementsUnlocked = 0;
+    let achievementsRevoked = 0;
     let gamesProcessed = 0;
 
     for (const title of titles) {
@@ -47,7 +48,13 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
                 achievement.iconUrl
             );
 
-            if (!achievement.isUnlocked) continue;
+            if (!achievement.isUnlocked) {
+                // See #57 - correct a previously recorded unlock if Xbox
+                // now reports this as not achieved, rather than leaving it
+                // credited forever.
+                if (await revokeUnlockIfPresent(userPlatformAccountId, linkId)) achievementsRevoked++;
+                continue;
+            }
 
             const isNew = await recordUnlock(
                 userPlatformAccountId,
@@ -64,5 +71,5 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed, achievementsUnlocked };
+    return { gamesProcessed, achievementsUnlocked, achievementsRevoked };
 }

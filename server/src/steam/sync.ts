@@ -5,7 +5,7 @@ import {
     getPlayerAchievements,
     getGlobalAchievementPercentages,
 } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
@@ -62,6 +62,7 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
     const games = await getOwnedGames(steamId);
     const syncState = await getSyncState(userPlatformAccountId);
     let achievementsUnlocked = 0;
+    let achievementsRevoked = 0;
 
     for (const game of games) {
         // Neither field can change without the user actually playing the
@@ -73,6 +74,12 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
         // whole-minute window as the previous sync's playtime reading.
         // Verified live against a real 494-game library that both fields are
         // present and well-formed (see PR #21's test plan).
+        //
+        // Trade-off: this also means a revoked achievement (see #57) only
+        // gets caught the next time this game is actually played - a stale
+        // unlock on a game the user hasn't touched since stays stale until
+        // they do. Accepted rather than dropping this skip entirely, which
+        // would mean re-fetching every game's achievements on every sync.
         const previous = syncState.get(game.appid);
         if (previous && previous.playtimeForever === game.playtime_forever && previous.rtimeLastPlayed === game.rtime_last_played) {
             continue;
@@ -108,7 +115,15 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
             );
 
             const unlock = unlockedByName.get(achievement.name);
-            if (!unlock?.achieved) continue;
+            if (!unlock?.achieved) {
+                // Steam now reports this as not achieved - correct a
+                // previously recorded unlock if one exists (a stats reset,
+                // or an achievement unlocked and later removed with a tool
+                // like Steam Achievement Manager - see #57), rather than
+                // leaving it credited forever.
+                if (await revokeUnlockIfPresent(userPlatformAccountId, linkId)) achievementsRevoked++;
+                continue;
+            }
 
             const isNew = await recordUnlock(userPlatformAccountId, linkId, new Date(unlock.unlocktime * 1000));
             if (isNew) achievementsUnlocked++;
@@ -124,5 +139,5 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed: games.length, achievementsUnlocked };
+    return { gamesProcessed: games.length, achievementsUnlocked, achievementsRevoked };
 }

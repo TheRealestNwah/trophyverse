@@ -1,6 +1,6 @@
 import { pool } from "../db";
 import { getOwnedGameIds, getProduct, getAchievementsForGame } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
@@ -13,6 +13,7 @@ export async function syncGogAccount(userPlatformAccountId: string, accessToken:
     const ownedIds = await getOwnedGameIds(accessToken);
     let gamesProcessed = 0;
     let achievementsUnlocked = 0;
+    let achievementsRevoked = 0;
 
     for (const productId of ownedIds) {
         const achievements = await getAchievementsForGame(accessToken, productId, gogUserId);
@@ -36,7 +37,13 @@ export async function syncGogAccount(userPlatformAccountId: string, accessToken:
                 achievement.iconUrl
             );
 
-            if (!achievement.isUnlocked) continue;
+            if (!achievement.isUnlocked) {
+                // See #57 - correct a previously recorded unlock if GOG now
+                // reports this as not unlocked, rather than leaving it
+                // credited forever.
+                if (await revokeUnlockIfPresent(userPlatformAccountId, linkId)) achievementsRevoked++;
+                continue;
+            }
 
             const isNew = await recordUnlock(
                 userPlatformAccountId,
@@ -53,5 +60,5 @@ export async function syncGogAccount(userPlatformAccountId: string, accessToken:
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed, achievementsUnlocked };
+    return { gamesProcessed, achievementsUnlocked, achievementsRevoked };
 }
