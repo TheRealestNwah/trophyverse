@@ -6,23 +6,22 @@
 <title>Unified Achievement Manager</title>
 <style>
     :root {
-        --bg: #0B0B0E;
-        --sidebar-bg: rgba(18,19,24,0.92);
-        --topbar-bg: rgba(15,16,20,0.6);
-        --card: rgba(23,24,29,0.6);
-        --card-hover: rgba(35,37,44,0.75);
-        --border: rgba(255,255,255,.08);
-        --border-2: rgba(255,255,255,.05);
-        --text: #ECEDF1;
-        --text-dim: #9498A6;
-        --text-dimmer: #65697A;
-        --accent: #4C8DFF;
-        --active: #35C46B;
+        --bg: #FFFFFF;
+        --sidebar-bg: #F5F5F7;
+        --topbar-bg: #FBFBFC;
+        --card: #F7F7F8;
+        --card-hover: #EFEFF1;
+        --border: #E5E5E7;
+        --border-2: #EDEDEF;
+        --text: #1D1D1F;
+        --text-dim: #6E6E73;
+        --text-dimmer: #9A9A9E;
+        --accent: #0071E3;
+        --active: #248A46;
         --bronze: #9C6B45;
         --silver: #A9AEBB;
         --gold: #D6AD57;
         --platinum: #C9CEDB;
-        --glass-sheen: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 45%);
         --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
         --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
         --font-display: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -36,7 +35,7 @@
         -webkit-font-smoothing: antialiased;
     }
     ::-webkit-scrollbar { width: 10px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 8px; }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
     @keyframes ringShimmer { 0%, 100% { opacity: .3; } 50% { opacity: .9; } }
     @media (prefers-reduced-motion: reduce) {
@@ -51,9 +50,7 @@
         width: 228px;
         flex-shrink: 0;
         height: 100%;
-        background: var(--glass-sheen), var(--sidebar-bg);
-        backdrop-filter: blur(34px) saturate(180%);
-        -webkit-backdrop-filter: blur(34px) saturate(180%);
+        background: var(--sidebar-bg);
         border-right: 1px solid var(--border);
         display: flex;
         flex-direction: column;
@@ -89,7 +86,7 @@
         width: 100%;
         height: 29px;
         padding: 0 10px;
-        border-radius: 999px;
+        border-radius: 7px;
         border: none;
         background: transparent;
         color: var(--text);
@@ -102,10 +99,9 @@
     .nav-item svg { flex-shrink: 0; }
     .nav-item .nav-item-label { flex: 1; }
     .nav-item.active {
-        background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 60%), var(--accent);
+        background: var(--accent);
         color: #fff;
         font-weight: 600;
-        box-shadow: 0 3px 12px rgba(76,141,255,0.45);
     }
     .sidebar-footer {
         margin-top: auto;
@@ -130,32 +126,28 @@
         gap: 16px;
         padding: 0 28px;
         border-bottom: 1px solid var(--border);
-        background: var(--glass-sheen), var(--topbar-bg);
-        backdrop-filter: blur(24px) saturate(160%);
-        -webkit-backdrop-filter: blur(24px) saturate(160%);
+        background: var(--topbar-bg);
     }
     .topbar-title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; flex: 1; }
 
     main { max-width: 1040px; margin: 0 auto; padding: 28px; overflow-y: auto; flex: 1; }
 
     button {
-        background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 60%), var(--accent);
+        background: var(--accent);
         color: #fff;
         border: none;
         padding: 9px 18px;
-        border-radius: 999px;
+        border-radius: 7px;
         font-weight: 600;
         cursor: pointer;
         font-size: 13px;
         font-family: inherit;
-        box-shadow: 0 3px 12px rgba(76,141,255,0.35);
     }
-    button:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+    button:disabled { opacity: 0.5; cursor: default; }
     button.secondary {
-        background: rgba(255,255,255,0.06);
+        background: var(--card);
         color: var(--text);
         border: 1px solid var(--border);
-        box-shadow: none;
     }
 
     #signin-view { text-align: center; padding: 80px 24px; }
@@ -166,9 +158,7 @@
         display: flex;
         align-items: center;
         gap: 24px;
-        background: var(--glass-sheen), var(--card);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        background: var(--card);
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 22px 26px;
@@ -180,8 +170,7 @@
         height: 108px;
         flex-shrink: 0;
         border-radius: 50%;
-        background: radial-gradient(circle at 34% 28%, rgba(255,255,255,0.16), rgba(255,255,255,0.02) 60%), rgba(255,255,255,0.03);
-        box-shadow: inset 0 2px 6px rgba(255,255,255,0.16), inset 0 -8px 14px rgba(0,0,0,0.4), 0 14px 28px rgba(0,0,0,0.35);
+        background: #EFEFF1;
     }
     .level-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
     .level-ring .ring-shimmer { animation: ringShimmer 5s ease-in-out infinite; }
@@ -209,9 +198,9 @@
         gap: 6px;
         height: 28px;
         padding: 0 10px 0 12px;
-        border-radius: 999px;
-        background: rgba(76,141,255,0.16);
-        border: 1px solid rgba(76,141,255,0.35);
+        border-radius: 7px;
+        background: rgba(0,113,227,0.1);
+        border: 1px solid rgba(0,113,227,0.25);
         color: var(--accent);
         font-size: 12.5px;
         font-weight: 600;
@@ -220,7 +209,6 @@
     .filter-chip.showing { display: inline-flex; }
     .filter-chip button {
         background: none;
-        box-shadow: none;
         color: var(--accent);
         padding: 0;
         width: 16px;
@@ -235,9 +223,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        background: var(--glass-sheen), var(--card);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        background: var(--card);
         border: 1px solid var(--border);
         border-radius: 14px;
         padding: 12px 18px;
@@ -246,9 +232,9 @@
     .platform-note { font-size: 12px; color: var(--text-dim); flex: 1; }
     .platform-row input[type="text"] {
         flex: 1;
-        background: rgba(0,0,0,0.25);
+        background: #FFFFFF;
         border: 1px solid var(--border);
-        border-radius: 999px;
+        border-radius: 7px;
         padding: 8px 14px;
         color: var(--text);
         font-size: 13px;
@@ -259,16 +245,14 @@
         font-weight: 700;
         text-transform: uppercase;
         color: var(--text-dim);
-        background: rgba(0,0,0,0.25);
+        background: #FFFFFF;
         border: 1px solid var(--border);
-        border-radius: 999px;
+        border-radius: 5px;
         padding: 2px 8px;
     }
 
     .game {
-        background: var(--glass-sheen), var(--card);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        background: var(--card);
         border: 1px solid var(--border);
         border-radius: 14px;
         margin-bottom: 8px;
@@ -281,15 +265,15 @@
         padding: 14px 18px;
         cursor: pointer;
     }
-    .game-row:hover { background: rgba(255,255,255,0.03); }
-    .game-row.link-selected { background: rgba(255,255,255,0.03); box-shadow: inset 0 0 0 2px var(--accent); }
+    .game-row:hover { background: var(--card-hover); }
+    .game-row.link-selected { background: var(--card-hover); box-shadow: inset 0 0 0 2px var(--accent); }
     .game-cover {
         width: 48px;
         height: 48px;
         border-radius: 10px;
         object-fit: cover;
         flex-shrink: 0;
-        background: rgba(255,255,255,0.05);
+        background: rgba(0,0,0,0.05);
     }
     .game-cover-wrap { position: relative; flex-shrink: 0; }
     .cover-edit-btn {
@@ -299,7 +283,7 @@
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: #1b1e24;
+        background: #FFFFFF;
         border: 1px solid var(--border);
         color: var(--text-dim);
         font-size: 10px;
@@ -309,7 +293,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
     .cover-edit-btn:hover { color: var(--text); border-color: var(--accent); }
     .cover-upload-btn {
@@ -319,7 +303,7 @@
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: #1b1e24;
+        background: #FFFFFF;
         border: 1px solid var(--border);
         color: var(--text-dim);
         font-size: 10px;
@@ -329,14 +313,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
     .cover-upload-btn:hover { color: var(--text); border-color: var(--accent); }
     .icon-edit-btn {
         width: 16px;
         height: 16px;
         border-radius: 50%;
-        background: #1b1e24;
+        background: #FFFFFF;
         border: 1px solid var(--border);
         color: var(--text-dim);
         font-size: 9px;
@@ -347,14 +331,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
     .icon-edit-btn:hover { color: var(--text); border-color: var(--accent); }
     .icon-upload-btn {
         width: 16px;
         height: 16px;
         border-radius: 50%;
-        background: #1b1e24;
+        background: #FFFFFF;
         border: 1px solid var(--border);
         color: var(--text-dim);
         font-size: 9px;
@@ -365,7 +349,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
     .icon-upload-btn:hover { color: var(--text); border-color: var(--accent); }
     .game-title { flex: 1; font-weight: 600; }
@@ -379,9 +363,7 @@
     .dot.bronze { background: var(--bronze); }
 
     .activity-panel {
-        background: var(--glass-sheen), var(--card);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        background: var(--card);
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 4px 20px;
@@ -407,9 +389,7 @@
         margin-bottom: 24px;
     }
     .stat-card {
-        background: var(--glass-sheen), var(--card);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        background: var(--card);
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 16px 18px;
@@ -454,14 +434,14 @@
         border-radius: 50%;
         object-fit: cover;
         flex-shrink: 0;
-        background: rgba(255,255,255,0.05);
+        background: rgba(0,0,0,0.05);
     }
     .tier-tag {
         font-size: 10px;
         font-weight: 700;
         text-transform: uppercase;
         padding: 3px 8px;
-        border-radius: 999px;
+        border-radius: 5px;
         color: #0b0d10;
         flex-shrink: 0;
         white-space: nowrap;
@@ -479,9 +459,7 @@
     .loading-note { color: var(--text-dim); font-size: 13px; padding: 16px; }
 
     .review-list {
-        background: var(--glass-sheen), var(--card);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        background: var(--card);
         border: 1px solid var(--border);
         border-radius: 14px;
         margin-bottom: 16px;
@@ -586,9 +564,9 @@
                                     <stop offset="100%" stop-color="var(--platinum)"/>
                                 </linearGradient>
                             </defs>
-                            <circle cx="54" cy="54" r="46" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="9"/>
+                            <circle cx="54" cy="54" r="46" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="9"/>
                             <circle id="level-ring-fill" cx="54" cy="54" r="46" fill="none" stroke="url(#tierSweep)" stroke-width="9" stroke-linecap="round" stroke-dasharray="289.03" stroke-dashoffset="289.03"/>
-                            <path d="M18 30A46 46 0 0 1 54 8" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" stroke-linecap="round" class="ring-shimmer"/>
+                            <path d="M18 30A46 46 0 0 1 54 8" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round" class="ring-shimmer"/>
                         </svg>
                         <div class="n">
                             <span class="num" id="level-number">-</span>
@@ -661,11 +639,11 @@
                         type="text"
                         id="games-filter"
                         placeholder="Filter your games..."
-                        style="flex: 1; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px; color: var(--text); font-size: 14px;"
+                        style="flex: 1; background: #FFFFFF; border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; color: var(--text); font-size: 14px;"
                     />
                     <select
                         id="games-sort"
-                        style="background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px; color: var(--text); font-size: 14px;"
+                        style="background: #FFFFFF; border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; color: var(--text); font-size: 14px;"
                     >
                         <option value="unlocked-desc">Most unlocked</option>
                         <option value="completion-desc">Completion % (high to low)</option>
