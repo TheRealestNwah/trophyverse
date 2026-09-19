@@ -1,6 +1,6 @@
 import { pool } from "../db";
 import { getUserGames, getGameProgress } from "./client";
-import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, recordOwnership } from "../sync/canonicalStore";
+import { getOrCreateCanonicalGame, getOrCreateAchievementLink, recordUnlock, revokeUnlockIfPresent, recordOwnership } from "../sync/canonicalStore";
 import { normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 import { SyncSummary } from "../sync/types";
 
@@ -22,6 +22,7 @@ export async function syncRetroAccount(
 ): Promise<SyncSummary> {
     const games = await getUserGames(username, apiKey);
     let achievementsUnlocked = 0;
+    let achievementsRevoked = 0;
 
     for (const game of games) {
         const achievements = await getGameProgress(username, apiKey, game.gameId);
@@ -51,7 +52,13 @@ export async function syncRetroAccount(
                 achievement.iconUrl
             );
 
-            if (!achievement.isUnlocked) continue;
+            if (!achievement.isUnlocked) {
+                // See #57 - correct a previously recorded unlock if RA now
+                // reports this as not earned, rather than leaving it
+                // credited forever.
+                if (await revokeUnlockIfPresent(userPlatformAccountId, linkId)) achievementsRevoked++;
+                continue;
+            }
 
             // RA's DateEarned(Hardcore) is "YYYY-MM-DD HH:MM:SS" in UTC with
             // no timezone marker - reformat to a real ISO instant.
@@ -74,5 +81,5 @@ export async function syncRetroAccount(
         userPlatformAccountId,
     ]);
 
-    return { gamesProcessed: games.length, achievementsUnlocked };
+    return { gamesProcessed: games.length, achievementsUnlocked, achievementsRevoked };
 }
