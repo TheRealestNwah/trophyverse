@@ -220,6 +220,18 @@ create table steam_global_rarity_cache (
     fetched_at  timestamptz not null default now()
 );
 
+-- Records that a canonical game has already had a Steam-catalog tier
+-- enrichment attempt (matching/steamCatalogEnrichment.ts), so a game with no
+-- real Steam release - or a fixed, one-time lookup miss - doesn't get
+-- re-searched against Steam's store API on every single sync's automatic
+-- matching pass forever. A Steam release's achievement list/global rarity
+-- isn't something that appears later for a game that never had it, so this
+-- is never expired or retried automatically.
+create table steam_catalog_enrichment_attempts (
+    game_id      uuid primary key references games(id) on delete cascade,
+    attempted_at timestamptz not null default now()
+);
+
 -- Point value per tier. A table rather than a hardcoded constant so it can
 -- be tuned without a migration; seeded with PSN's published values.
 create table tier_points (

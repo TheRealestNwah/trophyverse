@@ -91,3 +91,28 @@ export async function getGlobalAchievementPercentages(
         return new Map();
     }
 }
+
+export interface SteamSearchResult {
+    id: number;
+    name: string;
+    type: string;
+}
+
+// The store's own public search endpoint - a different host from the rest of
+// this client (store.steampowered.com, not api.steampowered.com) and needs
+// no API key. Used to look up a game's appid from just its title, for cases
+// where no user has actually linked/synced Steam for this game (see
+// matching/steamCatalogEnrichment.ts). ISteamApps/GetAppList, the obvious
+// alternative, no longer exists (confirmed live: 404 across every documented
+// version) - this search endpoint is the one that's actually there.
+export async function searchApps(term: string): Promise<SteamSearchResult[]> {
+    const url = new URL("https://store.steampowered.com/api/storesearch/");
+    url.searchParams.set("term", term);
+    url.searchParams.set("cc", "us");
+    url.searchParams.set("l", "en");
+
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items?: SteamSearchResult[] };
+    return data.items ?? [];
+}

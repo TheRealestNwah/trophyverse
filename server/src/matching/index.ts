@@ -1,12 +1,14 @@
 import { pool } from "../db";
 import { matchGames } from "./gameMatcher";
 import { matchAchievementsForAllGames } from "./achievementMatcher";
+import { enrichGamesWithSteamCatalog } from "./steamCatalogEnrichment";
 import { recomputeUserScore, getUserScore, UserScore } from "../scoring";
 import { normalizeRarityTiersForAllGames } from "../scoring/rarityNormalization";
 
 export interface MatchingSummary {
     gameGroupsMerged: number;
     gamesRemoved: number;
+    steamCatalogGamesEnriched: number;
     achievementsMerged: number;
     achievementCandidatesRecorded: number;
     usersRescored: number;
@@ -18,6 +20,13 @@ export interface MatchingSummary {
 // every user's cached score is recomputed afterward.
 export async function runMatching(): Promise<MatchingSummary> {
     const gameResult = await matchGames();
+
+    // Backfills real Steam achievement/rarity data for games no user has
+    // actually linked Steam for - runs before achievement matching below so
+    // anything it adds gets a chance to be merged (and inherit a real tier)
+    // in the same pass, rather than sitting unmatched until the next run.
+    const catalogResult = await enrichGamesWithSteamCatalog();
+
     const achievementResult = await matchAchievementsForAllGames();
 
     // Merges can shift a game's rarity_fallback achievement set (fewer,
@@ -34,6 +43,7 @@ export async function runMatching(): Promise<MatchingSummary> {
     return {
         gameGroupsMerged: gameResult.groupsMerged,
         gamesRemoved: gameResult.gamesRemoved,
+        steamCatalogGamesEnriched: catalogResult.gamesEnriched,
         achievementsMerged: achievementResult.achievementsMerged,
         achievementCandidatesRecorded: achievementResult.candidatesRecorded,
         usersRescored: users.rows.length,
