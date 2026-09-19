@@ -34,6 +34,7 @@ Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First l
 - **Connect PSN** — log into [playstation.com](https://www.playstation.com), then in the same browser visit https://ca.account.sony.com/api/v1/ssocookie and paste the `npsso` value from the JSON it shows. Treat that token like a password — it grants full account access.
 - **Find matches** — links the same real-world game/achievement across platforms so they share one tier, PSN's own trophy tier always winning when a match includes it (see [docs/data-model.md](docs/data-model.md)). This does **not** collapse your score — unlocking the same achievement on two platforms (e.g. two separate platinums) still counts both. Run it any time after syncing more than one platform.
 - **Review matches** — high-confidence matches auto-merge, but anything uncertain queues up here for you to confirm or reject by hand instead of guessing wrong.
+- **Public profile** — off by default. Turning it on publishes a PSNProfiles-style read-only page at `/u/<your-slug>` (no login required to view) showing your combined score, level, and full game/achievement list. Turning it back off takes it down immediately.
 
 API endpoints, if you want to hit them directly:
 
@@ -46,5 +47,7 @@ API endpoints, if you want to hit them directly:
 - `GET /api/me/games` — all your games across every linked platform, combined into one row per game, with unlock counts and per-tier breakdown
 - `GET /api/me/games/:gameId/achievements` — full achievement list for one game, one row per `(achievement, platform)` so a matched achievement's separate completions on each platform each show their own unlock status
 - `GET /api/me/score` — total points, level, and progress to the next level, summing every unlock on every linked platform (no cross-platform dedup — see [docs/data-model.md](docs/data-model.md))
+- `POST /api/me/public-profile` (body: `{ isPublic }`) — turn your public profile on/off
+- `GET /api/public/:slug`, `GET /api/public/:slug/games`, `GET /api/public/:slug/games/:gameId/achievements` — the no-login equivalents of the three routes above, gated on that user having opted in
 
 An achievement's tier is either inherited from PSN directly (`tier_source = 'psn_native'`) or, when no PSN copy exists or hasn't been matched yet, inferred from global unlock rarity (`tier_source = 'rarity_fallback'`) — capped at gold, since Platinum on real PSN is a one-per-game completion trophy, not a rarity tier. For games with an unusually skewed rarity distribution (most of the list under the global gold threshold, e.g. Payday 2), tiers are instead ranked within that game's own achievement list rather than against the fixed global cutoffs — see [docs/data-model.md](docs/data-model.md). The level curve is defined in `server/src/scoring/levelCurve.ts` and can be retuned by editing it and rerunning `npm run db:seed-levels` followed by `npm run db:rescore-all` (refreshes everyone's cached level against the new thresholds). Sessions are persisted in Postgres (`connect-pg-simple`), so a server restart doesn't log everyone out.

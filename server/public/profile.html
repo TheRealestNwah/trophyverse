@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trophyverse</title>
+<style>
+    :root {
+        --bg: #0f1115;
+        --card: #1b1e24;
+        --card-hover: #22262e;
+        --border: #2a2e37;
+        --text: #e8e9ec;
+        --text-dim: #9aa0ab;
+        --accent: #6d8dfa;
+        --bronze: #cd7f32;
+        --silver: #b8bec7;
+        --gold: #f0c341;
+        --platinum: #7dd3fc;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+    header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 20px; margin: 0; }
+    header h1 span { color: var(--accent); }
+    header a { color: var(--text-dim); font-size: 13px; text-decoration: none; }
+    main { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .hidden { display: none !important; }
+
+    .score-card {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+    }
+    .level-badge {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), #a06dfa);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .level-badge .n { font-size: 24px; font-weight: 700; line-height: 1; }
+    .level-badge .l { font-size: 9px; letter-spacing: 1px; opacity: 0.85; }
+    .score-info { flex: 1; }
+    .score-info .username { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .score-info .points { font-size: 14px; color: var(--text-dim); margin-bottom: 6px; }
+    .progress-track { background: #0b0d10; border-radius: 4px; height: 8px; overflow: hidden; }
+    .progress-fill { background: linear-gradient(90deg, var(--accent), #a06dfa); height: 100%; }
+
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .toolbar h2 { font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0; }
+
+    .platform-badge {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        background: #0b0d10;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+    }
+
+    .game {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        overflow: hidden;
+    }
+    .game-row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; cursor: pointer; }
+    .game-row:hover { background: var(--card-hover); }
+    .game-title { flex: 1; font-weight: 600; }
+    .game-progress-text { font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
+    .tier-pips { display: flex; gap: 6px; font-size: 12px; }
+    .pip { display: flex; align-items: center; gap: 3px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.platinum { background: var(--platinum); }
+    .dot.gold { background: var(--gold); }
+    .dot.silver { background: var(--silver); }
+    .dot.bronze { background: var(--bronze); }
+
+    .achievements { border-top: 1px solid var(--border); padding: 8px 16px; }
+    .platform-section { margin-bottom: 12px; }
+    .platform-section:last-child { margin-bottom: 0; }
+    .platform-section-header {
+        display: flex; align-items: center; gap: 8px; padding: 8px 0 4px;
+        font-size: 12px; color: var(--text-dim); font-weight: 600;
+    }
+    .achievement { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .achievement:last-child { border-bottom: none; }
+    .achievement.locked { opacity: 0.45; }
+    .tier-tag {
+        font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px;
+        border-radius: 4px; color: #0b0d10; flex-shrink: 0; width: 72px; white-space: nowrap; text-align: center;
+    }
+    .tier-tag.platinum { background: var(--platinum); }
+    .tier-tag.gold { background: var(--gold); }
+    .tier-tag.silver { background: var(--silver); }
+    .tier-tag.bronze { background: var(--bronze); }
+    .achievement-body { flex: 1; min-width: 0; }
+    .achievement-name { font-weight: 600; font-size: 14px; }
+    .achievement-desc { font-size: 12px; color: var(--text-dim); }
+    .achievement-rarity { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+
+    .loading-note { color: var(--text-dim); font-size: 13px; padding: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>Trophy<span>verse</span></h1>
+    <a href="/">Make your own →</a>
+</header>
+
+<main>
+    <section id="not-found-view" class="hidden">
+        <p class="loading-note">No public profile at this address - it may have been made private, or never existed.</p>
+    </section>
+
+    <section id="profile-view" class="hidden">
+        <div class="score-card">
+            <div class="level-badge">
+                <div class="n" id="level-number">-</div>
+                <div class="l">LEVEL</div>
+            </div>
+            <div class="score-info">
+                <div class="username" id="username-text">-</div>
+                <div class="points" id="points-text">-</div>
+                <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <h2 id="games-heading">Games</h2>
+        </div>
+
+        <div id="games-list"></div>
+    </section>
+</main>
+
+<script>
+const slug = location.pathname.split("/").filter(Boolean).pop();
+
+async function api(path) {
+    const res = await fetch(path, { credentials: "same-origin" });
+    if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `${path} failed: ${res.status}`);
+    }
+    return res.json();
+}
+
+function tierDots(game) {
+    const tiers = [
+        ["platinum", game.platinum_unlocked],
+        ["gold", game.gold_unlocked],
+        ["silver", game.silver_unlocked],
+        ["bronze", game.bronze_unlocked],
+    ];
+    return tiers
+        .filter(([, count]) => Number(count) > 0)
+        .map(([tier, count]) => `<span class="pip"><span class="dot ${tier}"></span>${count}</span>`)
+        .join("");
+}
+
+function platformBadges(game) {
+    return (game.platforms || []).map((p) => `<span class="platform-badge">${p}</span>`).join("");
+}
+
+function renderScore(username, score) {
+    document.getElementById("username-text").textContent = username;
+    document.getElementById("level-number").textContent = score.level;
+    document.getElementById("points-text").textContent =
+        `${score.totalPoints.toLocaleString()} points` +
+        (score.pointsForNextLevel != null
+            ? ` — ${(score.pointsForNextLevel - score.totalPoints).toLocaleString()} to level ${score.level + 1}`
+            : " — max level");
+
+    const span = score.pointsForNextLevel != null ? score.pointsForNextLevel - score.pointsForCurrentLevel : 1;
+    const progressed = score.totalPoints - score.pointsForCurrentLevel;
+    const pct = score.pointsForNextLevel != null ? Math.min(100, (progressed / span) * 100) : 100;
+    document.getElementById("progress-fill").style.width = `${pct}%`;
+}
+
+function renderGames(games) {
+    document.getElementById("games-heading").textContent = `Games (${games.length})`;
+
+    const list = document.getElementById("games-list");
+    list.innerHTML = "";
+    for (const game of games) {
+        const el = document.createElement("div");
+        el.className = "game";
+        el.innerHTML = `
+            <div class="game-row" data-game-id="${game.id}">
+                <div class="game-title">${game.title}</div>
+                ${platformBadges(game)}
+                <div class="tier-pips">${tierDots(game)}</div>
+                <div class="game-progress-text">${game.unlocked_achievements}/${game.total_achievements}</div>
+            </div>
+        `;
+        el.querySelector(".game-row").addEventListener("click", () => toggleAchievements(el, game.id));
+        list.appendChild(el);
+    }
+}
+
+async function toggleAchievements(gameEl, gameId) {
+    const existing = gameEl.querySelector(".achievements");
+    if (existing) {
+        existing.remove();
+        return;
+    }
+    const panel = document.createElement("div");
+    panel.className = "achievements";
+    panel.innerHTML = `<div class="loading-note">Loading achievements...</div>`;
+    gameEl.appendChild(panel);
+
+    const achievements = await api(`/api/public/${slug}/games/${gameId}/achievements`);
+
+    const byPlatform = new Map();
+    for (const a of achievements) {
+        if (!byPlatform.has(a.platform_id)) byPlatform.set(a.platform_id, []);
+        byPlatform.get(a.platform_id).push(a);
+    }
+
+    panel.innerHTML = [...byPlatform.entries()]
+        .map(([platformId, list]) => {
+            const unlockedCount = list.filter((a) => a.unlocked).length;
+            return `
+        <div class="platform-section">
+            <div class="platform-section-header">
+                <span class="platform-badge">${platformId}</span>
+                <span>${unlockedCount}/${list.length}</span>
+            </div>
+            ${list
+                .map(
+                    (a) => `
+                <div class="achievement ${a.unlocked ? "" : "locked"}">
+                    <span class="tier-tag ${a.tier}">${a.tier}</span>
+                    <div class="achievement-body">
+                        <div class="achievement-name">${a.name}</div>
+                        ${a.description ? `<div class="achievement-desc">${a.description}</div>` : ""}
+                    </div>
+                    <div class="achievement-rarity">${a.global_unlock_rarity != null ? Number(a.global_unlock_rarity).toFixed(1) + "%" : ""}</div>
+                </div>
+            `
+                )
+                .join("")}
+        </div>
+    `;
+        })
+        .join("");
+}
+
+async function init() {
+    let profile;
+    try {
+        profile = await api(`/api/public/${slug}`);
+    } catch {
+        document.getElementById("not-found-view").classList.remove("hidden");
+        return;
+    }
+
+    document.getElementById("profile-view").classList.remove("hidden");
+    document.title = `${profile.username} - Trophyverse`;
+    renderScore(profile.username, profile.score);
+    renderGames(await api(`/api/public/${slug}/games`));
+}
+
+init();
+</script>
+</body>
+</html>
