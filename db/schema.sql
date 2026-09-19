@@ -233,6 +233,13 @@ create table steam_catalog_enrichment_attempts (
 );
 
 -- Same purpose as steam_catalog_enrichment_attempts above, for
+-- matching/xboxCatalogEnrichment.ts.
+create table xbox_catalog_enrichment_attempts (
+    game_id      uuid primary key references games(id) on delete cascade,
+    attempted_at timestamptz not null default now()
+);
+
+-- Same purpose as steam_catalog_enrichment_attempts above, for
 -- matching/retroCatalogEnrichment.ts.
 create table retro_catalog_enrichment_attempts (
     game_id      uuid primary key references games(id) on delete cascade,

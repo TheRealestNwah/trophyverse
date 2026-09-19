@@ -248,3 +248,40 @@ function plausibleUnlockTime(iso: string | undefined): string | undefined {
     const t = new Date(iso).getTime();
     return !Number.isNaN(t) && t >= XBOX_360_LAUNCH ? iso : undefined;
 }
+
+export interface XboxMarketplaceProduct {
+    productId: string;
+    title: string;
+    type: string;
+}
+
+// Used to look up a title without any user having linked/synced Xbox for it
+// (see matching/xboxCatalogEnrichment.ts) - OpenXBL's own docs document this
+// exact search -> titleid -> achievements chain, confirmed live against a
+// title this account has never played (#50).
+export async function searchMarketplace(apiKey: string, term: string): Promise<XboxMarketplaceProduct[]> {
+    const content = await get<{
+        Results: Array<{ Products: Array<{ ProductId: string; Title: string; Type: string }> }>;
+    }>(apiKey, `/v2/marketplace/autosuggest?q=${encodeURIComponent(term)}`);
+    return content.Results.flatMap((r) => r.Products).map((p) => ({
+        productId: p.ProductId,
+        title: p.Title,
+        type: p.Type,
+    }));
+}
+
+// Resolves a Microsoft Store product ID to the title ID the achievements
+// endpoints expect. Some Store products carry no Xbox title ID at all
+// (add-ons, bundles, PC-only listings) - OpenXBL's own docs use this exact
+// case as their example (Halo Infinite is listed twice, once with a title
+// ID and once without), so that's treated as "no match" rather than an
+// error.
+export async function getTitleIdForProduct(apiKey: string, productId: string): Promise<string | undefined> {
+    try {
+        const content = await get<{ titleId: string }>(apiKey, `/v2/marketplace/titleid/${productId}`);
+        return content.titleId;
+    } catch (err) {
+        if (err instanceof XboxApiError && err.status === 404) return undefined;
+        throw err;
+    }
+}
