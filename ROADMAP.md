@@ -1,5 +1,14 @@
 # Build roadmap
 
+## Next up (backlog, in priority order)
+
+Everything below is scoped concretely enough to start on without further discussion. Working discipline for unmonitored runs: one focused PR per item, `npx tsc --noEmit` before every commit, live-verify against the real dev DB before merging (not just typecheck) - if live verification of a third-party API assumption isn't possible (no test credentials, etc.), merge anyway only if the fallback/error path is verified, and say so plainly in the PR rather than claiming full verification. Never guess at a third-party API's response shape from docs alone if it can be checked with a real `curl` first (see the RA field-name bug in #13's history). File a new issue instead of building anything not listed here that comes up along the way.
+
+1. **Fix [#18](https://github.com/TheRealestNwah/trophyverse/issues/18)** - `.platform-name`'s fixed 70px width overflows onto the sync-status text for long platform names ("RetroAchievements"). Quick CSS fix (remove the fixed width, let it size to content, add spacing).
+2. **Research [#19](https://github.com/TheRealestNwah/trophyverse/issues/19)** (console-generation breakdown) - before writing any code, hit PSN's and Xbox's real APIs with `curl` against a live linked account to confirm what per-title generation metadata actually exists (the issue names a candidate PSN field, `trophyTitlePlatform`, that is unverified). If the data is clean, implement the least invasive option identified in the issue (a display-only `console_variant` column on `game_platform_links`, `platform_id` unchanged). If the data is messy or absent, report findings back rather than forcing a bad design.
+3. **Cache Steam's global achievement percentages** - concrete scope for the vague "rate-limit/caching" item below. `getGlobalAchievementPercentages` (`server/src/steam/client.ts`) is re-fetched per owned game on every single full sync, but global rarity shifts slowly - a game's percentages don't meaningfully change day to day. Cache per-appid with a TTL (a day or so is plenty) to cut redundant calls on repeat syncs, especially once the background scheduler (#12, done) is enabled.
+4. **Side-by-side profile comparison** - concrete scope for the "friend comparison" half of item 15 below. No new "friends" data model needed - public profiles are already shareable by slug (#14, done). A page taking two `?a=slug&b=slug` params and rendering both profiles' scores/games next to each other covers the actual use case without inventing a follow/friend-request system nothing else in the app has.
+
 ## P0 — core (nothing works end-to-end without these)
 
 | # | Component | Status | What it does |
@@ -26,11 +35,13 @@
 | # | Component | Status | What it does |
 |---|---|---|---|
 | 12 | **Background job scheduler** | ✅ Done | Periodic re-sync of every linked account (`server/src/scheduler.ts`), off by default (`SCHEDULER_ENABLED`/`SCHEDULER_INTERVAL_MINUTES`). One account's sync failing (expired PSN token, revoked key) is logged and skipped rather than aborting the run. Runs matching + rescores everyone once per pass if anything synced. |
-| 13 | **Rate-limit/caching layer** | ⬜ Not started | Needed once real users hit Steam/Xbox/PSN APIs regularly. (Xbox sync already has retry-with-backoff for transient 429s.) |
+| 13 | **Rate-limit/caching layer** | ⬜ Not started | Needed once real users hit Steam/Xbox/PSN APIs regularly. (Xbox sync already has retry-with-backoff for transient 429s.) Scoped concretely as "Next up" item 3 above: cache Steam's global achievement percentages first. |
 | 14 | **Public shareable profiles** | ✅ Done | Opt-in, off by default (`users.is_public`/`public_slug`, `server/src/public/routes.ts`). A `public_slug` is generated once at signup for every user regardless of opt-in status, but is only ever reachable once `is_public` is toggled on from the dashboard - no requireAuth on these routes at all, the only ones in the app reachable with no account. |
-| 15 | **Leaderboards / friend comparison** | 🟡 Partial | Global leaderboard done (`GET /api/public/leaderboard`, `/leaderboard` page) — ranks only opted-in public profiles by total points, same privacy gate as item 14. Friend-specific comparison not started. |
+| 15 | **Leaderboards / friend comparison** | 🟡 Partial | Global leaderboard done (`GET /api/public/leaderboard`, `/leaderboard` page) — ranks only opted-in public profiles by total points, same privacy gate as item 14. Friend-specific comparison not started - scoped concretely as "Next up" item 4 above. |
 | 16 | **Per-game relative rarity tiering** | ✅ Done | Fixed global rarity thresholds (e.g. <15% = gold) don't adapt to games with atypical achievement distributions — e.g. Payday 2 had 1254 of 1342 achievements land in "gold". Fixed with a hybrid: games stay on fixed thresholds by default, but ones where >50% of achievements would land in gold get re-tiered by rank within their own achievement list instead. See [#10](https://github.com/TheRealestNwah/trophyverse/issues/10) and `server/src/scoring/rarityNormalization.ts`. |
 | 17 | **Manual game linking** | ✅ Done | Automatic game matching only merges on exact normalized title (see item 3), which misses genuine same-game cases formatted differently per platform (e.g. "Skyrim" on PSN vs "The Elder Scrolls V: Skyrim" on Steam). "Link games" mode in the dashboard lets a user pick two of their own library entries to merge; re-runs achievement matching + rarity normalization scoped to just that game, not the whole library. `POST /api/matching/games/merge`. |
+| 18 | **Platform-name label overflow bug** | ⬜ Not started | `.platform-name`'s fixed 70px width overflows onto adjacent text for long platform names ("RetroAchievements"). See [#18](https://github.com/TheRealestNwah/trophyverse/issues/18). |
+| 19 | **Per-console platform breakdown** | ⬜ Design/research needed | Split PSN into PS3/PS4/PS5 and Xbox into 360/One/Series for display, without changing the underlying single-login account/sync model. See [#19](https://github.com/TheRealestNwah/trophyverse/issues/19) for why this is more involved than it looks and the open design questions - needs live API verification before implementation. |
 
 ## Parked
 
@@ -38,4 +49,4 @@
 
 ## Suggested order
 
-~~Auth → Steam client → game matching → achievement matching → scoring engine → sync pipeline → API → dashboard → Xbox → RetroAchievements → PSN → everything else.~~ Every P0/P1 item (1–11) plus the rarity-tiering fix (16) is done, PSN and RetroAchievements swapped relative to the original order because PSN is the scoring source of truth. Only P2 polish/scale remains: background sync (12), rate-limiting (13), public profiles (14), leaderboards (15).
+~~Auth → Steam client → game matching → achievement matching → scoring engine → sync pipeline → API → dashboard → Xbox → RetroAchievements → PSN → everything else.~~ Every P0/P1 item is done. See "Next up" at the top for the current prioritized backlog (18 → 19 → 13 → 15).
