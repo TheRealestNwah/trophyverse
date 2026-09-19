@@ -48,6 +48,10 @@ app.get("/u/:slug", (_req, res) => {
     res.sendFile(path.join(__dirname, "..", "public", "profile.html"));
 });
 
+app.get("/leaderboard", (_req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "leaderboard.html"));
+});
+
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 // Every route above hands failures to next(err); without this, Express's

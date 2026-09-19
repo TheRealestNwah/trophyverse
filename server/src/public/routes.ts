@@ -12,6 +12,27 @@ async function getPublicUserId(slug: string): Promise<{ id: string; username: st
     return result.rows[0] ?? null;
 }
 
+// Registered before the "/:slug" route below - Express matches routes in
+// order, and "/:slug" would otherwise swallow "/leaderboard" as if it were
+// someone's slug. Ranks only opted-in public profiles (see db/schema.sql) -
+// a private user's score never appears here, same as it never appears
+// anywhere else outside their own dashboard.
+publicRouter.get("/leaderboard", async (_req, res, next) => {
+    try {
+        const result = await pool.query(
+            `select u.username, u.public_slug, us.total_points, us.level
+             from user_scores us
+             join users u on u.id = us.user_id
+             where u.is_public = true
+             order by us.total_points desc
+             limit 50`
+        );
+        res.json(result.rows);
+    } catch (err) {
+        next(err);
+    }
+});
+
 // No requireAuth anywhere in this router - these are the only routes in the
 // app meant to be reachable by someone with no account at all, deliberately
 // mirroring PSNProfiles-style public profile pages. Gated entirely on
