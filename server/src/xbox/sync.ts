@@ -13,14 +13,24 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
         if (title.totalAchievements === 0) continue;
 
         let achievements = await getAchievementsForTitle(apiKey, title.titleId);
+        // Which endpoint actually had data doubles as the only reliable
+        // console-generation signal OpenXBL gives us - see #36. The
+        // `devices` field on /v2/titles reports backward-compatibility, not
+        // origin generation (a classic 360 title playable via compat on
+        // newer consoles lists all three), so it can't tell One from Series.
+        // This can: only classic 360 titles fall through to the legacy
+        // endpoint, which is a real, already-verified signal, just not a
+        // 3-way split.
+        let consoleVariant = "Xbox One/Series";
         if (achievements.length === 0) {
             // Classic Xbox 360 titles use a separate legacy achievements
             // contract - see getX360AchievementsForTitle for what's different.
             achievements = await getX360AchievementsForTitle(apiKey, xuid, title.titleId);
+            consoleVariant = "Xbox 360";
         }
         if (achievements.length === 0) continue;
 
-        const gameId = await getOrCreateCanonicalGame("xbox", title.titleId, title.name, title.coverImageUrl);
+        const gameId = await getOrCreateCanonicalGame("xbox", title.titleId, title.name, title.coverImageUrl, consoleVariant);
         await recordOwnership(userPlatformAccountId, gameId);
         gamesProcessed++;
 
