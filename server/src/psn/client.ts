@@ -159,6 +159,10 @@ export interface PsnTitle {
     npServiceName: "trophy" | "trophy2";
     trophyTitleName: string;
     trophyTitleIconUrl?: string;
+    // Comma-separated, e.g. "PS5", "PS3,PSVITA,PS4" for a cross-gen title -
+    // one trophy list can span multiple platforms rather than being split
+    // per generation. Confirmed live against a real account (see #19).
+    trophyTitlePlatform?: string;
 }
 
 export async function getUserTitles(accessToken: string): Promise<PsnTitle[]> {

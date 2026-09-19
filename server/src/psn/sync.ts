@@ -20,7 +20,8 @@ export async function syncPsnAccount(userPlatformAccountId: string, accessToken:
             "psn",
             title.npCommunicationId,
             title.trophyTitleName,
-            title.trophyTitleIconUrl
+            title.trophyTitleIconUrl,
+            title.trophyTitlePlatform
         );
         await recordOwnership(userPlatformAccountId, gameId);
 

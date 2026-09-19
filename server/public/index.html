@@ -347,8 +347,9 @@ function renderScore(score) {
 }
 
 function platformBadges(game) {
+    const variants = game.console_variants || {};
     return (game.platforms || [])
-        .map((p) => `<span class="platform-badge">${p}</span>`)
+        .map((p) => `<span class="platform-badge">${p}${variants[p] ? ` (${variants[p]})` : ""}</span>`)
         .join("");
 }
 
@@ -459,10 +460,11 @@ async function toggleAchievements(gameEl, gameId) {
     panel.innerHTML = [...byPlatform.entries()]
         .map(([platformId, list]) => {
             const unlockedCount = list.filter((a) => a.unlocked).length;
+            const variant = list.find((a) => a.console_variant)?.console_variant;
             return `
         <div class="platform-section">
             <div class="platform-section-header">
-                <span class="platform-badge">${platformId}</span>
+                <span class="platform-badge">${platformId}${variant ? ` (${variant})` : ""}</span>
                 <span>${unlockedCount}/${list.length}</span>
             </div>
             ${list

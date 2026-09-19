@@ -12,6 +12,11 @@ export async function getGamesForUser(userId: string) {
             g.title,
             g.cover_image_url,
             (select array_agg(distinct platform_id) from game_platform_links where game_id = g.id) as platforms,
+            -- Display-only console-generation tags per platform link (e.g.
+            -- {"psn": "PS5"}) - see #19. Only ever populated where the
+            -- source platform's API gives clean per-title data.
+            (select jsonb_object_agg(platform_id, console_variant) from game_platform_links
+                where game_id = g.id and console_variant is not null) as console_variants,
             count(ca.id) as total_achievements,
             count(uau.id) as unlocked_achievements,
             coalesce(sum(ca.points) filter (where uau.id is not null), 0) as points_earned,
@@ -55,10 +60,12 @@ export async function getAchievementsForGame(userId: string, gameId: string) {
     const result = await pool.query(
         `select
             ca.id, ca.name, ca.description, ca.tier, ca.points, ca.icon_url,
-            apl.platform_id, apl.global_unlock_rarity,
+            apl.platform_id, apl.global_unlock_rarity, gpl.console_variant,
             (uau.id is not null) as unlocked, uau.unlocked_at
          from canonical_achievements ca
          join achievement_platform_links apl on apl.canonical_achievement_id = ca.id
+         left join game_platform_links gpl
+                on gpl.platform_id = apl.platform_id and gpl.platform_game_id = apl.platform_game_id
          left join user_achievement_unlocks uau
                 on uau.achievement_platform_link_id = apl.id
                and uau.user_platform_account_id in (

@@ -9,7 +9,8 @@ export async function getOrCreateCanonicalGame(
     platformId: string,
     platformGameId: string,
     title: string,
-    coverImageUrl?: string
+    coverImageUrl?: string,
+    consoleVariant?: string
 ): Promise<string> {
     const existing = await pool.query(
         "select game_id from game_platform_links where platform_id = $1 and platform_game_id = $2",
@@ -26,6 +27,15 @@ export async function getOrCreateCanonicalGame(
                 existing.rows[0].game_id,
             ]);
         }
+        // console_variant lives on the platform link itself (it's tagging
+        // "this platform's copy", not the shared canonical game), but still
+        // never overwritten once set for the same reason as cover art above.
+        if (consoleVariant) {
+            await pool.query(
+                "update game_platform_links set console_variant = $1 where platform_id = $2 and platform_game_id = $3 and console_variant is null",
+                [consoleVariant, platformId, platformGameId]
+            );
+        }
         return existing.rows[0].game_id;
     }
 
@@ -37,9 +47,9 @@ export async function getOrCreateCanonicalGame(
             coverImageUrl ?? null,
         ]);
         await client.query(
-            `insert into game_platform_links (game_id, platform_id, platform_game_id, platform_title)
-             values ($1, $2, $3, $4)`,
-            [game.rows[0].id, platformId, platformGameId, title]
+            `insert into game_platform_links (game_id, platform_id, platform_game_id, platform_title, console_variant)
+             values ($1, $2, $3, $4, $5)`,
+            [game.rows[0].id, platformId, platformGameId, title, consoleVariant ?? null]
         );
         await client.query("commit");
         return game.rows[0].id;
