@@ -4,6 +4,8 @@ import { syncXboxAccount } from "../xbox/sync";
 import { syncPsnAccount } from "../psn/sync";
 import { exchangeRefreshTokenForTokens } from "../psn/client";
 import { syncRetroAccount } from "../retro/sync";
+import { syncGogAccount } from "../gog/sync";
+import { exchangeRefreshTokenForTokens as exchangeGogRefreshTokenForTokens } from "../gog/client";
 import { SyncSummary } from "./types";
 
 export interface PlatformAccountRow {
@@ -40,6 +42,15 @@ export async function runAccountSync(account: PlatformAccountRow): Promise<SyncS
 
         case "retroachievements":
             return syncRetroAccount(account.id, account.platform_account_id, account.access_token!);
+
+        case "gog": {
+            const tokens = await exchangeGogRefreshTokenForTokens(account.refresh_token!);
+            await pool.query(
+                "update user_platform_accounts set access_token = $1, refresh_token = $2 where id = $3",
+                [tokens.accessToken, tokens.refreshToken, account.id]
+            );
+            return syncGogAccount(account.id, tokens.accessToken, account.platform_account_id);
+        }
 
         default:
             throw new Error(`No sync handler for platform: ${account.platform_id}`);
