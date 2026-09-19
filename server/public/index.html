@@ -888,6 +888,7 @@ async function init() {
 
     document.getElementById("dashboard-view").classList.remove("hidden");
     document.getElementById("header-actions").innerHTML = `
+        <a href="/compare" style="color: var(--text-dim); margin-right: 16px; font-size: 13px;">Compare</a>
         <a href="/leaderboard" style="color: var(--text-dim); margin-right: 16px; font-size: 13px;">Leaderboard</a>
         <span style="color: var(--text-dim); margin-right: 12px;">${user.username}</span>
         <button class="secondary" id="logout-btn">Log out</button>

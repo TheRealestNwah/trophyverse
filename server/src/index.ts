@@ -54,6 +54,13 @@ app.get("/leaderboard", (_req, res) => {
     res.sendFile(path.join(__dirname, "..", "public", "leaderboard.html"));
 });
 
+// Same no-auth, slug-driven pattern as /u/:slug above - both profiles being
+// compared must independently be is_public (enforced by /api/public/:slug
+// itself), no separate access model introduced here.
+app.get("/compare", (_req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "compare.html"));
+});
+
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 // Every route above hands failures to next(err); without this, Express's
