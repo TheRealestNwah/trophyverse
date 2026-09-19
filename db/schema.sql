@@ -91,6 +91,11 @@ create table game_platform_links (
     platform_id       text not null references platforms(id),
     platform_game_id  text not null,   -- steam appid / xbox title id / psn np comm id / RA game id
     platform_title    text not null,   -- raw title as the platform reports it, kept for match debugging
+    -- Display-only console-generation tag (e.g. "PS5", "PS3,PSVITA,PS4") -
+    -- cosmetic, doesn't affect platform_id/dispatch or scoring authority.
+    -- Only populated where the source platform's API gives clean per-title
+    -- generation data (PSN currently) - see #19.
+    console_variant   text,
     unique (platform_id, platform_game_id)
 );
 
