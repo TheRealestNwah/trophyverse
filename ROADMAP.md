@@ -27,7 +27,7 @@
 |---|---|---|---|
 | 12 | **Background job scheduler** | ✅ Done | Periodic re-sync of every linked account (`server/src/scheduler.ts`), off by default (`SCHEDULER_ENABLED`/`SCHEDULER_INTERVAL_MINUTES`). One account's sync failing (expired PSN token, revoked key) is logged and skipped rather than aborting the run. Runs matching + rescores everyone once per pass if anything synced. |
 | 13 | **Rate-limit/caching layer** | ⬜ Not started | Needed once real users hit Steam/Xbox/PSN APIs regularly. (Xbox sync already has retry-with-backoff for transient 429s.) |
-| 14 | **Public shareable profiles** | ⬜ Not started | PSNProfiles-style public page per user. |
+| 14 | **Public shareable profiles** | ✅ Done | Opt-in, off by default (`users.is_public`/`public_slug`, `server/src/public/routes.ts`). A `public_slug` is generated once at signup for every user regardless of opt-in status, but is only ever reachable once `is_public` is toggled on from the dashboard - no requireAuth on these routes at all, the only ones in the app reachable with no account. |
 | 15 | **Leaderboards / friend comparison** | ⬜ Not started | Social layer once solo profiles work. |
 | 16 | **Per-game relative rarity tiering** | ✅ Done | Fixed global rarity thresholds (e.g. <15% = gold) don't adapt to games with atypical achievement distributions — e.g. Payday 2 had 1254 of 1342 achievements land in "gold". Fixed with a hybrid: games stay on fixed thresholds by default, but ones where >50% of achievements would land in gold get re-tiered by rank within their own achievement list instead. See [#10](https://github.com/TheRealestNwah/trophyverse/issues/10) and `server/src/scoring/rarityNormalization.ts`. |
 

@@ -12,6 +12,7 @@ import { psnRouter } from "./psn/routes";
 import { scoreRouter } from "./scoring/routes";
 import { gamesRouter } from "./games/routes";
 import { matchingRouter } from "./matching/routes";
+import { publicRouter } from "./public/routes";
 import { startScheduler } from "./scheduler";
 
 const app = express();
@@ -38,6 +39,14 @@ app.use("/api/psn", psnRouter);
 app.use("/api/me", scoreRouter);
 app.use("/api/me", gamesRouter);
 app.use("/api/matching", matchingRouter);
+app.use("/api/public", publicRouter);
+
+// Serves the same static SPA shell as the dashboard - profile.html reads the
+// slug from the URL client-side and hits /api/public/:slug itself. No auth
+// here since a public profile is meant to be viewable without an account.
+app.get("/u/:slug", (_req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "profile.html"));
+});
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
