@@ -178,6 +178,26 @@ create table user_owned_games (
     unique (user_platform_account_id, game_id)
 );
 
+-- Lets a user paste their own cover art / achievement icon (see #32),
+-- scoped to that user only - games/canonical_achievements are shared,
+-- deduplicated rows across every user (see docs/data-model.md), so this is
+-- deliberately its own per-user table rather than a column on those shared
+-- rows: one user's paste must never change what a different user who owns
+-- the same game/achievement sees.
+create table user_game_cover_overrides (
+    user_id         uuid not null references users(id) on delete cascade,
+    game_id         uuid not null references games(id) on delete cascade,
+    cover_image_url text not null,
+    primary key (user_id, game_id)
+);
+
+create table user_achievement_icon_overrides (
+    user_id                  uuid not null references users(id) on delete cascade,
+    canonical_achievement_id uuid not null references canonical_achievements(id) on delete cascade,
+    icon_url                 text not null,
+    primary key (user_id, canonical_achievement_id)
+);
+
 -- Lets Steam sync skip re-fetching a game's achievement schema/unlocks/global
 -- rarity when nothing about that game could have changed since last sync -
 -- see #21. Steam-specific (keyed on appid, not a canonical game_id) since

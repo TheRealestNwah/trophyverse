@@ -10,7 +10,15 @@ export async function getGamesForUser(userId: string) {
         `select
             g.id,
             g.title,
-            g.cover_image_url,
+            -- A user's own pasted cover art (see #32) wins over the
+            -- auto-detected one on games.cover_image_url - scoped to
+            -- whichever user_id the caller resolved, so this works
+            -- unmodified for both the authenticated and public-profile
+            -- routes (a public profile shows its owner's own override).
+            coalesce(
+                (select cover_image_url from user_game_cover_overrides where user_id = $1 and game_id = g.id),
+                g.cover_image_url
+            ) as cover_image_url,
             (select array_agg(distinct platform_id) from game_platform_links where game_id = g.id) as platforms,
             -- Display-only console-generation tags per platform link (e.g.
             -- {"psn": "PS5"}) - see #19. Only ever populated where the
@@ -210,7 +218,14 @@ export async function getAchievementsForGame(userId: string, gameId: string) {
 
     const result = await pool.query(
         `select
-            ca.id, ca.name, ca.description, ca.tier, ca.points, ca.icon_url,
+            ca.id, ca.name, ca.description, ca.tier, ca.points,
+            -- A user's own pasted icon (see #32) wins over the auto-detected
+            -- one on canonical_achievements.icon_url, same reasoning as
+            -- cover art overrides in getGamesForUser above.
+            coalesce(
+                (select icon_url from user_achievement_icon_overrides where user_id = $1 and canonical_achievement_id = ca.id),
+                ca.icon_url
+            ) as icon_url,
             apl.platform_id, apl.global_unlock_rarity, gpl.console_variant,
             (uau.id is not null) as unlocked, uau.unlocked_at
          from canonical_achievements ca

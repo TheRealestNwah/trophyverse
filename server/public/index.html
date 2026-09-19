@@ -152,6 +152,43 @@
         flex-shrink: 0;
         background: #0b0d10;
     }
+    .game-cover-wrap { position: relative; flex-shrink: 0; }
+    .cover-edit-btn {
+        position: absolute;
+        bottom: -4px;
+        right: -4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        font-size: 10px;
+        line-height: 1;
+        padding: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .cover-edit-btn:hover { color: var(--text); border-color: var(--accent); }
+    .icon-edit-btn {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        font-size: 9px;
+        line-height: 1;
+        padding: 0;
+        cursor: pointer;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .icon-edit-btn:hover { color: var(--text); border-color: var(--accent); }
     .game-title { flex: 1; font-weight: 600; }
     .game-progress-text { font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
     .tier-pips { display: flex; gap: 6px; font-size: 12px; }
@@ -545,6 +582,49 @@ const gameSorters = {
     platform: (a, b) => (a.platforms || []).join(",").localeCompare((b.platforms || []).join(",")) || a.title.localeCompare(b.title),
 };
 
+async function setCoverArt(gameId) {
+    const url = prompt(
+        "Paste an image URL to use as this game's cover art.\nLeave blank to remove your override and use the auto-detected one."
+    );
+    if (url === null) return;
+    try {
+        if (url.trim() === "") {
+            await api(`/api/me/games/${gameId}/cover`, { method: "DELETE" });
+        } else {
+            await api(`/api/me/games/${gameId}/cover`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: url.trim() }),
+            });
+        }
+        await refreshGamesAndScore();
+    } catch (err) {
+        alert(`Couldn't update cover art: ${err.message}`);
+    }
+}
+
+async function setAchievementIcon(achievementId, gameEl, gameId) {
+    const url = prompt(
+        "Paste an image URL to use as this achievement's icon.\nLeave blank to remove your override and use the auto-detected one."
+    );
+    if (url === null) return;
+    try {
+        if (url.trim() === "") {
+            await api(`/api/me/achievements/${achievementId}/icon`, { method: "DELETE" });
+        } else {
+            await api(`/api/me/achievements/${achievementId}/icon`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: url.trim() }),
+            });
+        }
+        gameEl.querySelector(".achievements")?.remove();
+        await toggleAchievements(gameEl, gameId);
+    } catch (err) {
+        alert(`Couldn't update achievement icon: ${err.message}`);
+    }
+}
+
 function renderGames(games) {
     document.getElementById("games-heading").textContent =
         `Your games (${games.length})`;
@@ -566,11 +646,14 @@ function renderGames(games) {
         el.className = "game";
         el.innerHTML = `
             <div class="game-row" data-game-id="${game.id}">
-                ${
-                    game.cover_image_url
-                        ? `<img class="game-cover" src="${game.cover_image_url}" alt="" loading="lazy" onerror="this.remove()" />`
-                        : ""
-                }
+                <div class="game-cover-wrap">
+                    ${
+                        game.cover_image_url
+                            ? `<img class="game-cover" src="${game.cover_image_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                            : `<div class="game-cover"></div>`
+                    }
+                    <button class="cover-edit-btn" title="Set your own cover art">✎</button>
+                </div>
                 <div class="game-title">${game.title}</div>
                 ${platformBadges(game)}
                 <div class="tier-pips">${tierDots(game)}</div>
@@ -584,6 +667,10 @@ function renderGames(games) {
         } else {
             row.addEventListener("click", () => toggleAchievements(el, game.id));
         }
+        el.querySelector(".cover-edit-btn").addEventListener("click", (e) => {
+            e.stopPropagation();
+            setCoverArt(game.id);
+        });
         list.appendChild(el);
     }
 }
@@ -664,12 +751,13 @@ async function toggleAchievements(gameEl, gameId) {
             ${list
                 .map(
                     (a) => `
-                <div class="achievement ${a.unlocked ? "" : "locked"}">
+                <div class="achievement ${a.unlocked ? "" : "locked"}" data-achievement-id="${a.id}">
                     ${
                         a.icon_url
                             ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
-                            : ""
+                            : `<div class="achievement-icon"></div>`
                     }
+                    <button class="icon-edit-btn" title="Set your own icon">✎</button>
                     <span class="tier-tag ${a.tier}">${a.tier}</span>
                     <div class="achievement-body">
                         <div class="achievement-name">${a.name}</div>
@@ -684,6 +772,14 @@ async function toggleAchievements(gameEl, gameId) {
     `;
         })
         .join("");
+
+    panel.querySelectorAll(".icon-edit-btn").forEach((btn) => {
+        const achievementId = btn.closest(".achievement").dataset.achievementId;
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setAchievementIcon(achievementId, gameEl, gameId);
+        });
+    });
 }
 
 async function refreshGamesAndScore() {

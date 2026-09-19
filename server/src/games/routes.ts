@@ -112,3 +112,98 @@ gamesRouter.get("/games/:gameId/achievements", requireAuth, async (req, res, nex
         next(err);
     }
 });
+
+// Only checks that the URL is well-formed http(s) - deliberately doesn't
+// fetch it server-side to validate content-type, which would let a pasted
+// URL make the server issue requests to arbitrary (including internal)
+// addresses. A bad/broken URL just fails to load client-side, same as any
+// other image in this app (loading="lazy" + onerror removal).
+function isHttpUrl(value: unknown): value is string {
+    if (typeof value !== "string") return false;
+    try {
+        return ["http:", "https:"].includes(new URL(value).protocol);
+    } catch {
+        return false;
+    }
+}
+
+// User-pasted cover art/icons (see #32) - scoped per-user (see
+// db/schema.sql's user_game_cover_overrides/user_achievement_icon_overrides)
+// since games/canonical_achievements are shared canonical rows across every
+// user, not owned by any one of them.
+gamesRouter.put("/games/:gameId/cover", requireAuth, async (req, res, next) => {
+    try {
+        if (!isHttpUrl(req.body?.url)) {
+            return res.status(400).json({ error: "url must be a valid http(s) URL" });
+        }
+        const owns = await pool.query(
+            `select 1 from user_owned_games uog
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where upa.user_id = $1 and uog.game_id = $2
+             limit 1`,
+            [req.user!.id, req.params.gameId]
+        );
+        if (!owns.rows[0]) return res.status(404).json({ error: "Game not found in your library" });
+
+        await pool.query(
+            `insert into user_game_cover_overrides (user_id, game_id, cover_image_url)
+             values ($1, $2, $3)
+             on conflict (user_id, game_id) do update set cover_image_url = excluded.cover_image_url`,
+            [req.user!.id, req.params.gameId, req.body.url]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+gamesRouter.delete("/games/:gameId/cover", requireAuth, async (req, res, next) => {
+    try {
+        await pool.query("delete from user_game_cover_overrides where user_id = $1 and game_id = $2", [
+            req.user!.id,
+            req.params.gameId,
+        ]);
+        res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+gamesRouter.put("/achievements/:achievementId/icon", requireAuth, async (req, res, next) => {
+    try {
+        if (!isHttpUrl(req.body?.url)) {
+            return res.status(400).json({ error: "url must be a valid http(s) URL" });
+        }
+        const owns = await pool.query(
+            `select 1 from canonical_achievements ca
+             join user_owned_games uog on uog.game_id = ca.game_id
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where upa.user_id = $1 and ca.id = $2
+             limit 1`,
+            [req.user!.id, req.params.achievementId]
+        );
+        if (!owns.rows[0]) return res.status(404).json({ error: "Achievement not found in your library" });
+
+        await pool.query(
+            `insert into user_achievement_icon_overrides (user_id, canonical_achievement_id, icon_url)
+             values ($1, $2, $3)
+             on conflict (user_id, canonical_achievement_id) do update set icon_url = excluded.icon_url`,
+            [req.user!.id, req.params.achievementId, req.body.url]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+gamesRouter.delete("/achievements/:achievementId/icon", requireAuth, async (req, res, next) => {
+    try {
+        await pool.query(
+            "delete from user_achievement_icon_overrides where user_id = $1 and canonical_achievement_id = $2",
+            [req.user!.id, req.params.achievementId]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        next(err);
+    }
+});
