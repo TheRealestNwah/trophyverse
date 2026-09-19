@@ -88,6 +88,7 @@ export interface XboxTitleSummary {
     titleId: string;
     name: string;
     totalAchievements: number;
+    coverImageUrl?: string;
 }
 
 // /v2/achievements ("achievements grouped by title") actually returns the
@@ -96,13 +97,19 @@ export interface XboxTitleSummary {
 // titles have achievements worth fetching individually.
 export async function getTitles(apiKey: string): Promise<XboxTitleSummary[]> {
     const content = await get<{
-        titles: Array<{ titleId: string; name: string; achievement?: { totalAchievements: number } }>;
+        titles: Array<{
+            titleId: string;
+            name: string;
+            achievement?: { totalAchievements: number };
+            displayImage?: string;
+        }>;
     }>(apiKey, "/v2/achievements");
 
     return content.titles.map((t) => ({
         titleId: t.titleId,
         name: t.name,
         totalAchievements: t.achievement?.totalAchievements ?? 0,
+        coverImageUrl: t.displayImage,
     }));
 }
 
@@ -114,6 +121,7 @@ export interface XboxAchievement {
     timeUnlocked?: string;
     gamerscore: number;
     rarityPercent?: number;
+    iconUrl?: string;
 }
 
 interface RawXboxAchievement {
@@ -124,6 +132,7 @@ interface RawXboxAchievement {
     progression?: { timeUnlocked?: string };
     rewards?: Array<{ type: string; value: string }>;
     rarity?: { currentPercentage?: number };
+    mediaAssets?: Array<{ type: string; url: string }>;
 }
 
 function mapAchievement(a: RawXboxAchievement): XboxAchievement {
@@ -136,6 +145,7 @@ function mapAchievement(a: RawXboxAchievement): XboxAchievement {
         timeUnlocked: a.progression?.timeUnlocked,
         gamerscore: gamerscoreReward ? Number(gamerscoreReward.value) : 0,
         rarityPercent: a.rarity?.currentPercentage,
+        iconUrl: a.mediaAssets?.find((m) => m.type === "Icon")?.url,
     };
 }
 

@@ -33,13 +33,14 @@ export interface GameAchievementSchema {
     name: string; // api name, matches achievement_platform_links.platform_achievement_id
     displayName: string;
     description?: string;
+    iconUrl?: string;
 }
 
 export async function getSchemaForGame(appId: number): Promise<GameAchievementSchema[]> {
     const data = await get<{
         game?: {
             availableGameStats?: {
-                achievements?: Array<{ name: string; displayName: string; description?: string }>;
+                achievements?: Array<{ name: string; displayName: string; description?: string; icon?: string }>;
             };
         };
     }>("/ISteamUserStats/GetSchemaForGame/v2/", { appid: String(appId) });
@@ -49,6 +50,7 @@ export async function getSchemaForGame(appId: number): Promise<GameAchievementSc
         name: a.name,
         displayName: a.displayName,
         description: a.description,
+        iconUrl: a.icon,
     }));
 }
 

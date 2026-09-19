@@ -30,7 +30,12 @@ export async function syncRetroAccount(
             continue;
         }
 
-        const gameId = await getOrCreateCanonicalGame("retroachievements", game.gameId, game.title);
+        const gameId = await getOrCreateCanonicalGame(
+            "retroachievements",
+            game.gameId,
+            game.title,
+            game.coverImageUrl
+        );
         await recordOwnership(userPlatformAccountId, gameId);
 
         for (const achievement of achievements) {
@@ -41,7 +46,9 @@ export async function syncRetroAccount(
                 achievement.id,
                 achievement.name,
                 achievement.description,
-                achievement.globalUnlockRarity
+                achievement.globalUnlockRarity,
+                undefined,
+                achievement.iconUrl
             );
 
             if (!achievement.isUnlocked) continue;

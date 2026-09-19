@@ -16,7 +16,12 @@ export async function syncPsnAccount(userPlatformAccountId: string, accessToken:
         if (definitions.length === 0) continue;
 
         const earnedById = new Map(earned.map((t) => [t.trophyId, t]));
-        const gameId = await getOrCreateCanonicalGame("psn", title.npCommunicationId, title.trophyTitleName);
+        const gameId = await getOrCreateCanonicalGame(
+            "psn",
+            title.npCommunicationId,
+            title.trophyTitleName,
+            title.trophyTitleIconUrl
+        );
         await recordOwnership(userPlatformAccountId, gameId);
 
         for (const trophy of definitions) {
@@ -31,7 +36,8 @@ export async function syncPsnAccount(userPlatformAccountId: string, accessToken:
                 trophy.trophyName ?? "Hidden trophy",
                 trophy.trophyDetail,
                 rarity,
-                { tier: trophy.trophyType, tierSource: "psn_native" }
+                { tier: trophy.trophyType, tierSource: "psn_native" },
+                trophy.trophyIconUrl
             );
 
             if (!status?.earned) continue;

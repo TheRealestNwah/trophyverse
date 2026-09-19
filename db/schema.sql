@@ -116,6 +116,7 @@ create table canonical_achievements (
     tier         trophy_tier not null,
     tier_source  tier_source not null,
     points       smallint not null,   -- resolved from tier via tier_points, denormalized for fast scoring
+    icon_url     text,                -- set once from whichever platform's sync creates this row first, never overwritten
     created_at   timestamptz not null default now()
 );
 

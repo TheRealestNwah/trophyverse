@@ -23,7 +23,10 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
         ]);
         const unlockedByName = new Map(playerAchievements.map((a) => [a.apiname, a]));
 
-        const gameId = await getOrCreateCanonicalGame("steam", String(game.appid), game.name);
+        // Steam's CDN serves box art at a predictable per-appid URL - no API
+        // call needed, confirmed live (200) against a real appid.
+        const coverImageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/header.jpg`;
+        const gameId = await getOrCreateCanonicalGame("steam", String(game.appid), game.name, coverImageUrl);
         await recordOwnership(userPlatformAccountId, gameId);
 
         for (const achievement of schema) {
@@ -34,7 +37,9 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
                 achievement.name,
                 achievement.displayName,
                 achievement.description,
-                globalPercentages.get(achievement.name)
+                globalPercentages.get(achievement.name),
+                undefined,
+                achievement.iconUrl
             );
 
             const unlock = unlockedByName.get(achievement.name);
