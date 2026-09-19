@@ -57,7 +57,10 @@ async function getAchievements(gameId: string): Promise<AchievementRow[]> {
     }));
 }
 
-async function matchAchievementsForGame(gameId: string): Promise<{ merged: number; candidates: number }> {
+// Exported for the manual game-merge route (matching/routes.ts) - a merge
+// only needs to re-run matching for the one game just merged, not the whole
+// library the way matchAchievementsForAllGames does.
+export async function matchAchievementsForGame(gameId: string): Promise<{ merged: number; candidates: number }> {
     let achievements = await getAchievements(gameId);
     const platforms = [...new Set(achievements.map((a) => a.platformId))];
 

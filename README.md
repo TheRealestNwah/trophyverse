@@ -35,6 +35,7 @@ Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First l
 - **Connect RetroAchievements** — get a personal Web API key from your [account settings page](https://retroachievements.org/settings) and paste it in along with your username.
 - **Find matches** — links the same real-world game/achievement across platforms so they share one tier, PSN's own trophy tier always winning when a match includes it (see [docs/data-model.md](docs/data-model.md)). This does **not** collapse your score — unlocking the same achievement on two platforms (e.g. two separate platinums) still counts both. Run it any time after syncing more than one platform.
 - **Review matches** — high-confidence matches auto-merge, but anything uncertain queues up here for you to confirm or reject by hand instead of guessing wrong.
+- **Link games** — automatic game matching only merges on exact title, which misses genuine same-game cases formatted differently per platform (e.g. "Skyrim" on PSN vs "The Elder Scrolls V: Skyrim" on Steam). Click **Link games**, then click the game whose title you want to keep, then the duplicate to merge into it — re-runs achievement matching for just that game afterward. A filter box above the games list helps find entries in a large library.
 - **Public profile** — off by default. Turning it on publishes a PSNProfiles-style read-only page at `/u/<your-slug>` (no login required to view) showing your combined score, level, and full game/achievement list. Turning it back off takes it down immediately.
 - **Leaderboard** — `/leaderboard` ranks every opted-in public profile by total points. Private profiles never appear here, same as everywhere else.
 
@@ -45,6 +46,7 @@ API endpoints, if you want to hit them directly:
 - `POST /api/matching/run` — link matched games/achievements across all connected platforms (also runnable as `npm run match`)
 - `GET /api/matching/candidates` — pending low-confidence matches awaiting manual review
 - `POST /api/matching/candidates/:id/confirm`, `POST /api/matching/candidates/:id/reject` — resolve a pending candidate
+- `POST /api/matching/games/merge` (body: `{ keepGameId, mergeGameId }`) — manually merge two of your own library entries automatic matching missed (differently formatted titles across platforms)
 - `GET /api/me/accounts` — which platforms are linked and when each last synced
 - `GET /api/me/games` — all your games across every linked platform, combined into one row per game, with unlock counts and per-tier breakdown
 - `GET /api/me/games/:gameId/achievements` — full achievement list for one game, one row per `(achievement, platform)` so a matched achievement's separate completions on each platform each show their own unlock status

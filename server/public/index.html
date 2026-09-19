@@ -143,6 +143,7 @@
         cursor: pointer;
     }
     .game-row:hover { background: var(--card-hover); }
+    .game-row.link-selected { background: var(--card-hover); box-shadow: inset 0 0 0 2px var(--accent); }
     .game-title { flex: 1; font-weight: 600; }
     .game-progress-text { font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
     .tier-pips { display: flex; gap: 6px; font-size: 12px; }
@@ -271,17 +272,25 @@
                 <span class="platform-note" id="match-status"></span>
                 <button class="secondary" id="review-btn">Review matches</button>
                 <button class="secondary" id="match-btn">Find matches</button>
+                <button class="secondary" id="link-games-btn">Link games</button>
             </div>
         </div>
 
         <div id="review-panel" class="hidden"></div>
+
+        <input
+            type="text"
+            id="games-filter"
+            placeholder="Filter your games..."
+            style="width: 100%; margin-bottom: 12px; background: #0b0d10; border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: var(--text); font-size: 14px;"
+        />
 
         <div id="games-list"></div>
     </section>
 </main>
 
 <script>
-const state = { games: [] };
+const state = { games: [], linkMode: false, linkSelection: null };
 
 async function api(path, options) {
     const res = await fetch(path, { credentials: "same-origin", ...options });
@@ -331,9 +340,17 @@ function renderGames(games) {
     document.getElementById("games-heading").textContent =
         `Your games (${games.length})`;
 
+    const filterText = document.getElementById("games-filter").value.trim().toLowerCase();
+    const visible = filterText ? games.filter((g) => g.title.toLowerCase().includes(filterText)) : games;
+
     const list = document.getElementById("games-list");
     list.innerHTML = "";
-    for (const game of games) {
+    if (visible.length === 0) {
+        list.innerHTML = `<div class="loading-note">No games match "${filterText}".</div>`;
+        return;
+    }
+
+    for (const game of visible) {
         const el = document.createElement("div");
         el.className = "game";
         el.innerHTML = `
@@ -344,8 +361,54 @@ function renderGames(games) {
                 <div class="game-progress-text">${game.unlocked_achievements}/${game.total_achievements}</div>
             </div>
         `;
-        el.querySelector(".game-row").addEventListener("click", () => toggleAchievements(el, game.id));
+        const row = el.querySelector(".game-row");
+        if (state.linkMode) {
+            if (state.linkSelection === game.id) row.classList.add("link-selected");
+            row.addEventListener("click", () => handleLinkClick(game));
+        } else {
+            row.addEventListener("click", () => toggleAchievements(el, game.id));
+        }
         list.appendChild(el);
+    }
+}
+
+async function handleLinkClick(game) {
+    const status = document.getElementById("match-status");
+
+    if (!state.linkSelection) {
+        state.linkSelection = game.id;
+        status.textContent = `Selected "${game.title}" - now click the other entry to merge into it.`;
+        renderGames(state.games);
+        return;
+    }
+
+    if (state.linkSelection === game.id) {
+        // Clicking the same row again deselects it.
+        state.linkSelection = null;
+        status.textContent = "Pick a game to keep, then the duplicate to merge into it.";
+        renderGames(state.games);
+        return;
+    }
+
+    const keepGameId = state.linkSelection;
+    const keepGame = state.games.find((g) => g.id === keepGameId);
+    state.linkMode = false;
+    state.linkSelection = null;
+    document.getElementById("link-games-btn").textContent = "Link games";
+    status.textContent = `Merging "${game.title}" into "${keepGame?.title ?? "?"}"...`;
+
+    try {
+        await api("/api/matching/games/merge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ keepGameId, mergeGameId: game.id }),
+        });
+        status.textContent = `Merged. Achievements re-matched across the combined entry.`;
+        await refreshGamesAndScore();
+        await refreshReviewCount();
+    } catch (err) {
+        status.textContent = `Merge failed: ${err.message}`;
+        renderGames(state.games);
     }
 }
 
@@ -403,6 +466,7 @@ async function toggleAchievements(gameEl, gameId) {
 
 async function refreshGamesAndScore() {
     const [score, games] = await Promise.all([api("/api/me/score"), api("/api/me/games")]);
+    state.games = games;
     renderScore(score);
     renderGames(games);
 }
@@ -707,6 +771,16 @@ async function init() {
         panel.className = "review-list";
         panel.innerHTML = `<div class="loading-note">Loading...</div>`;
         renderReviewPanel(await api("/api/matching/candidates"));
+    });
+    document.getElementById("games-filter").addEventListener("input", () => renderGames(state.games));
+    document.getElementById("link-games-btn").addEventListener("click", (e) => {
+        state.linkMode = !state.linkMode;
+        state.linkSelection = null;
+        e.target.textContent = state.linkMode ? "Cancel linking" : "Link games";
+        document.getElementById("match-status").textContent = state.linkMode
+            ? "Pick a game to keep, then the duplicate to merge into it."
+            : "";
+        renderGames(state.games);
     });
 
     await refreshPlatforms();
