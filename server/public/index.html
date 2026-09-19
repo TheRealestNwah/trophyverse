@@ -1033,6 +1033,62 @@ function renderPlatforms(accounts) {
             }
         });
     }
+
+    const gogRow = document.createElement("div");
+    gogRow.className = "platform-row";
+    if (byPlatform.gog) {
+        gogRow.innerHTML = `
+            <span class="platform-name">GOG</span>
+            <span class="platform-note" id="gog-note">${byPlatform.gog.display_name} — ${
+                byPlatform.gog.last_synced_at
+                    ? `last synced ${new Date(byPlatform.gog.last_synced_at).toLocaleString()}`
+                    : "not synced yet"
+            }</span>
+            <button id="gog-sync-btn">Sync</button>
+            <button class="secondary" id="gog-disconnect-btn">Disconnect</button>
+        `;
+        list.appendChild(gogRow);
+        gogRow.querySelector("#gog-sync-btn").addEventListener("click", (e) =>
+            syncPlatform("gog", e.target, gogRow.querySelector("#gog-note"))
+        );
+        gogRow.querySelector("#gog-disconnect-btn").addEventListener("click", () => disconnectPlatform("gog", "GOG"));
+    } else {
+        gogRow.innerHTML = `
+            <span class="platform-name">GOG</span>
+            <a href="#" id="gog-login-link" target="_blank" rel="noopener">Log in at GOG</a>
+            <input type="text" id="gog-code-input" placeholder="Paste the code from the redirect URL" />
+            <button id="gog-connect-btn">Connect</button>
+        `;
+        list.appendChild(gogRow);
+        gogRow.querySelector("#gog-login-link").addEventListener("click", async (e) => {
+            e.preventDefault();
+            try {
+                const { url } = await api("/api/gog/login-url");
+                window.open(url, "_blank", "noopener");
+            } catch (err) {
+                alert("Couldn't get the GOG login link.");
+                console.error(err);
+            }
+        });
+        gogRow.querySelector("#gog-connect-btn").addEventListener("click", async () => {
+            const input = gogRow.querySelector("#gog-code-input");
+            const btn = gogRow.querySelector("#gog-connect-btn");
+            btn.disabled = true;
+            try {
+                await api("/api/gog/connect", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code: input.value.trim() }),
+                });
+                await refreshPlatforms();
+            } catch (err) {
+                alert(err.message || "Couldn't connect that GOG account. The code may have expired - try logging in again.");
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
 }
 
 async function refreshPlatforms() {
