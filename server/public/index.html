@@ -335,6 +335,8 @@
                 <button class="secondary" id="review-btn">Review matches</button>
                 <button class="secondary" id="match-btn">Find matches</button>
                 <button class="secondary" id="link-games-btn">Link games</button>
+                <button class="secondary" id="export-json-btn">Export JSON</button>
+                <button class="secondary" id="export-csv-btn">Export CSV</button>
             </div>
         </div>
 
@@ -1018,6 +1020,12 @@ async function init() {
     });
     document.getElementById("games-filter").addEventListener("input", () => renderGames(state.games));
     document.getElementById("games-sort").addEventListener("change", () => renderGames(state.games));
+    document.getElementById("export-json-btn").addEventListener("click", () => {
+        window.location.href = "/api/me/export?format=json";
+    });
+    document.getElementById("export-csv-btn").addEventListener("click", () => {
+        window.location.href = "/api/me/export?format=csv";
+    });
     document.getElementById("link-games-btn").addEventListener("click", (e) => {
         state.linkMode = !state.linkMode;
         state.linkSelection = null;
