@@ -1094,7 +1094,7 @@ async function init() {
         status.textContent = "Matching games and achievements across platforms...";
         try {
             const summary = await api("/api/matching/run", { method: "POST" });
-            status.textContent = `Merged ${summary.gameGroupsMerged} game(s), ${summary.achievementsMerged} achievement(s). ${summary.achievementCandidatesRecorded} possible match(es) queued for review.`;
+            status.textContent = `Merged ${summary.gameGroupsMerged} game(s), ${summary.achievementsMerged} achievement(s). ${summary.steamCatalogGamesEnriched} game(s) enriched with real Steam tier data. ${summary.achievementCandidatesRecorded} possible match(es) queued for review.`;
             await refreshGamesAndScore();
             await refreshReviewCount();
         } catch (err) {
