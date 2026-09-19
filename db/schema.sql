@@ -185,6 +185,16 @@ create table steam_game_sync_state (
     primary key (user_platform_account_id, appid)
 );
 
+-- getGlobalAchievementPercentages is re-fetched per owned game on every full
+-- sync, but global rarity shifts slowly - see #27. Shared across every user
+-- of the app (unlike steam_game_sync_state above, which is per-account),
+-- since one game's global percentages are the same for everyone who owns it.
+create table steam_global_rarity_cache (
+    appid       integer primary key,
+    percentages jsonb not null,
+    fetched_at  timestamptz not null default now()
+);
+
 -- Point value per tier. A table rather than a hardcoded constant so it can
 -- be tuned without a migration; seeded with PSN's published values.
 create table tier_points (

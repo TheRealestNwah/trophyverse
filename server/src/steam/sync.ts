@@ -35,6 +35,29 @@ async function saveSyncState(userPlatformAccountId: string, appid: number, playt
     );
 }
 
+// Global rarity shifts slowly (see #27) and this is the same data for every
+// user who owns a given game, so it's cached app-wide rather than per
+// account - unlike steam_game_sync_state above.
+const GLOBAL_RARITY_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function getCachedGlobalPercentages(appid: number): Promise<Map<string, number>> {
+    const cached = await pool.query("select percentages, fetched_at from steam_global_rarity_cache where appid = $1", [
+        appid,
+    ]);
+    if (cached.rows[0] && Date.now() - cached.rows[0].fetched_at.getTime() < GLOBAL_RARITY_TTL_MS) {
+        return new Map(Object.entries(cached.rows[0].percentages));
+    }
+
+    const fresh = await getGlobalAchievementPercentages(appid);
+    await pool.query(
+        `insert into steam_global_rarity_cache (appid, percentages, fetched_at)
+         values ($1, $2, now())
+         on conflict (appid) do update set percentages = excluded.percentages, fetched_at = excluded.fetched_at`,
+        [appid, JSON.stringify(Object.fromEntries(fresh))]
+    );
+    return fresh;
+}
+
 export async function syncSteamAccount(userPlatformAccountId: string, steamId: string): Promise<SyncSummary> {
     const games = await getOwnedGames(steamId);
     const syncState = await getSyncState(userPlatformAccountId);
@@ -61,7 +84,7 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
 
         const [playerAchievements, globalPercentages] = await Promise.all([
             getPlayerAchievements(game.appid, steamId),
-            getGlobalAchievementPercentages(game.appid),
+            getCachedGlobalPercentages(game.appid),
         ]);
         const unlockedByName = new Map(playerAchievements.map((a) => [a.apiname, a]));
 
