@@ -66,6 +66,109 @@ export async function getRecentActivity(userId: string, limit = 20) {
     return result.rows;
 }
 
+// Novelty stats in the spirit of PSNProfiles/TrueAchievements "fun facts" -
+// see #25. All read-only aggregates over data already tracked, no new
+// sync/schema work.
+// Excludes a known bad-data case, not the true earliest possible platform
+// date: some legacy Xbox 360 unlocks come back from OpenXBL with a bogus
+// sentinel timestamp (seen: 1752-12-31, centuries before Xbox existed, and
+// shared identically across 87 unlocks - enough to fake out "busiest day"
+// stats too) instead of a real unlock time - see #41 for the root cause.
+// 2000-01-01 predates every platform's first real achievement by years, so
+// it only ever excludes garbage, never a real early unlock.
+const UNLOCK_TIMESTAMP_FLOOR = "2000-01-01";
+
+export async function getFunStats(userId: string) {
+    const rarest = await pool.query(
+        `select ca.name, g.title as game_title, apl.platform_id, apl.global_unlock_rarity
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         join games g on g.id = ca.game_id
+         where upa.user_id = $1 and apl.global_unlock_rarity is not null
+         order by apl.global_unlock_rarity asc
+         limit 1`,
+        [userId]
+    );
+
+    const busiestPointsDay = await pool.query(
+        `select date(uau.unlocked_at) as day, sum(ca.points) as points
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         where upa.user_id = $1 and uau.unlocked_at > $2
+         group by day
+         order by points desc
+         limit 1`,
+        [userId, UNLOCK_TIMESTAMP_FLOOR]
+    );
+
+    const busiestUnlockDay = await pool.query(
+        `select date(uau.unlocked_at) as day, count(*) as unlocks
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         where upa.user_id = $1 and uau.unlocked_at > $2
+         group by day
+         order by unlocks desc
+         limit 1`,
+        [userId, UNLOCK_TIMESTAMP_FLOOR]
+    );
+
+    const oldest = await pool.query(
+        `select ca.name, g.title as game_title, apl.platform_id, uau.unlocked_at
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         join games g on g.id = ca.game_id
+         where upa.user_id = $1 and uau.unlocked_at > $2
+         order by uau.unlocked_at asc
+         limit 1`,
+        [userId, UNLOCK_TIMESTAMP_FLOOR]
+    );
+
+    // Platinum only ever comes from a real PSN trophy (see scoring/tier.ts) -
+    // the only tier where "completed everything else in the game" is a real,
+    // native signal rather than an inferred rarity guess.
+    const platinums = await pool.query(
+        `select uau.unlocked_at
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         where upa.user_id = $1 and ca.tier = 'platinum'
+         order by uau.unlocked_at asc`,
+        [userId]
+    );
+    let longestPlatinumGapDays: number | null = null;
+    for (let i = 1; i < platinums.rows.length; i++) {
+        const gapDays =
+            (new Date(platinums.rows[i].unlocked_at).getTime() - new Date(platinums.rows[i - 1].unlocked_at).getTime()) /
+            (1000 * 60 * 60 * 24);
+        if (longestPlatinumGapDays === null || gapDays > longestPlatinumGapDays) longestPlatinumGapDays = gapDays;
+    }
+
+    // Reuses the same unlocked/total counts the games list already computes
+    // (and has already been tested against) rather than re-deriving
+    // completion at the canonical-achievement level from scratch.
+    const games = await getGamesForUser(userId);
+    const fullyCompletedGames = games.filter(
+        (g) => Number(g.total_achievements) > 0 && Number(g.unlocked_achievements) === Number(g.total_achievements)
+    ).length;
+
+    return {
+        rarestAchievement: rarest.rows[0] ?? null,
+        busiestPointsDay: busiestPointsDay.rows[0] ?? null,
+        busiestUnlockDay: busiestUnlockDay.rows[0] ?? null,
+        oldestUnlock: oldest.rows[0] ?? null,
+        totalPlatinums: platinums.rows.length,
+        longestPlatinumGapDays: longestPlatinumGapDays !== null ? Math.round(longestPlatinumGapDays) : null,
+        fullyCompletedGames,
+    };
+}
+
 export async function getAchievementsForGame(userId: string, gameId: string) {
     const owns = await pool.query(
         `select 1 from user_owned_games uog
