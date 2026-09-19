@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trophyverse</title>
+<title>Unified Achievement Manager</title>
 <style>
     :root {
         --bg: #0f1115;
@@ -456,7 +456,7 @@ async function init() {
     }
 
     document.getElementById("profile-view").classList.remove("hidden");
-    document.title = `${profile.username} - Trophyverse`;
+    document.title = `${profile.username} - Unified Achievement Manager`;
     document.getElementById("compare-link").href = `/compare?a=${encodeURIComponent(slug)}`;
     renderScore(profile.username, profile.score);
     renderGames(await api(`/api/public/${slug}/games`));

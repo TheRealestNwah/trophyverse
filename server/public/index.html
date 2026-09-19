@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trophyverse</title>
+<title>Unified Achievement Manager</title>
 <style>
     :root {
         --bg: #0f1115;
@@ -812,7 +812,7 @@ async function handleLinkClick(game) {
 // collapsed it stays collapsed for every game, not just the one it was
 // toggled on, since a long platform's list (e.g. Steam) burying a shorter
 // one is a recurring annoyance across a whole library, not a one-off.
-const COLLAPSED_PLATFORMS_KEY = "trophyverse:collapsedPlatforms";
+const COLLAPSED_PLATFORMS_KEY = "unified-achievement-manager:collapsedPlatforms";
 
 function getCollapsedPlatforms() {
     try {

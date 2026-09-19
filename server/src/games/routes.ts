@@ -91,10 +91,10 @@ gamesRouter.get("/export", requireAuth, async (req, res, next) => {
 
         if (wantsCsv) {
             res.setHeader("Content-Type", "text/csv");
-            res.setHeader("Content-Disposition", 'attachment; filename="trophyverse-export.csv"');
+            res.setHeader("Content-Disposition", 'attachment; filename="unified-achievement-manager-export.csv"');
             res.send(toCsv(rows));
         } else {
-            res.setHeader("Content-Disposition", 'attachment; filename="trophyverse-export.json"');
+            res.setHeader("Content-Disposition", 'attachment; filename="unified-achievement-manager-export.json"');
             res.json(rows);
         }
     } catch (err) {
