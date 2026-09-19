@@ -1,4 +1,5 @@
 const BASE_URL = "https://retroachievements.org/API";
+const MEDIA_BASE_URL = "https://media.retroachievements.org";
 
 export class RetroApiError extends Error {
     constructor(public status: number, message: string) {
@@ -60,11 +61,13 @@ export async function verifyAccount(username: string, apiKey: string): Promise<R
 export interface RetroGameSummary {
     gameId: string;
     title: string;
+    coverImageUrl?: string;
 }
 
 interface RawCompletedGame {
     GameID: number;
     Title: string;
+    ImageIcon?: string;
 }
 
 // Returns one entry per game the user has ever earned an achievement in.
@@ -75,9 +78,13 @@ interface RawCompletedGame {
 export async function getUserGames(username: string, apiKey: string): Promise<RetroGameSummary[]> {
     const data = await get<RawCompletedGame[]>("API_GetUserCompletedGames.php", { u: username, y: apiKey });
 
-    const byId = new Map<string, string>();
-    for (const g of data) byId.set(String(g.GameID), g.Title);
-    return [...byId.entries()].map(([gameId, title]) => ({ gameId, title }));
+    const byId = new Map<string, { title: string; imageIcon?: string }>();
+    for (const g of data) byId.set(String(g.GameID), { title: g.Title, imageIcon: g.ImageIcon });
+    return [...byId.entries()].map(([gameId, { title, imageIcon }]) => ({
+        gameId,
+        title,
+        coverImageUrl: imageIcon ? `${MEDIA_BASE_URL}${imageIcon}` : undefined,
+    }));
 }
 
 export interface RetroAchievement {
@@ -87,6 +94,7 @@ export interface RetroAchievement {
     isUnlocked: boolean;
     unlockedAt?: string;
     globalUnlockRarity?: number;
+    iconUrl?: string;
 }
 
 interface RawAchievement {
@@ -96,6 +104,7 @@ interface RawAchievement {
     NumAwarded: number;
     DateEarned?: string;
     DateEarnedHardcore?: string;
+    BadgeName?: string;
 }
 
 interface RawGameProgress {
@@ -129,5 +138,6 @@ export async function getGameProgress(
         isUnlocked: Boolean(a.DateEarned || a.DateEarnedHardcore),
         unlockedAt: a.DateEarnedHardcore ?? a.DateEarned,
         globalUnlockRarity: totalPlayers > 0 ? (a.NumAwarded / totalPlayers) * 100 : undefined,
+        iconUrl: a.BadgeName ? `${MEDIA_BASE_URL}/Badge/${a.BadgeName}.png` : undefined,
     }));
 }

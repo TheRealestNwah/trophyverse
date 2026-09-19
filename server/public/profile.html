@@ -90,6 +90,7 @@
     }
     .game-row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; cursor: pointer; }
     .game-row:hover { background: var(--card-hover); }
+    .game-cover { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: #0b0d10; }
     .game-title { flex: 1; font-weight: 600; }
     .game-progress-text { font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
     .tier-pips { display: flex; gap: 6px; font-size: 12px; }
@@ -110,6 +111,7 @@
     .achievement { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
     .achievement:last-child { border-bottom: none; }
     .achievement.locked { opacity: 0.45; }
+    .achievement-icon { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: #0b0d10; }
     .tier-tag {
         font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px;
         border-radius: 4px; color: #0b0d10; flex-shrink: 0; width: 72px; white-space: nowrap; text-align: center;
@@ -216,6 +218,11 @@ function renderGames(games) {
         el.className = "game";
         el.innerHTML = `
             <div class="game-row" data-game-id="${game.id}">
+                ${
+                    game.cover_image_url
+                        ? `<img class="game-cover" src="${game.cover_image_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                        : ""
+                }
                 <div class="game-title">${game.title}</div>
                 ${platformBadges(game)}
                 <div class="tier-pips">${tierDots(game)}</div>
@@ -259,6 +266,11 @@ async function toggleAchievements(gameEl, gameId) {
                 .map(
                     (a) => `
                 <div class="achievement ${a.unlocked ? "" : "locked"}">
+                    ${
+                        a.icon_url
+                            ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                            : ""
+                    }
                     <span class="tier-tag ${a.tier}">${a.tier}</span>
                     <div class="achievement-body">
                         <div class="achievement-name">${a.name}</div>

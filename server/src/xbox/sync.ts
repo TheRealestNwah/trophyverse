@@ -20,7 +20,7 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
         }
         if (achievements.length === 0) continue;
 
-        const gameId = await getOrCreateCanonicalGame("xbox", title.titleId, title.name);
+        const gameId = await getOrCreateCanonicalGame("xbox", title.titleId, title.name, title.coverImageUrl);
         await recordOwnership(userPlatformAccountId, gameId);
         gamesProcessed++;
 
@@ -32,7 +32,9 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
                 achievement.id,
                 achievement.name,
                 achievement.description,
-                achievement.rarityPercent
+                achievement.rarityPercent,
+                undefined,
+                achievement.iconUrl
             );
 
             if (!achievement.isUnlocked) continue;

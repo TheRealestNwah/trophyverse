@@ -10,6 +10,7 @@ export async function getGamesForUser(userId: string) {
         `select
             g.id,
             g.title,
+            g.cover_image_url,
             (select array_agg(distinct platform_id) from game_platform_links where game_id = g.id) as platforms,
             count(ca.id) as total_achievements,
             count(uau.id) as unlocked_achievements,
@@ -34,7 +35,7 @@ export async function getGamesForUser(userId: string) {
              join user_platform_accounts upa on upa.id = uog.user_platform_account_id
              where upa.user_id = $1 and uog.game_id = g.id
          )
-         group by g.id, g.title
+         group by g.id, g.title, g.cover_image_url
          order by unlocked_achievements desc, g.title`,
         [userId]
     );
@@ -53,7 +54,7 @@ export async function getAchievementsForGame(userId: string, gameId: string) {
 
     const result = await pool.query(
         `select
-            ca.id, ca.name, ca.description, ca.tier, ca.points,
+            ca.id, ca.name, ca.description, ca.tier, ca.points, ca.icon_url,
             apl.platform_id, apl.global_unlock_rarity,
             (uau.id is not null) as unlocked, uau.unlocked_at
          from canonical_achievements ca

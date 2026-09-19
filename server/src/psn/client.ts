@@ -158,6 +158,7 @@ export interface PsnTitle {
     npCommunicationId: string;
     npServiceName: "trophy" | "trophy2";
     trophyTitleName: string;
+    trophyTitleIconUrl?: string;
 }
 
 export async function getUserTitles(accessToken: string): Promise<PsnTitle[]> {
@@ -184,6 +185,7 @@ export interface PsnTrophyDefinition {
     trophyName?: string;
     trophyDetail?: string;
     trophyHidden: boolean;
+    trophyIconUrl?: string;
 }
 
 export async function getTitleTrophies(

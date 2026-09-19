@@ -8,18 +8,34 @@ import { resolveTierFromRarity, TIER_POINTS } from "../scoring/tier";
 export async function getOrCreateCanonicalGame(
     platformId: string,
     platformGameId: string,
-    title: string
+    title: string,
+    coverImageUrl?: string
 ): Promise<string> {
     const existing = await pool.query(
         "select game_id from game_platform_links where platform_id = $1 and platform_game_id = $2",
         [platformId, platformGameId]
     );
-    if (existing.rows[0]) return existing.rows[0].game_id;
+    if (existing.rows[0]) {
+        // Opportunistic backfill - a game created by a platform with no
+        // usable cover art can still pick one up later from a different
+        // platform's sync, but an existing image is never replaced (no
+        // platform's art is treated as more authoritative than another's).
+        if (coverImageUrl) {
+            await pool.query("update games set cover_image_url = $1 where id = $2 and cover_image_url is null", [
+                coverImageUrl,
+                existing.rows[0].game_id,
+            ]);
+        }
+        return existing.rows[0].game_id;
+    }
 
     const client = await pool.connect();
     try {
         await client.query("begin");
-        const game = await client.query("insert into games (title) values ($1) returning id", [title]);
+        const game = await client.query("insert into games (title, cover_image_url) values ($1, $2) returning id", [
+            title,
+            coverImageUrl ?? null,
+        ]);
         await client.query(
             `insert into game_platform_links (game_id, platform_id, platform_game_id, platform_title)
              values ($1, $2, $3, $4)`,
@@ -48,16 +64,28 @@ export async function getOrCreateAchievementLink(
     name: string,
     description: string | undefined,
     globalRarity: number | undefined,
-    nativeTier?: NativeTier
+    nativeTier?: NativeTier,
+    iconUrl?: string
 ): Promise<string> {
     // Platform achievement IDs are typically only unique within one game
     // (e.g. Steam's api names, Xbox's small per-title integer IDs), so the
     // lookup must be scoped by the platform's game ID too.
     const existing = await pool.query(
-        "select id from achievement_platform_links where platform_id = $1 and platform_game_id = $2 and platform_achievement_id = $3",
+        "select id, canonical_achievement_id from achievement_platform_links where platform_id = $1 and platform_game_id = $2 and platform_achievement_id = $3",
         [platformId, platformGameId, platformAchievementId]
     );
-    if (existing.rows[0]) return existing.rows[0].id;
+    if (existing.rows[0]) {
+        // Same opportunistic backfill as getOrCreateCanonicalGame above -
+        // achievement rows created before this field existed (or by a
+        // platform with no icon data) can still pick one up on a later sync.
+        if (iconUrl) {
+            await pool.query("update canonical_achievements set icon_url = $1 where id = $2 and icon_url is null", [
+                iconUrl,
+                existing.rows[0].canonical_achievement_id,
+            ]);
+        }
+        return existing.rows[0].id;
+    }
 
     // PSN's own trophy tier is authoritative when available (see
     // docs/data-model.md) - every other platform's tier is inferred from
@@ -70,9 +98,9 @@ export async function getOrCreateAchievementLink(
     try {
         await client.query("begin");
         const canonical = await client.query(
-            `insert into canonical_achievements (game_id, name, description, tier, tier_source, points)
-             values ($1, $2, $3, $4, $5, $6) returning id`,
-            [gameId, name, description ?? null, tier, tierSource, points]
+            `insert into canonical_achievements (game_id, name, description, tier, tier_source, points, icon_url)
+             values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+            [gameId, name, description ?? null, tier, tierSource, points, iconUrl ?? null]
         );
         const link = await client.query(
             `insert into achievement_platform_links
