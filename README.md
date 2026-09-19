@@ -33,6 +33,7 @@ Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First l
 - **Connect Xbox** — get a personal API key from [xbl.io/dashboard](https://xbl.io/dashboard) (sign in with your Microsoft account there first) and paste it in.
 - **Connect PSN** — log into [playstation.com](https://www.playstation.com), then in the same browser visit https://ca.account.sony.com/api/v1/ssocookie and paste the `npsso` value from the JSON it shows. Treat that token like a password — it grants full account access.
 - **Connect RetroAchievements** — get a personal Web API key from your [account settings page](https://retroachievements.org/settings) and paste it in along with your username.
+- **Disconnect** — Xbox, PSN, and RetroAchievements can each be unlinked; this removes that platform's synced games/achievements from your library and recomputes your score. Steam can't be disconnected since it's how you sign in.
 - **Find matches** — links the same real-world game/achievement across platforms so they share one tier, PSN's own trophy tier always winning when a match includes it (see [docs/data-model.md](docs/data-model.md)). This does **not** collapse your score — unlocking the same achievement on two platforms (e.g. two separate platinums) still counts both. Run it any time after syncing more than one platform.
 - **Review matches** — high-confidence matches auto-merge, but anything uncertain queues up here for you to confirm or reject by hand instead of guessing wrong.
 - **Link games** — automatic game matching only merges on exact title, which misses genuine same-game cases formatted differently per platform (e.g. "Skyrim" on PSN vs "The Elder Scrolls V: Skyrim" on Steam). Click **Link games**, then click the game whose title you want to keep, then the duplicate to merge into it — re-runs achievement matching for just that game afterward. A filter box above the games list helps find entries in a large library.
@@ -48,6 +49,7 @@ API endpoints, if you want to hit them directly:
 - `POST /api/matching/candidates/:id/confirm`, `POST /api/matching/candidates/:id/reject` — resolve a pending candidate
 - `POST /api/matching/games/merge` (body: `{ keepGameId, mergeGameId }`) — manually merge two of your own library entries automatic matching missed (differently formatted titles across platforms)
 - `GET /api/me/accounts` — which platforms are linked and when each last synced
+- `DELETE /api/me/accounts/:platformId` — disconnect a linked platform (Steam can't be disconnected - it's the sign-in identity); removes that account's synced games/unlocks and recomputes your score
 - `GET /api/me/games` — all your games across every linked platform, combined into one row per game, with unlock counts and per-tier breakdown
 - `GET /api/me/games/:gameId/achievements` — full achievement list for one game, one row per `(achievement, platform)` so a matched achievement's separate completions on each platform each show their own unlock status
 - `GET /api/me/score` — total points, level, and progress to the next level, summing every unlock on every linked platform (no cross-platform dedup — see [docs/data-model.md](docs/data-model.md))
