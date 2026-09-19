@@ -3,7 +3,7 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { exchangeNpssoForAccessCode, exchangeAccessCodeForTokens, decodeIdToken, PsnApiError } from "./client";
 import { runAccountSync, PlatformAccountRow } from "../sync/runAccountSync";
-import { recomputeUserScore } from "../scoring";
+import { runMatchingAndGetScore } from "../matching";
 
 export const psnRouter = Router();
 
@@ -61,7 +61,7 @@ psnRouter.post("/sync", requireAuth, async (req, res, next) => {
         // roughly an hour, so every sync refreshes unconditionally rather
         // than tracking expiry ourselves.
         const summary = await runAccountSync(account);
-        const score = await recomputeUserScore(req.user!.id);
+        const score = await runMatchingAndGetScore(req.user!.id);
         res.json({ ...summary, score });
     } catch (err) {
         if (err instanceof PsnApiError && err.status === 401) {
