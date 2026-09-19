@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
-import { getGamesForUser, getAchievementsForGame } from "./queries";
+import { getGamesForUser, getAchievementsForGame, getRecentActivity } from "./queries";
 import { recomputeUserScore } from "../scoring";
 
 export const gamesRouter = Router();
@@ -49,6 +49,14 @@ gamesRouter.delete("/accounts/:platformId", requireAuth, async (req, res, next) 
 gamesRouter.get("/games", requireAuth, async (req, res, next) => {
     try {
         res.json(await getGamesForUser(req.user!.id));
+    } catch (err) {
+        next(err);
+    }
+});
+
+gamesRouter.get("/activity", requireAuth, async (req, res, next) => {
+    try {
+        res.json(await getRecentActivity(req.user!.id));
     } catch (err) {
         next(err);
     }

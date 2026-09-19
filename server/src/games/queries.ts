@@ -47,6 +47,25 @@ export async function getGamesForUser(userId: string) {
     return result.rows;
 }
 
+export async function getRecentActivity(userId: string, limit = 20) {
+    const result = await pool.query(
+        `select
+            ca.name, ca.tier, ca.points, ca.icon_url,
+            g.id as game_id, g.title as game_title,
+            apl.platform_id, uau.unlocked_at
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         join games g on g.id = ca.game_id
+         where upa.user_id = $1
+         order by uau.unlocked_at desc
+         limit $2`,
+        [userId, limit]
+    );
+    return result.rows;
+}
+
 export async function getAchievementsForGame(userId: string, gameId: string) {
     const owns = await pool.query(
         `select 1 from user_owned_games uog
