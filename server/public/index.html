@@ -162,6 +162,26 @@
     .dot.silver { background: var(--silver); }
     .dot.bronze { background: var(--bronze); }
 
+    .activity-panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 4px 16px;
+        margin-bottom: 24px;
+    }
+    .activity-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-body { flex: 1; min-width: 0; }
+    .activity-name { font-weight: 600; }
+    .activity-meta { font-size: 12px; color: var(--text-dim); }
+    .activity-time { font-size: 12px; color: var(--text-dim); flex-shrink: 0; white-space: nowrap; }
+
     .achievements { border-top: 1px solid var(--border); padding: 8px 16px; }
     .platform-section { margin-bottom: 12px; }
     .platform-section:last-child { margin-bottom: 0; }
@@ -262,6 +282,11 @@
             </div>
         </div>
 
+        <h2 style="font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0 0 8px;">Recent activity</h2>
+        <div class="activity-panel" id="activity-panel">
+            <div class="loading-note">Loading...</div>
+        </div>
+
         <div class="platforms" id="platforms-list"></div>
         <p class="loading-note" style="margin: -8px 0 20px;">
             PSN has no public login - to connect it, log into
@@ -344,6 +369,53 @@ function renderScore(score) {
     const progressed = score.totalPoints - score.pointsForCurrentLevel;
     const pct = score.pointsForNextLevel != null ? Math.min(100, (progressed / span) * 100) : 100;
     document.getElementById("progress-fill").style.width = `${pct}%`;
+}
+
+function relativeTime(isoString) {
+    const seconds = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+    const units = [
+        ["year", 31536000],
+        ["month", 2592000],
+        ["day", 86400],
+        ["hour", 3600],
+        ["minute", 60],
+    ];
+    for (const [name, secondsPerUnit] of units) {
+        const value = Math.floor(seconds / secondsPerUnit);
+        if (value >= 1) return `${value} ${name}${value > 1 ? "s" : ""} ago`;
+    }
+    return "just now";
+}
+
+function renderActivity(items) {
+    const panel = document.getElementById("activity-panel");
+    if (items.length === 0) {
+        panel.innerHTML = `<div class="loading-note">Nothing unlocked yet - sync a platform to get started.</div>`;
+        return;
+    }
+    panel.innerHTML = items
+        .map(
+            (a) => `
+        <div class="activity-item">
+            ${
+                a.icon_url
+                    ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                    : ""
+            }
+            <span class="tier-tag ${a.tier}">${a.tier}</span>
+            <div class="activity-body">
+                <div class="activity-name">${a.name}</div>
+                <div class="activity-meta">${a.game_title} <span class="platform-badge">${a.platform_id}</span></div>
+            </div>
+            <div class="activity-time">${relativeTime(a.unlocked_at)}</div>
+        </div>
+    `
+        )
+        .join("");
+}
+
+async function refreshActivity() {
+    renderActivity(await api("/api/me/activity"));
 }
 
 function platformBadges(game) {
@@ -558,6 +630,7 @@ async function syncPlatform(platformId, button, noteEl) {
         noteEl.textContent = `Synced ${summary.gamesProcessed} games, ${summary.achievementsUnlocked} new unlocks.`;
         renderScore(summary.score);
         await refreshGamesAndScore();
+        await refreshActivity();
     } catch (err) {
         noteEl.textContent = err.message?.includes("429") || err.message?.toLowerCase().includes("rate limit")
             ? "Rate limited by Xbox's API — wait a bit and try again."
@@ -834,6 +907,7 @@ async function init() {
 
     await refreshPlatforms();
     await refreshGamesAndScore();
+    await refreshActivity();
     await refreshReviewCount();
 }
 
