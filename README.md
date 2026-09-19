@@ -1,5 +1,7 @@
 # Trophyverse
 
+*("Trophyverse" is a working title, not final.)*
+
 A cross-platform achievement/trophy aggregator — connect your Steam, Xbox, PlayStation, and RetroAchievements accounts and see everything in one place, with a unified score and level modeled on PlayStation's trophy system.
 
 ## Concept
