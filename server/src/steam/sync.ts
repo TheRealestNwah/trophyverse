@@ -103,8 +103,13 @@ export async function syncSteamAccount(userPlatformAccountId: string, steamId: s
         const unlockedByName = new Map(playerAchievements.map((a) => [a.apiname, a]));
 
         // Steam's CDN serves box art at a predictable per-appid URL - no API
-        // call needed, confirmed live (200) against a real appid.
-        const coverImageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/header.jpg`;
+        // call needed, confirmed live (200) against a real appid. The
+        // library capsule (portrait 600x900, the same shape modern Steam's
+        // own library grid uses and what SteamGridDB's default grid images
+        // match) rather than the landscape header capsule - a landscape
+        // image cropped into the dashboard's portrait cover box just shows a
+        // cropped sliver of the middle.
+        const coverImageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`;
         const gameId = await getOrCreateCanonicalGame("steam", String(game.appid), game.name, coverImageUrl);
         await recordOwnership(userPlatformAccountId, gameId);
 
