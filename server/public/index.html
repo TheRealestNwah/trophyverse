@@ -4,6 +4,14 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Unified Achievement Manager</title>
+<script>
+(function () {
+    try {
+        var saved = localStorage.getItem("uam-theme");
+        if (saved) document.documentElement.setAttribute("data-theme", saved);
+    } catch (e) {}
+})();
+</script>
 <style>
     :root {
         --bg: #FFFFFF;
@@ -22,9 +30,58 @@
         --silver: #A9AEBB;
         --gold: #D6AD57;
         --platinum: #C9CEDB;
+        --ring-bg: #EFEFF1;
+        --ring-track: rgba(0,0,0,0.06);
+        --placeholder-bg: rgba(0,0,0,0.05);
+        --scrollbar-thumb: rgba(0,0,0,.15);
+        --chip-accent-bg: rgba(0,113,227,0.1);
+        --chip-accent-border: rgba(0,113,227,0.25);
+        color-scheme: light;
         --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
         --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
         --font-display: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+            --bg: #1C1C1E;
+            --sidebar-bg: #232326;
+            --topbar-bg: #201F22;
+            --card: #2C2C2E;
+            --card-hover: #37373A;
+            --border: rgba(255,255,255,.08);
+            --border-2: rgba(255,255,255,.05);
+            --text: #F2F2F2;
+            --text-dim: #9A9A9E;
+            --text-dimmer: #6E6E73;
+            --accent: #0A84FF;
+            --ring-bg: #3A3A3C;
+            --ring-track: rgba(255,255,255,0.08);
+            --placeholder-bg: rgba(255,255,255,0.06);
+            --scrollbar-thumb: rgba(255,255,255,.15);
+            --chip-accent-bg: rgba(10,132,255,0.16);
+            --chip-accent-border: rgba(10,132,255,0.4);
+            color-scheme: dark;
+        }
+    }
+    :root[data-theme="dark"] {
+        --bg: #1C1C1E;
+        --sidebar-bg: #232326;
+        --topbar-bg: #201F22;
+        --card: #2C2C2E;
+        --card-hover: #37373A;
+        --border: rgba(255,255,255,.08);
+        --border-2: rgba(255,255,255,.05);
+        --text: #F2F2F2;
+        --text-dim: #9A9A9E;
+        --text-dimmer: #6E6E73;
+        --accent: #0A84FF;
+        --ring-bg: #3A3A3C;
+        --ring-track: rgba(255,255,255,0.08);
+        --placeholder-bg: rgba(255,255,255,0.06);
+        --scrollbar-thumb: rgba(255,255,255,.15);
+        --chip-accent-bg: rgba(10,132,255,0.16);
+        --chip-accent-border: rgba(10,132,255,0.4);
+        color-scheme: dark;
     }
     * { box-sizing: border-box; }
     body {
@@ -33,9 +90,10 @@
         background: var(--bg);
         color: var(--text);
         -webkit-font-smoothing: antialiased;
+        transition: background-color .15s ease, color .15s ease;
     }
     ::-webkit-scrollbar { width: 10px; }
-    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 8px; }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 8px; }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
     @keyframes ringShimmer { 0%, 100% { opacity: .3; } 50% { opacity: .9; } }
     @media (prefers-reduced-motion: reduce) {
@@ -149,6 +207,17 @@
         color: var(--text);
         border: 1px solid var(--border);
     }
+    .theme-toggle-btn {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-dim);
+    }
+    .theme-toggle-btn:hover { color: var(--text); }
 
     #signin-view { text-align: center; padding: 80px 24px; }
     #signin-view p { color: var(--text-dim); margin-bottom: 24px; }
@@ -170,7 +239,7 @@
         height: 108px;
         flex-shrink: 0;
         border-radius: 50%;
-        background: #EFEFF1;
+        background: var(--ring-bg);
     }
     .level-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
     .level-ring .ring-shimmer { animation: ringShimmer 5s ease-in-out infinite; }
@@ -199,8 +268,8 @@
         height: 28px;
         padding: 0 10px 0 12px;
         border-radius: 7px;
-        background: rgba(0,113,227,0.1);
-        border: 1px solid rgba(0,113,227,0.25);
+        background: var(--chip-accent-bg);
+        border: 1px solid var(--chip-accent-border);
         color: var(--accent);
         font-size: 12.5px;
         font-weight: 600;
@@ -273,7 +342,7 @@
         border-radius: 10px;
         object-fit: cover;
         flex-shrink: 0;
-        background: rgba(0,0,0,0.05);
+        background: var(--placeholder-bg);
     }
     .game-cover-wrap { position: relative; flex-shrink: 0; }
     .cover-edit-btn {
@@ -434,7 +503,7 @@
         border-radius: 50%;
         object-fit: cover;
         flex-shrink: 0;
-        background: rgba(0,0,0,0.05);
+        background: var(--placeholder-bg);
     }
     .tier-tag {
         font-size: 10px;
@@ -544,6 +613,10 @@
     <div class="content-pane">
         <div class="topbar">
             <span class="topbar-title" id="topbar-title">Overview</span>
+            <button type="button" class="secondary theme-toggle-btn" id="theme-toggle-btn" aria-label="Switch to dark theme" title="Switch theme">
+                <svg id="theme-icon-moon" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.4 9.4A5.6 5.6 0 1 1 6.6 2.6a4.3 4.3 0 0 0 6.8 6.8z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                <svg id="theme-icon-sun" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" class="hidden"><circle cx="8" cy="8" r="3.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.2v1.7M8 13.1v1.7M14.8 8h-1.7M2.9 8H1.2M12.7 3.3l-1.2 1.2M4.5 11.5l-1.2 1.2M12.7 12.7l-1.2-1.2M4.5 4.5 3.3 3.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </button>
         </div>
 
         <main>
@@ -564,7 +637,7 @@
                                     <stop offset="100%" stop-color="var(--platinum)"/>
                                 </linearGradient>
                             </defs>
-                            <circle cx="54" cy="54" r="46" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="9"/>
+                            <circle cx="54" cy="54" r="46" fill="none" stroke="var(--ring-track)" stroke-width="9"/>
                             <circle id="level-ring-fill" cx="54" cy="54" r="46" fill="none" stroke="url(#tierSweep)" stroke-width="9" stroke-linecap="round" stroke-dasharray="289.03" stroke-dashoffset="289.03"/>
                             <path d="M18 30A46 46 0 0 1 54 8" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round" class="ring-shimmer"/>
                         </svg>
@@ -663,6 +736,26 @@
 
 <script>
 const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null };
+
+const THEME_KEY = "uam-theme";
+function isDarkActive() {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved) return saved === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function updateThemeToggle() {
+    const dark = isDarkActive();
+    document.getElementById("theme-icon-moon").classList.toggle("hidden", dark);
+    document.getElementById("theme-icon-sun").classList.toggle("hidden", !dark);
+    document.getElementById("theme-toggle-btn").setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+}
+document.getElementById("theme-toggle-btn").addEventListener("click", () => {
+    const next = isDarkActive() ? "light" : "dark";
+    localStorage.setItem(THEME_KEY, next);
+    document.documentElement.setAttribute("data-theme", next);
+    updateThemeToggle();
+});
+updateThemeToggle();
 
 async function api(path, options) {
     const res = await fetch(path, { credentials: "same-origin", ...options });
