@@ -4,93 +4,23 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Compare - Unified Achievement Manager</title>
+<script src="/shared-theme.js"></script>
+<link rel="stylesheet" href="/shared-theme.css" />
 <style>
-    :root {
-        --bg: #0f1115;
-        --card: #1b1e24;
-        --card-hover: #22262e;
-        --border: #2a2e37;
-        --text: #e8e9ec;
-        --text-dim: #9aa0ab;
-        --accent: #6d8dfa;
-        --bronze: #cd7f32;
-        --silver: #b8bec7;
-        --gold: #f0c341;
-        --platinum: #7dd3fc;
-    }
-    * { box-sizing: border-box; }
-    body {
-        margin: 0;
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-        background: var(--bg);
-        color: var(--text);
-    }
-    header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--border);
-    }
-    header h1 { font-size: 20px; margin: 0; }
-    header h1 span { color: var(--accent); }
-    header a { color: var(--text-dim); font-size: 13px; text-decoration: none; }
-    main { max-width: 960px; margin: 0 auto; padding: 24px; }
-    .hidden { display: none !important; }
-    .loading-note { color: var(--text-dim); text-align: center; padding: 24px; }
-
-    .compare-form {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 24px;
-    }
+    .compare-form { display: flex; gap: 8px; margin-bottom: 24px; }
     .compare-form input {
         flex: 1;
-        background: #0b0d10;
+        background: var(--bg);
         border: 1px solid var(--border);
-        border-radius: 6px;
+        border-radius: 7px;
         padding: 9px 12px;
         color: var(--text);
         font-size: 14px;
-    }
-    .compare-form button {
-        background: var(--accent);
-        color: #0b0d10;
-        border: none;
-        border-radius: 6px;
-        padding: 9px 18px;
-        font-weight: 600;
-        cursor: pointer;
+        font-family: inherit;
     }
 
     .score-columns { display: flex; gap: 16px; margin-bottom: 24px; }
-    .score-card {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 20px;
-        min-width: 0;
-    }
-    .level-badge {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--accent), #a06dfa);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .level-badge .n { font-size: 20px; font-weight: 700; line-height: 1; }
-    .level-badge .l { font-size: 8px; letter-spacing: 1px; opacity: 0.85; }
-    .score-info { min-width: 0; }
-    .score-info .username { font-weight: 700; font-size: 15px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .score-info .points { font-size: 13px; color: var(--text-dim); }
+    .score-columns .score-card { flex: 1; min-width: 0; margin-bottom: 0; }
 
     .games-table { width: 100%; border-collapse: collapse; }
     .games-table th {
@@ -107,16 +37,22 @@
         border-bottom: 1px solid var(--border);
         font-size: 14px;
     }
-    .games-table td.side { text-align: center; color: var(--text-dim); white-space: nowrap; }
+    .games-table td.side { text-align: center; color: var(--text-dim); white-space: nowrap; font-family: var(--font-mono); }
     .games-table td.side.ahead { color: var(--accent); font-weight: 700; }
     .games-table td.side.not-owned { opacity: 0.35; }
     .games-table tr:last-child td { border-bottom: none; }
 </style>
 </head>
 <body>
-<header>
-    <h1>Trophy<span>verse</span></h1>
-    <a href="/leaderboard">Leaderboard</a>
+<header class="app-header">
+    <h1>Unified Achievement Manager</h1>
+    <nav>
+        <a href="/leaderboard">Leaderboard</a>
+        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Switch to dark theme" title="Switch theme">
+            <svg id="theme-icon-moon" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.4 9.4A5.6 5.6 0 1 1 6.6 2.6a4.3 4.3 0 0 0 6.8 6.8z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>
+            <svg id="theme-icon-sun" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" class="hidden"><circle cx="8" cy="8" r="3.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.2v1.7M8 13.1v1.7M14.8 8h-1.7M2.9 8H1.2M12.7 3.3l-1.2 1.2M4.5 11.5l-1.2 1.2M12.7 12.7l-1.2-1.2M4.5 4.5 3.3 3.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </button>
+    </nav>
 </header>
 
 <main>
@@ -233,6 +169,8 @@ document.getElementById("compare-form").addEventListener("submit", (e) => {
 });
 
 (function init() {
+    initThemeToggle();
+
     const params = new URLSearchParams(location.search);
     const a = params.get("a");
     const b = params.get("b");

@@ -4,43 +4,16 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Leaderboard - Unified Achievement Manager</title>
+<script src="/shared-theme.js"></script>
+<link rel="stylesheet" href="/shared-theme.css" />
 <style>
-    :root {
-        --bg: #0f1115;
-        --card: #1b1e24;
-        --card-hover: #22262e;
-        --border: #2a2e37;
-        --text: #e8e9ec;
-        --text-dim: #9aa0ab;
-        --accent: #6d8dfa;
-    }
-    * { box-sizing: border-box; }
-    body {
-        margin: 0;
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-        background: var(--bg);
-        color: var(--text);
-    }
-    header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--border);
-    }
-    header h1 { font-size: 20px; margin: 0; }
-    header h1 span { color: var(--accent); }
-    header a { color: var(--text-dim); font-size: 13px; text-decoration: none; }
-    main { max-width: 640px; margin: 0 auto; padding: 24px; }
-
-    .toolbar h2 { font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0 0 16px; }
-
-    .board { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    main { max-width: 640px; }
+    .board { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
     .row {
         display: flex;
         align-items: center;
         gap: 16px;
-        padding: 14px 16px;
+        padding: 14px 18px;
         border-bottom: 1px solid var(--border);
         text-decoration: none;
         color: var(--text);
@@ -48,28 +21,30 @@
     .row:last-child { border-bottom: none; }
     .row:hover { background: var(--card-hover); }
     .rank { width: 28px; flex-shrink: 0; font-weight: 700; color: var(--text-dim); text-align: right; }
-    .rank.top1 { color: #f0c341; }
-    .rank.top2 { color: #b8bec7; }
-    .rank.top3 { color: #cd7f32; }
+    .rank.top1 { color: var(--gold); }
+    .rank.top2 { color: var(--silver); }
+    .rank.top3 { color: var(--bronze); }
     .name { flex: 1; font-weight: 600; }
     .level { font-size: 12px; color: var(--text-dim); width: 60px; text-align: right; }
-    .points { font-size: 13px; width: 110px; text-align: right; }
-
-    .loading-note { color: var(--text-dim); font-size: 13px; padding: 16px; }
+    .points { font-family: var(--font-mono); font-size: 13px; width: 110px; text-align: right; }
 </style>
 </head>
 <body>
 
-<header>
-    <h1>Trophy<span>verse</span></h1>
-    <div>
-        <a href="/compare" style="margin-right: 16px;">Compare profiles</a>
-        <a href="/">Back to dashboard →</a>
-    </div>
+<header class="app-header">
+    <h1>Unified Achievement Manager</h1>
+    <nav>
+        <a href="/compare">Compare profiles</a>
+        <a href="/">Back to dashboard &rarr;</a>
+        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Switch to dark theme" title="Switch theme">
+            <svg id="theme-icon-moon" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.4 9.4A5.6 5.6 0 1 1 6.6 2.6a4.3 4.3 0 0 0 6.8 6.8z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>
+            <svg id="theme-icon-sun" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" class="hidden"><circle cx="8" cy="8" r="3.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.2v1.7M8 13.1v1.7M14.8 8h-1.7M2.9 8H1.2M12.7 3.3l-1.2 1.2M4.5 11.5l-1.2 1.2M12.7 12.7l-1.2-1.2M4.5 4.5 3.3 3.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </button>
+    </nav>
 </header>
 
 <main>
-    <div class="toolbar"><h2>Leaderboard</h2></div>
+    <div class="toolbar" style="margin-bottom: 16px;"><h2 style="font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0;">Leaderboard</h2></div>
     <div class="board" id="board">
         <div class="loading-note">Loading...</div>
     </div>
@@ -90,6 +65,8 @@ function rankClass(i) {
 }
 
 async function init() {
+    initThemeToggle();
+
     const board = document.getElementById("board");
     let entries;
     try {
