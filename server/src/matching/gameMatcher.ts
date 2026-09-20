@@ -13,6 +13,10 @@ interface GameRow {
     platforms: string[];
 }
 
+// Matches platforms.id in schema.sql - not the short "retro" name used
+// elsewhere in comments/prose, which isn't the real stored value.
+const RETRO_PLATFORM_ID = "retroachievements";
+
 async function fetchGamesWithPlatforms(): Promise<GameRow[]> {
     const rows = await pool.query(`
         select g.id, g.title, array_agg(distinct gpl.platform_id) as platforms
@@ -70,8 +74,8 @@ export async function matchGames(): Promise<GameMatchResult> {
         const platformsInGroup = new Set(group.flatMap((g) => g.platforms));
         if (platformsInGroup.size < 2) continue;
 
-        const retroGames = group.filter((g) => g.platforms.includes("retro"));
-        const safeGames = group.filter((g) => !g.platforms.includes("retro"));
+        const retroGames = group.filter((g) => g.platforms.includes(RETRO_PLATFORM_ID));
+        const safeGames = group.filter((g) => !g.platforms.includes(RETRO_PLATFORM_ID));
 
         let winner: GameRow;
         if (safeGames.length > 0) {
