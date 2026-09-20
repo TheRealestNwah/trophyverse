@@ -28,8 +28,11 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
         // newer consoles lists all three), so it can't tell One from Series.
         // This can: only classic 360 titles fall through to the legacy
         // endpoint, which is a real, already-verified signal, just not a
-        // 3-way split.
-        let consoleVariant = "Xbox One/Series";
+        // 3-way split - and it can't tell PC from console at all, since the
+        // Xbox app on PC uses the same modern achievements endpoint as
+        // Xbox One/Series (see #77). "Xbox" (no generation claimed) is
+        // honest about that; "Xbox One/Series" wasn't.
+        let consoleVariant = "Xbox";
         if (achievements.length === 0) {
             // Classic Xbox 360 titles use a separate legacy achievements
             // contract - see getX360AchievementsForTitle for what's different.
