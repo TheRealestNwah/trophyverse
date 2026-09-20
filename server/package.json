@@ -14,7 +14,8 @@
     "match": "ts-node src/db/runMatching.ts",
     "fix:platinum-inflation": "ts-node src/db/fixPlatinumInflation.ts",
     "fix:rarity-tiering": "ts-node src/db/fixRarityTiering.ts",
-    "fix:xbox-timestamps": "ts-node src/db/fixBogusXboxTimestamps.ts"
+    "fix:xbox-timestamps": "ts-node src/db/fixBogusXboxTimestamps.ts",
+    "fix:xbox-console-overclaim": "ts-node src/db/fixXboxConsoleOverclaim.ts"
   },
   "dependencies": {
     "connect-pg-simple": "^10.0.0",
