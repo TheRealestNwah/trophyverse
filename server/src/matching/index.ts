@@ -10,6 +10,7 @@ import { normalizeRarityTiersForAllGames } from "../scoring/rarityNormalization"
 export interface MatchingSummary {
     gameGroupsMerged: number;
     gamesRemoved: number;
+    gameCandidatesRecorded: number;
     steamCatalogGamesEnriched: number;
     xboxCatalogGamesEnriched: number;
     retroCatalogGamesEnriched: number;
@@ -50,6 +51,7 @@ export async function runMatching(): Promise<MatchingSummary> {
     return {
         gameGroupsMerged: gameResult.groupsMerged,
         gamesRemoved: gameResult.gamesRemoved,
+        gameCandidatesRecorded: gameResult.candidatesRecorded,
         steamCatalogGamesEnriched: catalogResult.gamesEnriched,
         xboxCatalogGamesEnriched: xboxCatalogResult.gamesEnriched,
         retroCatalogGamesEnriched: retroCatalogResult.gamesEnriched,
