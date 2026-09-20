@@ -116,7 +116,20 @@ export async function matchGames(): Promise<GameMatchResult> {
             const a = currentGames[i];
             const b = currentGames[j];
             if (normalize(a.title) === normalize(b.title)) continue; // handled above
-            if (a.platforms.some((p) => b.platforms.includes(p))) continue; // same-platform title collision, not a cross-platform candidate
+            // Two games that are EACH single-platform on the same platform
+            // (e.g. two separate PSN listings) are a same-platform title
+            // collision, not a cross-platform candidate - skip those. But once
+            // either side already spans multiple platforms, one shared
+            // platform doesn't mean the same thing: each platform_game_id is
+            // unique per canonical game (enforced by game_platform_links'
+            // unique constraint), so a shared platform_id here is always two
+            // distinct listings on it, not the same listing counted twice.
+            // That's exactly what happened with Skyrim (#76): the PSN
+            // Special Edition trophy list (bare-titled "Skyrim", grouped with
+            // the PSN/Steam original by an earlier near-title match) could
+            // never be suggested against "...Skyrim Special Edition" on
+            // Steam/Xbox, because both groups happened to include Steam.
+            if (a.platforms.length === 1 && b.platforms.length === 1 && a.platforms[0] === b.platforms[0]) continue;
             if (!isTitleSubsequenceMatch(a.title, b.title)) continue;
 
             const created = await recordGameCandidate(a.id, b.id, 0.75, "near-title-match");
