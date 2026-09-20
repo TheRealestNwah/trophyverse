@@ -16,7 +16,8 @@
     "fix:platinum-inflation": "ts-node src/db/fixPlatinumInflation.ts",
     "fix:rarity-tiering": "ts-node src/db/fixRarityTiering.ts",
     "fix:xbox-timestamps": "ts-node src/db/fixBogusXboxTimestamps.ts",
-    "fix:xbox-console-overclaim": "ts-node src/db/fixXboxConsoleOverclaim.ts"
+    "fix:xbox-console-overclaim": "ts-node src/db/fixXboxConsoleOverclaim.ts",
+    "fix:steam-landscape-covers": "ts-node src/db/fixSteamLandscapeCovers.ts"
   },
   "dependencies": {
     "connect-pg-simple": "^10.0.0",
