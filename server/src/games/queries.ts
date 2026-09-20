@@ -19,7 +19,18 @@ export async function getGamesForUser(userId: string) {
                 (select cover_image_url from user_game_cover_overrides where user_id = $1 and game_id = g.id),
                 g.cover_image_url
             ) as cover_image_url,
-            (select array_agg(distinct platform_id) from game_platform_links where game_id = g.id) as platforms,
+            -- Platforms this user actually owns the game on, not every
+            -- platform with a game_platform_links row - catalog enrichment
+            -- (steamCatalogEnrichment.ts, xboxCatalogEnrichment.ts) attaches
+            -- a platform link purely to source real rarity data for a game
+            -- the user owns elsewhere, without the user ever owning it on
+            -- that platform. Scoping to user_owned_games (only ever written
+            -- by recordOwnership, which real syncs call and enrichment never
+            -- does) is what tells owned platforms apart from enrichment-only
+            -- ones. See #78.
+            (select array_agg(distinct upa.platform_id) from user_owned_games uog
+                join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+                where upa.user_id = $1 and uog.game_id = g.id) as platforms,
             -- Display-only console-generation tags per platform link (e.g.
             -- {"psn": "PS5"}) - see #19. Only ever populated where the
             -- source platform's API gives clean per-title data. A platform
@@ -205,10 +216,16 @@ export async function getFullExportData(userId: string) {
                and uau.user_platform_account_id in (
                    select id from user_platform_accounts where user_id = $1
                )
+         -- Per-platform, not just per-game - the user might own this game on
+         -- one platform but have a second, enrichment-only platform link
+         -- attached to it purely to source real rarity data (catalog
+         -- enrichment never calls recordOwnership). Without pinning the
+         -- check to apl.platform_id too, a game owned on Steam only would
+         -- still export a phantom all-locked Xbox section. See #78.
          where exists (
              select 1 from user_owned_games uog
              join user_platform_accounts upa on upa.id = uog.user_platform_account_id
-             where upa.user_id = $1 and uog.game_id = g.id
+             where upa.user_id = $1 and uog.game_id = g.id and upa.platform_id = apl.platform_id
          )
          order by g.title, apl.platform_id, ca.name`,
         [userId]
@@ -248,6 +265,17 @@ export async function getAchievementsForGame(userId: string, gameId: string) {
                    select id from user_platform_accounts where user_id = $1
                )
          where ca.game_id = $2
+           -- Per-platform, not just per-game (the earlier owns check above
+           -- only confirms the user owns this game on *some* platform) - a
+           -- game owned on PSN only can still carry an enrichment-only Xbox
+           -- achievement_platform_links row sourcing real rarity data, and
+           -- without this it'd render as its own all-locked "Xbox 0/N"
+           -- section the user never actually played. See #78.
+           and exists (
+               select 1 from user_owned_games uog
+               join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+               where upa.user_id = $1 and uog.game_id = ca.game_id and upa.platform_id = apl.platform_id
+           )
          order by unlocked desc, apl.global_unlock_rarity asc nulls last`,
         [userId, gameId]
     );
