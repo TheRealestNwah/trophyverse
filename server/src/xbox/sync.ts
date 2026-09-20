@@ -30,9 +30,10 @@ export async function syncXboxAccount(userPlatformAccountId: string, apiKey: str
         // endpoint, which is a real, already-verified signal, just not a
         // 3-way split - and it can't tell PC from console at all, since the
         // Xbox app on PC uses the same modern achievements endpoint as
-        // Xbox One/Series (see #77). "Xbox" (no generation claimed) is
-        // honest about that; "Xbox One/Series" wasn't.
-        let consoleVariant = "Xbox";
+        // Xbox One/Series (see #77). No variant label for that ambiguous
+        // case rather than a claim we can't back up - "Xbox 360" is left as
+        // the one case where this signal is actually reliable.
+        let consoleVariant: string | undefined;
         if (achievements.length === 0) {
             // Classic Xbox 360 titles use a separate legacy achievements
             // contract - see getX360AchievementsForTitle for what's different.
