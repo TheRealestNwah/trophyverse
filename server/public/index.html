@@ -1207,7 +1207,7 @@ async function toggleAchievements(gameEl, gameId) {
     panel.innerHTML = [...byPlatform.entries()]
         .map(([platformId, list]) => {
             const unlockedCount = list.filter((a) => a.unlocked).length;
-            const variant = list.find((a) => a.console_variant)?.console_variant;
+            const variant = [...new Set(list.map((a) => a.console_variant).filter(Boolean))].sort().join(", ");
             const collapsed = collapsedPlatforms.has(platformId);
             return `
         <div class="platform-section${collapsed ? " collapsed" : ""}" data-platform-id="${platformId}">

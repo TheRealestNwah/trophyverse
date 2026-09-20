@@ -22,9 +22,19 @@ export async function getGamesForUser(userId: string) {
             (select array_agg(distinct platform_id) from game_platform_links where game_id = g.id) as platforms,
             -- Display-only console-generation tags per platform link (e.g.
             -- {"psn": "PS5"}) - see #19. Only ever populated where the
-            -- source platform's API gives clean per-title data.
-            (select jsonb_object_agg(platform_id, console_variant) from game_platform_links
-                where game_id = g.id and console_variant is not null) as console_variants,
+            -- source platform's API gives clean per-title data. A platform
+            -- can have more than one game_platform_links row for the same
+            -- game (e.g. separate PS3 and PS4 trophy lists for a cross-gen
+            -- title, correctly merged into one game by matchGames) - see
+            -- #75, so this combines every distinct variant per platform
+            -- rather than collapsing to whichever row jsonb_object_agg
+            -- happens to keep on a duplicate key.
+            (select jsonb_object_agg(platform_id, variants) from (
+                select platform_id, string_agg(distinct console_variant, ', ' order by console_variant) as variants
+                from game_platform_links
+                where game_id = g.id and console_variant is not null
+                group by platform_id
+            ) grouped) as console_variants,
             count(ca.id) as total_achievements,
             count(uau.id) as unlocked_achievements,
             coalesce(sum(ca.points) filter (where uau.id is not null), 0) as points_earned,
