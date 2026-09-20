@@ -3,7 +3,7 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { runMatching } from "./index";
 import { confirmMatchCandidate, rejectMatchCandidate, matchAchievementsForGame } from "./achievementMatcher";
-import { mergeGames } from "./gameMatcher";
+import { mergeGames, confirmGameMergeCandidate, rejectGameMergeCandidate } from "./gameMatcher";
 import { recomputeUserScore } from "../scoring";
 import { normalizeRarityTiersForAllGames, normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 
@@ -119,6 +119,68 @@ matchingRouter.post("/candidates/:id/confirm", requireAuth, async (req, res, nex
 matchingRouter.post("/candidates/:id/reject", requireAuth, async (req, res, next) => {
     try {
         await rejectMatchCandidate(req.params.id);
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Whole-game merge suggestions left by matchGames (see #73, #76) - same
+// shape of review queue as achievement candidates above, one level up.
+matchingRouter.get("/game-candidates", requireAuth, async (_req, res, next) => {
+    try {
+        const result = await pool.query(`
+            select
+                gmc.id,
+                gmc.confidence,
+                gmc.reason,
+                a.title as game_a_title,
+                (select array_agg(distinct platform_id) from game_platform_links where game_id = a.id) as game_a_platforms,
+                b.title as game_b_title,
+                (select array_agg(distinct platform_id) from game_platform_links where game_id = b.id) as game_b_platforms
+            from game_merge_candidates gmc
+            join games a on a.id = gmc.game_a_id
+            join games b on b.id = gmc.game_b_id
+            where gmc.status = 'pending'
+            order by gmc.confidence desc
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        next(err);
+    }
+});
+
+matchingRouter.post("/game-candidates/:id/confirm", requireAuth, async (req, res, next) => {
+    try {
+        const candidate = await pool.query("select game_a_id from game_merge_candidates where id = $1", [req.params.id]);
+        if (!candidate.rows[0]) return res.status(404).json({ error: "Game merge candidate not found" });
+        const keepGameId = candidate.rows[0].game_a_id;
+
+        await confirmGameMergeCandidate(req.params.id);
+
+        // Same follow-up as the manual game-merge route above: the merge
+        // only changes this one game's achievement set, so re-run matching
+        // and rarity-tiering scoped to it rather than the whole library.
+        await matchAchievementsForGame(keepGameId);
+        await normalizeRarityTiersForGame(keepGameId);
+
+        const affectedUsers = await pool.query(
+            `select distinct upa.user_id from user_owned_games uog
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where uog.game_id = $1`,
+            [keepGameId]
+        );
+        for (const user of affectedUsers.rows) await recomputeUserScore(user.user_id);
+
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+});
+
+matchingRouter.post("/game-candidates/:id/reject", requireAuth, async (req, res, next) => {
+    try {
+        await rejectGameMergeCandidate(req.params.id);
         res.status(204).end();
     } catch (err) {
         next(err);

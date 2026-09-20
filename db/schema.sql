@@ -154,6 +154,26 @@ create table achievement_match_candidates (
     reviewed_at                 timestamptz
 );
 
+-- Whole-game merges a matching pass has proposed but won't perform
+-- automatically, because the signal isn't strong enough to trust without a
+-- human - either an exact-title match that involves RetroAchievements (a
+-- classic-system title colliding with a modern remake/remaster sharing its
+-- original's exact name), or a near-title match across platforms that isn't
+-- exact at all (a short/colloquial title vs. the same game's full official
+-- name). See #73, #76. game_a_id/game_b_id are always stored with
+-- game_a_id < game_b_id (as text) so the unique constraint catches the same
+-- pair regardless of which side gameMatcher happened to compare first.
+create table game_merge_candidates (
+    id              uuid primary key default uuid_generate_v4(),
+    game_a_id       uuid not null references games(id) on delete cascade,
+    game_b_id       uuid not null references games(id) on delete cascade,
+    confidence      numeric(3,2) not null,
+    reason          text not null,
+    status          match_status not null default 'pending',
+    reviewed_at     timestamptz,
+    unique (game_a_id, game_b_id)
+);
+
 -- ---------------------------------------------------------------------------
 -- Unlocks & scoring
 -- ---------------------------------------------------------------------------

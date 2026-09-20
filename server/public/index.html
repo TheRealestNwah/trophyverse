@@ -693,6 +693,7 @@
                     <div>
                         <span class="platform-note" id="match-status"></span>
                         <button type="button" class="secondary" id="review-btn">Review matches</button>
+                        <button type="button" class="secondary" id="review-games-btn">Review game merges</button>
                         <button type="button" class="secondary" id="match-btn">Find matches</button>
                         <button type="button" class="secondary" id="link-games-btn">Link games</button>
                         <button type="button" class="secondary" id="export-json-btn">Export JSON</button>
@@ -701,6 +702,7 @@
                 </div>
 
                 <div id="review-panel" class="hidden"></div>
+                <div id="review-games-panel" class="hidden"></div>
 
                 <div class="filter-chip" id="preset-filter-chip">
                     <span id="preset-filter-label"></span>
@@ -1321,6 +1323,61 @@ async function resolveCandidate(id, action) {
     if (action === "confirm") await refreshGamesAndScore();
 }
 
+const GAME_CANDIDATE_REASON_LABELS = {
+    "exact-title-retro": "Same title, one is on RetroAchievements",
+    "near-title-match": "Similar title",
+};
+
+async function refreshGameReviewCount() {
+    const candidates = await api("/api/matching/game-candidates");
+    const btn = document.getElementById("review-games-btn");
+    btn.textContent = candidates.length > 0 ? `Review game merges (${candidates.length})` : "Review game merges";
+    return candidates;
+}
+
+function renderGameReviewPanel(candidates) {
+    const panel = document.getElementById("review-games-panel");
+    if (candidates.length === 0) {
+        panel.innerHTML = `<div class="loading-note">No game merges waiting for review.</div>`;
+        return;
+    }
+
+    panel.innerHTML = candidates
+        .map(
+            (c) => `
+        <div class="review-row" data-id="${c.id}">
+            <span class="review-game">${GAME_CANDIDATE_REASON_LABELS[c.reason] || c.reason}</span>
+            <span class="review-compare">
+                ${(c.game_a_platforms || []).map((p) => `<span class="platform-badge">${p}</span>`).join(" ")}
+                ${c.game_a_title}
+                <span class="arrow">vs</span>
+                ${(c.game_b_platforms || []).map((p) => `<span class="platform-badge">${p}</span>`).join(" ")}
+                ${c.game_b_title}
+            </span>
+            <span class="review-confidence">${Math.round(c.confidence * 100)}%</span>
+            <span class="review-actions">
+                <button class="confirm">Same game</button>
+                <button class="reject">Different</button>
+            </span>
+        </div>
+    `
+        )
+        .join("");
+
+    panel.querySelectorAll(".review-row").forEach((row) => {
+        const id = row.dataset.id;
+        row.querySelector(".confirm").addEventListener("click", () => resolveGameCandidate(id, "confirm"));
+        row.querySelector(".reject").addEventListener("click", () => resolveGameCandidate(id, "reject"));
+    });
+}
+
+async function resolveGameCandidate(id, action) {
+    await api(`/api/matching/game-candidates/${id}/${action}`, { method: "POST" });
+    const candidates = await refreshGameReviewCount();
+    renderGameReviewPanel(candidates);
+    if (action === "confirm") await refreshGamesAndScore();
+}
+
 // /api/me/accounts reports platform_id the way the DB stores it
 // ("retroachievements"), but that platform's routes are mounted at
 // /api/retro (see index.ts) - this is the single source of truth for that
@@ -1765,9 +1822,10 @@ async function init() {
         status.textContent = "Matching games and achievements across platforms...";
         try {
             const summary = await api("/api/matching/run", { method: "POST" });
-            status.textContent = `Merged ${summary.gameGroupsMerged} game(s), ${summary.achievementsMerged} achievement(s). ${summary.steamCatalogGamesEnriched} Steam, ${summary.xboxCatalogGamesEnriched} Xbox, ${summary.retroCatalogGamesEnriched} RetroAchievements game(s) enriched with real tier data. ${summary.achievementCandidatesRecorded} possible match(es) queued for review.`;
+            status.textContent = `Merged ${summary.gameGroupsMerged} game(s), ${summary.achievementsMerged} achievement(s). ${summary.steamCatalogGamesEnriched} Steam, ${summary.xboxCatalogGamesEnriched} Xbox, ${summary.retroCatalogGamesEnriched} RetroAchievements game(s) enriched with real tier data. ${summary.achievementCandidatesRecorded} possible achievement match(es) and ${summary.gameCandidatesRecorded} possible game merge(s) queued for review.`;
             await refreshGamesAndScore();
             await refreshReviewCount();
+            await refreshGameReviewCount();
         } catch (err) {
             status.textContent = `Matching failed: ${err.message}`;
         } finally {
@@ -1784,6 +1842,17 @@ async function init() {
         panel.className = "review-list";
         panel.innerHTML = `<div class="loading-note">Loading...</div>`;
         renderReviewPanel(await api("/api/matching/candidates"));
+    });
+    document.getElementById("review-games-btn").addEventListener("click", async () => {
+        const panel = document.getElementById("review-games-panel");
+        if (!panel.classList.contains("hidden")) {
+            panel.classList.add("hidden");
+            return;
+        }
+        panel.classList.remove("hidden");
+        panel.className = "review-list";
+        panel.innerHTML = `<div class="loading-note">Loading...</div>`;
+        renderGameReviewPanel(await api("/api/matching/game-candidates"));
     });
     document.getElementById("games-filter").addEventListener("input", () => renderGames(state.games));
     document.getElementById("games-sort").addEventListener("change", () => renderGames(state.games));
@@ -1808,6 +1877,7 @@ async function init() {
     await refreshActivity();
     await refreshStats();
     await refreshReviewCount();
+    await refreshGameReviewCount();
 }
 
 init();
