@@ -81,6 +81,15 @@ export async function matchGames(): Promise<GameMatchResult> {
         if (safeGames.length > 0) {
             winner = safeGames[0];
             for (const loser of safeGames.slice(1)) {
+                // An exact title match isn't always the same game even
+                // without RetroAchievements involved - a human can already
+                // have rejected this exact pair (e.g. a manually-discovered
+                // case like #73's "skate." 2025 vs. Skate 2007, sharing an
+                // exact title across Steam/PSN and a since-split-out Xbox
+                // 360 entry). Without this check, the very next matching run
+                // would just silently re-merge a pair someone already said
+                // was wrong.
+                if (await wasRejectedPair(winner.id, loser.id)) continue;
                 await mergeGames(winner.id, loser.id);
                 gamesRemoved++;
             }
@@ -116,6 +125,15 @@ export async function matchGames(): Promise<GameMatchResult> {
     }
 
     return { groupsMerged, gamesRemoved, candidatesRecorded };
+}
+
+async function wasRejectedPair(gameAId: string, gameBId: string): Promise<boolean> {
+    const [first, second] = [gameAId, gameBId].sort();
+    const result = await pool.query(
+        "select 1 from game_merge_candidates where game_a_id = $1 and game_b_id = $2 and status = 'rejected'",
+        [first, second]
+    );
+    return result.rows.length > 0;
 }
 
 // Idempotent: a pair already recorded (pending, confirmed, or rejected)
