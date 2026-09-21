@@ -355,83 +355,34 @@
         flex-shrink: 0;
         background: var(--placeholder-bg);
     }
-    .game-cover-wrap { position: relative; flex-shrink: 0; }
-    .cover-edit-btn {
-        position: absolute;
-        bottom: -4px;
-        right: -4px;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #FFFFFF;
+    .game-cover-wrap { position: relative; flex-shrink: 0; cursor: pointer; }
+    .game-cover-wrap:hover .game-cover { opacity: 0.75; }
+    .achievement-icon-wrap { position: relative; flex-shrink: 0; cursor: pointer; display: inline-flex; }
+    .achievement-icon-wrap:hover .achievement-icon { opacity: 0.75; }
+    .image-action-menu {
+        position: fixed;
+        z-index: 50;
+        background: var(--card);
         border: 1px solid var(--border);
-        color: var(--text-dim);
-        font-size: 10px;
-        line-height: 1;
-        padding: 0;
-        cursor: pointer;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        padding: 4px;
         display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        flex-direction: column;
+        min-width: 140px;
     }
-    .cover-edit-btn:hover { color: var(--text); border-color: var(--accent); }
-    .cover-upload-btn {
-        position: absolute;
-        top: -4px;
-        right: -4px;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #FFFFFF;
-        border: 1px solid var(--border);
-        color: var(--text-dim);
-        font-size: 10px;
-        line-height: 1;
-        padding: 0;
+    .image-action-menu button {
+        background: none;
+        border: none;
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 500;
+        text-align: left;
+        padding: 7px 10px;
+        border-radius: 5px;
         cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
-    .cover-upload-btn:hover { color: var(--text); border-color: var(--accent); }
-    .icon-edit-btn {
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #FFFFFF;
-        border: 1px solid var(--border);
-        color: var(--text-dim);
-        font-size: 9px;
-        line-height: 1;
-        padding: 0;
-        cursor: pointer;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-    .icon-edit-btn:hover { color: var(--text); border-color: var(--accent); }
-    .icon-upload-btn {
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #FFFFFF;
-        border: 1px solid var(--border);
-        color: var(--text-dim);
-        font-size: 9px;
-        line-height: 1;
-        padding: 0;
-        cursor: pointer;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-    .icon-upload-btn:hover { color: var(--text); border-color: var(--accent); }
+    .image-action-menu button:hover { background: var(--card-hover); }
     .game-title { flex: 1; font-weight: 600; }
     .game-progress-text { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
     .tier-pips { display: flex; gap: 6px; font-size: 12px; }
@@ -949,6 +900,49 @@ const gameSorters = {
     platform: (a, b) => (a.platforms || []).join(",").localeCompare((b.platforms || []).join(",")) || a.title.localeCompare(b.title),
 };
 
+// Small popover anchored to the clicked cover/icon, offering the two ways to
+// replace it. Anchoring here (instead of a modal) keeps the choice next to
+// the image the user just clicked instead of somewhere else on screen.
+function showImageActionMenu(anchorEl, { onUpload, onPaste }) {
+    document.querySelectorAll(".image-action-menu").forEach((m) => m.remove());
+
+    const rect = anchorEl.getBoundingClientRect();
+    const menu = document.createElement("div");
+    menu.className = "image-action-menu";
+    menu.innerHTML = `
+        <button type="button" data-action="upload">Upload file&hellip;</button>
+        <button type="button" data-action="paste">Paste image URL&hellip;</button>
+    `;
+    document.body.appendChild(menu);
+
+    const menuRect = menu.getBoundingClientRect();
+    let top = rect.bottom + 6;
+    if (top + menuRect.height > window.innerHeight) top = rect.top - menuRect.height - 6;
+    let left = rect.left;
+    if (left + menuRect.width > window.innerWidth) left = window.innerWidth - menuRect.width - 8;
+    menu.style.top = `${Math.max(4, top)}px`;
+    menu.style.left = `${Math.max(4, left)}px`;
+
+    const close = () => {
+        menu.remove();
+        document.removeEventListener("click", onDocClick, true);
+    };
+    function onDocClick(e) {
+        if (!menu.contains(e.target)) close();
+    }
+    menu.querySelector('[data-action="upload"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        close();
+        onUpload();
+    });
+    menu.querySelector('[data-action="paste"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        close();
+        onPaste();
+    });
+    setTimeout(() => document.addEventListener("click", onDocClick, true), 0);
+}
+
 // Opens a native file picker and POSTs the chosen image as multipart form
 // data. If the user cancels the picker, nothing happens - no fallback to the
 // URL-paste flow, since there's no reliable cross-browser "cancel" signal on
@@ -1076,14 +1070,12 @@ function renderGames(games) {
         el.className = "game";
         el.innerHTML = `
             <div class="game-row" data-game-id="${game.id}">
-                <div class="game-cover-wrap">
+                <div class="game-cover-wrap" title="Click to change cover image">
                     ${
                         game.cover_image_url
                             ? `<img class="game-cover" src="${game.cover_image_url}" alt="" loading="lazy" onerror="this.remove()" />`
                             : `<div class="game-cover"></div>`
                     }
-                    <button class="cover-edit-btn" title="Paste an image URL">✎</button>
-                    <button class="cover-upload-btn" title="Upload an image">⇪</button>
                 </div>
                 <div class="game-title">${game.title}</div>
                 ${platformBadges(game)}
@@ -1098,13 +1090,12 @@ function renderGames(games) {
         } else {
             row.addEventListener("click", () => toggleAchievements(el, game.id));
         }
-        el.querySelector(".cover-edit-btn").addEventListener("click", (e) => {
+        el.querySelector(".game-cover-wrap").addEventListener("click", (e) => {
             e.stopPropagation();
-            setCoverArt(game.id);
-        });
-        el.querySelector(".cover-upload-btn").addEventListener("click", (e) => {
-            e.stopPropagation();
-            uploadCoverArt(game.id);
+            showImageActionMenu(e.currentTarget, {
+                onUpload: () => uploadCoverArt(game.id),
+                onPaste: () => setCoverArt(game.id),
+            });
         });
         list.appendChild(el);
     }
@@ -1233,13 +1224,13 @@ async function toggleAchievements(gameEl, gameId) {
                 .map(
                     (a) => `
                 <div class="achievement ${a.unlocked ? "" : "locked"}" data-achievement-id="${a.id}">
-                    ${
-                        a.icon_url
-                            ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
-                            : `<div class="achievement-icon"></div>`
-                    }
-                    <button class="icon-edit-btn" title="Paste an image URL">✎</button>
-                    <button class="icon-upload-btn" title="Upload an image">⇪</button>
+                    <div class="achievement-icon-wrap" title="Click to change icon">
+                        ${
+                            a.icon_url
+                                ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                                : `<div class="achievement-icon"></div>`
+                        }
+                    </div>
                     <span class="tier-tag ${a.tier}">${a.tier}</span>
                     <div class="achievement-body">
                         <div class="achievement-name">${a.name}</div>
@@ -1262,18 +1253,14 @@ async function toggleAchievements(gameEl, gameId) {
             toggleCollapsedPlatform(section.dataset.platformId, section.classList.toggle("collapsed"));
         });
     });
-    panel.querySelectorAll(".icon-edit-btn").forEach((btn) => {
-        const achievementId = btn.closest(".achievement").dataset.achievementId;
-        btn.addEventListener("click", (e) => {
+    panel.querySelectorAll(".achievement-icon-wrap").forEach((wrap) => {
+        const achievementId = wrap.closest(".achievement").dataset.achievementId;
+        wrap.addEventListener("click", (e) => {
             e.stopPropagation();
-            setAchievementIcon(achievementId, gameEl, gameId);
-        });
-    });
-    panel.querySelectorAll(".icon-upload-btn").forEach((btn) => {
-        const achievementId = btn.closest(".achievement").dataset.achievementId;
-        btn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            uploadAchievementIcon(achievementId, gameEl, gameId);
+            showImageActionMenu(e.currentTarget, {
+                onUpload: () => uploadAchievementIcon(achievementId, gameEl, gameId),
+                onPaste: () => setAchievementIcon(achievementId, gameEl, gameId),
+            });
         });
     });
 }
