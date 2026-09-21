@@ -9,6 +9,26 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: trophyverse_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d trophyverse_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/trophyverse_test
+      BASE_URL: http://localhost:3000
+      STEAM_API_KEY: ci-test-key
+      SESSION_SECRET: ci-test-session-secret
+      CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      INTEGRATION_TESTS: "true"
     defaults:
       run:
         working-directory: server
@@ -22,6 +42,7 @@ jobs:
           cache-dependency-path: server/package-lock.json
 
       - run: npm ci
+      - run: npm run db:migrate
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npx tsc --noEmit -p tsconfig.test.json
