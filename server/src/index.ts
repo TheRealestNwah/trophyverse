@@ -3,7 +3,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import path from "path";
 import { config } from "./config";
-import { pool } from "./db";
+import { checkDatabaseConnection, pool } from "./db";
 import { passport } from "./auth/passport";
 import { authRouter } from "./auth/routes";
 import { steamRouter } from "./steam/routes";
@@ -19,8 +19,9 @@ import { startScheduler } from "./scheduler";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { csrfProtection } from "./middleware/csrf";
+import { Server } from "node:http";
 
-const app = express();
+export const app = express();
 
 app.disable("x-powered-by");
 if (config.trustProxy) app.set("trust proxy", 1);
@@ -32,6 +33,19 @@ app.use(
         crossOriginResourcePolicy: false,
     })
 );
+
+app.get("/healthz", (_req, res) => {
+    res.json({ status: "ok" });
+});
+
+app.get("/readyz", async (_req, res) => {
+    try {
+        await checkDatabaseConnection();
+        res.json({ status: "ready" });
+    } catch {
+        res.status(503).json({ status: "unavailable" });
+    }
+});
 
 const apiRateLimit = rateLimit({
     windowMs: config.rateLimitWindowMinutes * 60 * 1000,
@@ -111,10 +125,42 @@ const jsonErrorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 };
 app.use(jsonErrorHandler);
 
-app.listen(config.port, () => {
-    console.log(`Unified Achievement Manager server listening on ${config.baseUrl}`);
-});
-
-if (config.schedulerEnabled) {
-    startScheduler(config.schedulerIntervalMinutes);
+export async function shutdownServer(server: Server): Promise<void> {
+    const forceCloseTimer = setTimeout(() => server.closeAllConnections(), 10_000);
+    forceCloseTimer.unref();
+    try {
+        await new Promise<void>((resolve, reject) => {
+            server.close((err) => (err ? reject(err) : resolve()));
+        });
+        await pool.end();
+    } finally {
+        clearTimeout(forceCloseTimer);
+    }
 }
+
+export function startServer(): Server {
+    const server = app.listen(config.port, () => {
+        console.log(`Unified Achievement Manager server listening on ${config.baseUrl}`);
+    });
+
+    const stopScheduler = config.schedulerEnabled ? startScheduler(config.schedulerIntervalMinutes) : () => undefined;
+
+    let shutdownPromise: Promise<void> | undefined;
+    const shutdown = (signal: string) => {
+        if (!shutdownPromise) {
+            console.log(`Received ${signal}; draining HTTP connections and closing the database pool.`);
+            stopScheduler();
+            shutdownPromise = shutdownServer(server).catch((err) => {
+                console.error("Graceful shutdown failed:", err);
+                process.exitCode = 1;
+            });
+        }
+        return shutdownPromise;
+    };
+    process.once("SIGTERM", () => void shutdown("SIGTERM"));
+    process.once("SIGINT", () => void shutdown("SIGINT"));
+
+    return server;
+}
+
+if (require.main === module) startServer();
