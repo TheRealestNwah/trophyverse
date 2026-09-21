@@ -90,6 +90,11 @@ describe("isTitleSubsequenceMatch", () => {
         expect(isTitleSubsequenceMatch("Doom", "Doom Eternal")).toBe(true);
     });
 
+    it("rejects a common trailing word from an unrelated longer title", () => {
+        expect(isTitleSubsequenceMatch("METAL GEAR SOLID V: THE PHANTOM PAIN", "PAIN")).toBe(false);
+        expect(isTitleSubsequenceMatch("Uncharted 4: A Thief's End™", "Thief")).toBe(false);
+    });
+
     it("rejects a sequel that only adds a bare number", () => {
         // "BioShock" is a strict prefix of "BioShock 2", but that's a
         // sequel, not a re-release of the same game.
