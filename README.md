@@ -50,6 +50,7 @@ API endpoints, if you want to hit them directly:
 - `POST /api/matching/games/merge` (body: `{ keepGameId, mergeGameId }`) — manually merge two of your own library entries automatic matching missed (differently formatted titles across platforms)
 - `GET /api/me/accounts` — which platforms are linked and when each last synced
 - `DELETE /api/me/accounts/:platformId` — disconnect a linked platform (Steam can't be disconnected - it's the sign-in identity); removes that account's synced games/unlocks and recomputes your score
+- `DELETE /api/me/account` (body: `{ confirmation: "DELETE" }`) — permanently delete the signed-in account, sessions, linked platform data, unlocks, scores, and private overrides; shared canonical game data remains
 - `GET /api/me/games` — all your games across every linked platform, combined into one row per game, with unlock counts and per-tier breakdown
 - `GET /api/me/games/:gameId/achievements` — full achievement list for one game, one row per `(achievement, platform)` so a matched achievement's separate completions on each platform each show their own unlock status
 - `GET /api/me/score` — total points, level, and progress to the next level, summing every unlock on every linked platform (no cross-platform dedup — see [docs/data-model.md](docs/data-model.md))

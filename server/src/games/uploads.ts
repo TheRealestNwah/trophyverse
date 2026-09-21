@@ -48,12 +48,30 @@ export function publicUploadUrl(subdir: "covers" | "icons", file: Express.Multer
     return `/uploads/${subdir}/${file.filename}`;
 }
 
+function uploadedFilePath(url: string | null | undefined): string | undefined {
+    if (!url || !url.startsWith("/uploads/")) return undefined;
+    const resolved = path.resolve(PUBLIC_ROOT, `.${url}`);
+    const uploadsRoot = `${path.resolve(UPLOADS_ROOT)}${path.sep}`;
+    return resolved.startsWith(uploadsRoot) ? resolved : undefined;
+}
+
+export async function deleteUploadedFiles(urls: Array<string | null | undefined>): Promise<void> {
+    for (const filePath of new Set(urls.map(uploadedFilePath).filter((value): value is string => Boolean(value)))) {
+        try {
+            await fs.promises.unlink(filePath);
+        } catch (err) {
+            if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+        }
+    }
+}
+
 // Deletes a previously uploaded file when its override is replaced or
 // removed - without this every re-upload or reversion to auto-detected art
 // would leave the old file on disk forever. Only touches files this app
 // actually wrote (under /uploads/); a user-pasted external URL has nothing
 // local to delete, so this is a no-op for those.
 export function deleteIfUploaded(url: string | null | undefined): void {
-    if (!url || !url.startsWith("/uploads/")) return;
-    fs.unlink(path.join(PUBLIC_ROOT, url), () => {});
+    const filePath = uploadedFilePath(url);
+    if (!filePath) return;
+    void fs.promises.unlink(filePath).catch(() => undefined);
 }
