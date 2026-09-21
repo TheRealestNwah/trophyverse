@@ -116,10 +116,14 @@ async function enrichGame(apiKey: string, gameId: string, title: string): Promis
     const achievements = await getGameCatalogEntry(apiKey, raGameId);
     if (achievements.length === 0) return false;
 
-    await pool.query(
-        "insert into game_platform_links (game_id, platform_id, platform_game_id, platform_title) values ($1, 'retroachievements', $2, $3)",
+    const insertedLink = await pool.query(
+        "insert into game_platform_links (game_id, platform_id, platform_game_id, platform_title) values ($1, 'retroachievements', $2, $3) on conflict (platform_id, platform_game_id) do nothing",
         [gameId, raGameId, title]
     );
+    // The link may have been created after the lookup above by another sync
+    // or enrichment pass. Avoid assigning that platform's achievements to
+    // the wrong canonical game.
+    if (insertedLink.rowCount === 0) return false;
 
     for (const achievement of achievements) {
         await getOrCreateAchievementLink(
