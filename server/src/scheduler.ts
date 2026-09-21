@@ -9,14 +9,15 @@ import { runMatching } from "./matching";
 // Xbox key) logs and moves on rather than aborting the whole run, since a
 // scheduled job with no one watching it shouldn't silently stop covering
 // every other account over one bad one.
-export function startScheduler(intervalMinutes: number): void {
+export function startScheduler(intervalMinutes: number): () => void {
     const intervalMs = intervalMinutes * 60 * 1000;
     console.log(`Background sync scheduler enabled - running every ${intervalMinutes} minute(s).`);
 
     runScheduledSync().catch((err) => console.error("Scheduled sync failed:", err));
-    setInterval(() => {
+    const timer = setInterval(() => {
         runScheduledSync().catch((err) => console.error("Scheduled sync failed:", err));
     }, intervalMs);
+    return () => clearInterval(timer);
 }
 
 async function runScheduledSync(): Promise<void> {

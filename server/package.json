@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "ts-node src/db/migrate.ts",
+    "db:health": "ts-node src/db/checkHealth.ts",
     "db:seed-levels": "ts-node src/db/seedLevels.ts",
     "db:rescore-all": "ts-node src/db/rescoreAll.ts",
     "db:add-game-merge-candidates-table": "ts-node src/db/addGameMergeCandidatesTable.ts",
