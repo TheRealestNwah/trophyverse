@@ -16,8 +16,37 @@ import { gamesRouter } from "./games/routes";
 import { matchingRouter } from "./matching/routes";
 import { publicRouter } from "./public/routes";
 import { startScheduler } from "./scheduler";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import { csrfProtection } from "./middleware/csrf";
 
 const app = express();
+
+app.disable("x-powered-by");
+if (config.trustProxy) app.set("trust proxy", 1);
+app.use(
+    helmet({
+        // The dashboard is currently served as a static page with inline
+        // scripts; CSP will be added alongside a nonce-based template pass.
+        contentSecurityPolicy: false,
+        crossOriginResourcePolicy: false,
+    })
+);
+
+const apiRateLimit = rateLimit({
+    windowMs: config.rateLimitWindowMinutes * 60 * 1000,
+    limit: config.rateLimitMaxRequests,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { error: "Too many requests; please try again later." },
+});
+const authRateLimit = rateLimit({
+    windowMs: config.rateLimitWindowMinutes * 60 * 1000,
+    limit: config.authRateLimitMaxRequests,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { error: "Too many authentication requests; please try again later." },
+});
 
 const PgSession = connectPgSimple(session);
 
@@ -28,12 +57,20 @@ app.use(
         secret: config.sessionSecret,
         resave: false,
         saveUninitialized: false,
-        cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 },
+        cookie: {
+            maxAge: 1000 * 60 * 60 * 24 * 7,
+            httpOnly: true,
+            secure: config.baseUrl.startsWith("https://"),
+            sameSite: "lax",
+        },
     })
 );
+app.use(csrfProtection);
 app.use(passport.initialize());
 app.use(passport.session());
 
+app.use("/auth", authRateLimit);
+app.use("/api", apiRateLimit);
 app.use("/auth", authRouter);
 app.use("/api/steam", steamRouter);
 app.use("/api/xbox", xboxRouter);

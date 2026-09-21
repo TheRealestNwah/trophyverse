@@ -721,8 +721,24 @@ document.getElementById("theme-toggle-btn").addEventListener("click", () => {
 });
 updateThemeToggle();
 
-async function api(path, options) {
-    const res = await fetch(path, { credentials: "same-origin", ...options });
+let csrfTokenPromise;
+async function getCsrfToken() {
+    if (!csrfTokenPromise) {
+        csrfTokenPromise = fetch("/auth/csrf-token", { credentials: "same-origin" })
+            .then((res) => {
+                if (!res.ok) throw new Error("Unable to initialize request security");
+                return res.json();
+            })
+            .then(({ token }) => token);
+    }
+    return csrfTokenPromise;
+}
+
+async function api(path, options = {}) {
+    const method = (options.method || "GET").toUpperCase();
+    const headers = new Headers(options.headers || {});
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) headers.set("X-CSRF-Token", await getCsrfToken());
+    const res = await fetch(path, { credentials: "same-origin", ...options, headers });
     if (res.status === 401) throw new Error("unauthenticated");
     if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -1805,7 +1821,7 @@ async function init() {
         <button type="button" class="secondary" id="logout-btn" style="margin-left: auto;">Log out</button>
     `;
     document.getElementById("logout-btn").addEventListener("click", async () => {
-        await fetch("/auth/logout", { method: "POST" });
+        await api("/auth/logout", { method: "POST" });
         location.reload();
     });
     renderPublicProfile(user);
