@@ -650,6 +650,12 @@
                     <button type="button" class="secondary" id="public-profile-toggle-btn">-</button>
                 </div>
 
+                <div class="platform-row" id="delete-account-row" style="margin-bottom: 24px;">
+                    <span class="platform-name">Delete account</span>
+                    <span class="platform-note">Permanently removes your account, linked data, and private overrides.</span>
+                    <button type="button" class="secondary" id="delete-account-btn" style="color: #B91C1C; border-color: #FCA5A5;">Delete account</button>
+                </div>
+
                 <div class="toolbar" id="section-games">
                     <h2 id="games-heading">Your games</h2>
                     <div>
@@ -1760,6 +1766,28 @@ function renderPublicProfile(user) {
     };
 }
 
+function initAccountDeletion() {
+    const button = document.getElementById("delete-account-btn");
+    button.addEventListener("click", async () => {
+        const confirmation = prompt("This permanently deletes your account and private data. Type DELETE to continue.");
+        if (confirmation !== "DELETE") return;
+
+        button.disabled = true;
+        try {
+            const result = await api("/api/me/account", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ confirmation }),
+            });
+            if (result?.message) alert(result.message);
+            location.href = "/";
+        } catch (err) {
+            alert(err.message || "Couldn't delete your account. Please try again.");
+            button.disabled = false;
+        }
+    });
+}
+
 // Sidebar nav: "Overview"/"Platforms"/"All Games" just scroll to the section
 // they name (everything already lives on one page - no separate views to
 // fetch); "In Progress"/"Completed" additionally set a completion preset
@@ -1825,6 +1853,7 @@ async function init() {
         location.reload();
     });
     renderPublicProfile(user);
+    initAccountDeletion();
     initSidebarNav();
     document.getElementById("sync-all-btn").addEventListener("click", (e) => {
         syncAllPlatforms(e.target, document.getElementById("sync-all-status"));

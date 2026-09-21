@@ -4,8 +4,36 @@ import { requireAuth } from "../middleware/requireAuth";
 import { getGamesForUser, getAchievementsForGame, getRecentActivity, getFunStats, getFullExportData } from "./queries";
 import { recomputeUserScore } from "../scoring";
 import { uploadCoverImage, uploadIconImage, publicUploadUrl, deleteIfUploaded } from "./uploads";
+import { deleteUserAccount } from "../auth/accountDeletion";
 
 export const gamesRouter = Router();
+
+function destroyCurrentSession(req: import("express").Request): Promise<void> {
+    return new Promise((resolve, reject) => {
+        req.logout((logoutError) => {
+            if (logoutError) return reject(logoutError);
+            req.session.destroy((sessionError) => (sessionError ? reject(sessionError) : resolve()));
+        });
+    });
+}
+
+gamesRouter.delete("/account", requireAuth, async (req, res, next) => {
+    try {
+        if (req.body?.confirmation !== "DELETE") {
+            return res.status(400).json({ error: 'Type "DELETE" to permanently delete your account.' });
+        }
+
+        const result = await deleteUserAccount(req.user!.id);
+        await destroyCurrentSession(req);
+        res.clearCookie("connect.sid");
+        if (result.fileCleanupPending) {
+            return res.status(202).json({ message: "Account deleted; uploaded-file cleanup is pending." });
+        }
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+});
 
 gamesRouter.get("/accounts", requireAuth, async (req, res, next) => {
     try {

@@ -26,7 +26,7 @@ The application does not include advertising, analytics, or a data sale feature.
 
 Disconnecting Xbox, PSN, RetroAchievements, or GOG removes that linked account and its per-user ownership/unlock rows through the database cascade. Shared canonical game and achievement rows may remain because they can be used by other users. Steam is the sign-in identity and cannot be disconnected through the dashboard.
 
-Before a public 1.0 deployment, the operator must publish a user deletion/contact procedure appropriate to the deployment. Deleting a user row from PostgreSQL cascades that user's sessions, linked accounts, ownership, unlocks, scores, and private overrides; take a backup first and verify that any uploaded files or external logs are also handled. The repository currently does not expose a self-service account-deletion endpoint.
+Users can permanently delete their own signed-in account from the dashboard after typing `DELETE` to confirm. The service revokes sessions, deletes the user row and its cascaded linked accounts, ownership, unlocks, scores, and private overrides, then removes app-owned uploaded images. Shared canonical game and achievement rows may remain because other users can reference them. Operators must still publish a contact path for backup, external-log, or legal deletion requests.
 
 ## Operator responsibilities
 
