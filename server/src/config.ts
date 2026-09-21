@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { parseCredentialEncryptionKey } from "./security/credentials";
 
 function required(name: string): string {
     const value = process.env[name];
@@ -12,6 +13,7 @@ export const config = {
     databaseUrl: required("DATABASE_URL"),
     steamApiKey: required("STEAM_API_KEY"),
     sessionSecret: required("SESSION_SECRET"),
+    credentialEncryptionKey: parseCredentialEncryptionKey(required("CREDENTIAL_ENCRYPTION_KEY")),
     // Off by default - see scheduler.ts. Every account already syncs fine
     // on demand from the dashboard; this just automates that.
     schedulerEnabled: process.env.SCHEDULER_ENABLED === "true",

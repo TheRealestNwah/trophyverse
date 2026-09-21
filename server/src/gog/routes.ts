@@ -4,6 +4,8 @@ import { requireAuth } from "../middleware/requireAuth";
 import { GOG_LOGIN_URL, exchangeCodeForTokens, getUsername, GogApiError } from "./client";
 import { runAccountSync, PlatformAccountRow } from "../sync/runAccountSync";
 import { runMatchingAndGetScore } from "../matching";
+import { config } from "../config";
+import { encryptCredential } from "../security/credentials";
 
 export const gogRouter = Router();
 
@@ -42,7 +44,7 @@ gogRouter.post("/connect", requireAuth, async (req, res, next) => {
                     display_name = excluded.display_name,
                     access_token = excluded.access_token,
                     refresh_token = excluded.refresh_token`,
-            [req.user!.id, tokens.userId, username, tokens.accessToken, tokens.refreshToken]
+            [req.user!.id, tokens.userId, username, encryptCredential(tokens.accessToken, config.credentialEncryptionKey), encryptCredential(tokens.refreshToken, config.credentialEncryptionKey)]
         );
 
         res.json({ username });

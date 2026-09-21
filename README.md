@@ -21,7 +21,7 @@ Requires a local Postgres database and a [Steam Web API key](https://steamcommun
 
 ```bash
 cd server
-cp .env.example .env   # fill in DATABASE_URL and STEAM_API_KEY
+cp .env.example .env   # fill in the database, platform, session, and encryption settings
 npm install
 npm run db:migrate     # applies db/schema.sql and seeds the level curve
 npm run dev
@@ -58,3 +58,4 @@ API endpoints, if you want to hit them directly:
 - `GET /api/public/leaderboard` — top 50 opted-in public profiles by total points
 
 An achievement's tier is either inherited from PSN directly (`tier_source = 'psn_native'`) or, when no PSN copy exists or hasn't been matched yet, inferred from global unlock rarity (`tier_source = 'rarity_fallback'`) — capped at gold, since Platinum on real PSN is a one-per-game completion trophy, not a rarity tier. For games with an unusually skewed rarity distribution (most of the list under the global gold threshold, e.g. Payday 2), tiers are instead ranked within that game's own achievement list rather than against the fixed global cutoffs — see [docs/data-model.md](docs/data-model.md). The level curve is defined in `server/src/scoring/levelCurve.ts` and can be retuned by editing it and rerunning `npm run db:seed-levels` followed by `npm run db:rescore-all` (refreshes everyone's cached level against the new thresholds). Sessions are persisted in Postgres (`connect-pg-simple`), so a server restart doesn't log everyone out.
+Platform credentials are encrypted at rest with AES-256-GCM. Set a stable, randomly generated `CREDENTIAL_ENCRYPTION_KEY` in every server environment. After upgrading an existing deployment, run `npm run db:encrypt-platform-credentials` from the `server` directory once; the migration is transactional and safe to re-run.

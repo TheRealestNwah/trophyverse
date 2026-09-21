@@ -7,6 +7,8 @@ import { syncRetroAccount } from "../retro/sync";
 import { syncGogAccount } from "../gog/sync";
 import { exchangeRefreshTokenForTokens as exchangeGogRefreshTokenForTokens } from "../gog/client";
 import { SyncSummary } from "./types";
+import { config } from "../config";
+import { decryptCredential, encryptCredential } from "../security/credentials";
 
 export interface PlatformAccountRow {
     id: string;
@@ -24,30 +26,33 @@ export interface PlatformAccountRow {
 // (scheduler.ts) so this per-platform logic - including PSN's token refresh -
 // only lives in one place.
 export async function runAccountSync(account: PlatformAccountRow): Promise<SyncSummary> {
+    const accessToken = account.access_token ? decryptCredential(account.access_token, config.credentialEncryptionKey) : null;
+    const refreshToken = account.refresh_token ? decryptCredential(account.refresh_token, config.credentialEncryptionKey) : null;
+
     switch (account.platform_id) {
         case "steam":
             return syncSteamAccount(account.id, account.platform_account_id);
 
         case "xbox":
-            return syncXboxAccount(account.id, account.access_token!, account.platform_account_id);
+            return syncXboxAccount(account.id, accessToken!, account.platform_account_id);
 
         case "psn": {
-            const tokens = await exchangeRefreshTokenForTokens(account.refresh_token!);
+            const tokens = await exchangeRefreshTokenForTokens(refreshToken!);
             await pool.query(
                 "update user_platform_accounts set access_token = $1, refresh_token = $2 where id = $3",
-                [tokens.accessToken, tokens.refreshToken, account.id]
+                [encryptCredential(tokens.accessToken, config.credentialEncryptionKey), encryptCredential(tokens.refreshToken, config.credentialEncryptionKey), account.id]
             );
             return syncPsnAccount(account.id, tokens.accessToken);
         }
 
         case "retroachievements":
-            return syncRetroAccount(account.id, account.platform_account_id, account.access_token!);
+            return syncRetroAccount(account.id, account.platform_account_id, accessToken!);
 
         case "gog": {
-            const tokens = await exchangeGogRefreshTokenForTokens(account.refresh_token!);
+            const tokens = await exchangeGogRefreshTokenForTokens(refreshToken!);
             await pool.query(
                 "update user_platform_accounts set access_token = $1, refresh_token = $2 where id = $3",
-                [tokens.accessToken, tokens.refreshToken, account.id]
+                [encryptCredential(tokens.accessToken, config.credentialEncryptionKey), encryptCredential(tokens.refreshToken, config.credentialEncryptionKey), account.id]
             );
             return syncGogAccount(account.id, tokens.accessToken, account.platform_account_id);
         }
