@@ -57,6 +57,35 @@ export function wordOverlapScore(a: string, b: string): number {
 //
 // Used by gameMatcher for review-candidate detection (#76), not for
 // automatic merging.
+// These words are valid game titles, but are too common to identify a game
+// when they occur as the only shared word in a longer title (e.g. PAIN in
+// METAL GEAR SOLID V: THE PHANTOM PAIN). Keep this list deliberately small and
+// review-oriented: it filters noisy human-review candidates without changing
+// the exact-title auto-merge path.
+const NON_DISTINCTIVE_SINGLE_WORD_TITLES = new Set([
+    "action",
+    "adventure",
+    "battle",
+    "city",
+    "dark",
+    "dead",
+    "death",
+    "dream",
+    "fight",
+    "fire",
+    "forest",
+    "hero",
+    "home",
+    "life",
+    "man",
+    "night",
+    "pain",
+    "shadow",
+    "thief",
+    "war",
+    "world",
+]);
+
 export function isTitleSubsequenceMatch(a: string, b: string): boolean {
     const wordsA = normalize(a).split(" ").filter(Boolean);
     const wordsB = normalize(b).split(" ").filter(Boolean);
@@ -64,10 +93,15 @@ export function isTitleSubsequenceMatch(a: string, b: string): boolean {
 
     const [shorter, longer] = wordsA.length <= wordsB.length ? [wordsA, wordsB] : [wordsB, wordsA];
 
-    // A single short common word ("the", "2") trivially "appears inside"
-    // almost every other title - only trust a one-word shorter title when
-    // that word is distinctive enough to mean something on its own.
-    if (shorter.length === 1 && shorter[0].length < 4) return false;
+    // A single short/common word ("the", "2", "pain") trivially "appears
+    // inside" almost every other title - only trust a one-word shorter title
+    // when that word is distinctive enough to mean something on its own.
+    if (
+        shorter.length === 1 &&
+        (shorter[0].length < 4 || NON_DISTINCTIVE_SINGLE_WORD_TITLES.has(shorter[0]))
+    ) {
+        return false;
+    }
 
     for (let start = 0; start <= longer.length - shorter.length; start++) {
         if (!shorter.every((word, i) => longer[start + i] === word)) continue;
