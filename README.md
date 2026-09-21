@@ -63,3 +63,5 @@ Platform credentials are encrypted at rest with AES-256-GCM. Set a stable, rando
 Sessions use `HttpOnly`, `SameSite=Lax` cookies (and `Secure` when `BASE_URL` is HTTPS). State-changing browser requests require the session-bound CSRF token that the dashboard obtains from `/auth/csrf-token`. Helmet security headers and separate API/authentication rate limits are enabled by default; tune their `RATE_LIMIT_*` settings and set `TRUST_PROXY=true` when the server is behind a trusted reverse proxy.
 
 See [docs/operations.md](docs/operations.md) for deployment readiness, graceful shutdown, backup, and recovery procedures.
+
+For the 1.0 handoff, see the [privacy and data-handling notice](docs/privacy.md) and [release checklist](docs/release-checklist.md). The checklist calls out the remaining operator-owned decisions, including account-deletion contact/process, hosting-log retention, and explicit release-tag approval.
