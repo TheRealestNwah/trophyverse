@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { passport } from "./passport";
+import { getCsrfToken } from "../middleware/csrf";
 import { requireAuth } from "../middleware/requireAuth";
 
 export const authRouter = Router();
@@ -21,4 +22,9 @@ authRouter.post("/logout", (req, res, next) => {
 
 authRouter.get("/me", requireAuth, (req, res) => {
     res.json(req.user);
+});
+
+authRouter.get("/csrf-token", requireAuth, (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ token: getCsrfToken(req) });
 });
