@@ -13,6 +13,7 @@
     "db:seed-levels": "ts-node src/db/seedLevels.ts",
     "db:rescore-all": "ts-node src/db/rescoreAll.ts",
     "db:add-game-merge-candidates-table": "ts-node src/db/addGameMergeCandidatesTable.ts",
+    "db:encrypt-platform-credentials": "ts-node src/db/encryptPlatformCredentials.ts",
     "match": "ts-node src/db/runMatching.ts",
     "fix:platinum-inflation": "ts-node src/db/fixPlatinumInflation.ts",
     "fix:rarity-tiering": "ts-node src/db/fixRarityTiering.ts",

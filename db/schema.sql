@@ -65,8 +65,8 @@ create table user_platform_accounts (
     platform_id         text not null references platforms(id),
     platform_account_id text not null,   -- steamid64 / xuid / psn account id / RA username
     display_name        text,
-    access_token        text,            -- encrypted at rest by the app layer
-    refresh_token        text,
+    access_token        text,            -- enc:v1 AES-256-GCM ciphertext; migrated by server db:encrypt-platform-credentials
+    refresh_token       text,            -- enc:v1 AES-256-GCM ciphertext; migrated by server db:encrypt-platform-credentials
     linked_at           timestamptz not null default now(),
     last_synced_at      timestamptz,
     unique (user_id, platform_id),

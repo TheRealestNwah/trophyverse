@@ -4,6 +4,8 @@ import { requireAuth } from "../middleware/requireAuth";
 import { getAccount, XboxApiError } from "./client";
 import { runAccountSync, PlatformAccountRow } from "../sync/runAccountSync";
 import { runMatchingAndGetScore } from "../matching";
+import { config } from "../config";
+import { encryptCredential } from "../security/credentials";
 
 export const xboxRouter = Router();
 
@@ -34,7 +36,7 @@ xboxRouter.post("/connect", requireAuth, async (req, res, next) => {
                 set platform_account_id = excluded.platform_account_id,
                     display_name = excluded.display_name,
                     access_token = excluded.access_token`,
-            [req.user!.id, account.xuid, account.gamertag, apiKey]
+            [req.user!.id, account.xuid, account.gamertag, encryptCredential(apiKey, config.credentialEncryptionKey)]
         );
 
         res.json({ gamertag: account.gamertag, gamerscore: account.gamerscore });

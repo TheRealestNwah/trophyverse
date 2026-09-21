@@ -2,6 +2,8 @@ import { pool } from "../db";
 import { getConsoleIds, getGamesForConsole, getGameCatalogEntry, RetroApiError } from "../retro/client";
 import { getOrCreateAchievementLink } from "../sync/canonicalStore";
 import { normalize } from "./normalize";
+import { config } from "../config";
+import { decryptCredential } from "../security/credentials";
 
 export interface RetroCatalogEnrichmentResult {
     gamesEnriched: number;
@@ -58,7 +60,7 @@ export async function enrichGamesWithRetroCatalog(): Promise<RetroCatalogEnrichm
         "select access_token from user_platform_accounts where platform_id = 'retroachievements' limit 1"
     );
     if (!anyRetroAccount.rows[0]) return { gamesEnriched: 0 };
-    const apiKey = anyRetroAccount.rows[0].access_token as string;
+    const apiKey = decryptCredential(anyRetroAccount.rows[0].access_token as string, config.credentialEncryptionKey);
 
     const candidates = await pool.query(`
         select distinct g.id, g.title

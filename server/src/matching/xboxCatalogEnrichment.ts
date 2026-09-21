@@ -2,6 +2,8 @@ import { pool } from "../db";
 import { searchMarketplace, getTitleIdForProduct, getAchievementsForTitle, XboxApiError, XboxMarketplaceProduct } from "../xbox/client";
 import { getOrCreateAchievementLink } from "../sync/canonicalStore";
 import { normalize } from "./normalize";
+import { config } from "../config";
+import { decryptCredential } from "../security/credentials";
 
 export interface XboxCatalogEnrichmentResult {
     gamesEnriched: number;
@@ -20,7 +22,7 @@ export async function enrichGamesWithXboxCatalog(): Promise<XboxCatalogEnrichmen
     // No one has linked Xbox at all - no key available to search with, and
     // nothing to do until someone does.
     if (!anyXboxAccount.rows[0]) return { gamesEnriched: 0 };
-    const apiKey = anyXboxAccount.rows[0].access_token as string;
+    const apiKey = decryptCredential(anyXboxAccount.rows[0].access_token as string, config.credentialEncryptionKey);
 
     const candidates = await pool.query(`
         select distinct g.id, g.title
