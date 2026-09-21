@@ -65,10 +65,14 @@ async function enrichGame(gameId: string, title: string): Promise<boolean> {
 
     const globalPercentages = await getGlobalAchievementPercentages(appId);
 
-    await pool.query(
-        "insert into game_platform_links (game_id, platform_id, platform_game_id, platform_title) values ($1, 'steam', $2, $3)",
+    const insertedLink = await pool.query(
+        "insert into game_platform_links (game_id, platform_id, platform_game_id, platform_title) values ($1, 'steam', $2, $3) on conflict (platform_id, platform_game_id) do nothing",
         [gameId, String(appId), title]
     );
+    // The pre-fetch lookup is not a lock: a concurrent sync can claim this
+    // app while Steam catalog requests are in flight. Leave that data with
+    // its owner instead of writing achievement links to this game.
+    if (insertedLink.rowCount === 0) return false;
 
     for (const achievement of schema) {
         // Always creates a new canonical_achievements row here rather than
