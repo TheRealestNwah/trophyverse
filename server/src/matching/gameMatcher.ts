@@ -1,5 +1,6 @@
 import { pool } from "../db";
 import { normalize, isTitleSubsequenceMatch } from "./normalize";
+import { hasPlatformCollision } from "./platformCollision";
 
 export interface GameMatchResult {
     groupsMerged: number;
@@ -37,7 +38,11 @@ async function fetchGamesWithPlatforms(): Promise<GameRow[]> {
 //    remaster sharing its original's exact name (Resident Evil 2 1998 vs.
 //    the 2019 remake, both just "Resident Evil 2" - see #73). Those go to
 //    the review queue instead, while any other exact-title platforms in the
-//    same group still merge automatically as before.
+//    same group still merge automatically as before. Exact-title groups that
+//    contain multiple canonical games on one platform also go to review:
+//    without release-year/product-id metadata, that duplicate listing is the
+//    only safe signal that an exact title may represent different generations
+//    (see #85).
 // 2. A near-title-match pass across everything left (different normalized
 //    titles) also goes to the review queue rather than either auto-merging
 //    on a fuzzy match (risks merging genuinely different games - see
@@ -73,6 +78,27 @@ export async function matchGames(): Promise<GameMatchResult> {
         // cross-platform match - only merge if multiple platforms are present.
         const platformsInGroup = new Set(group.flatMap((g) => g.platforms));
         if (platformsInGroup.size < 2) continue;
+
+        // If one platform appears on more than one canonical game, the exact
+        // title may be shared by different generations/releases (for example,
+        // the 2007 and 2025 Skate games). We do not have release-year or
+        // product-generation metadata that can distinguish that case from a
+        // legitimate cross-generation merge, so require human review for every
+        // pair in the exact-title group instead of silently over-merging it.
+        if (hasPlatformCollision(group.map((game) => game.platforms))) {
+            for (let i = 0; i < group.length; i++) {
+                for (let j = i + 1; j < group.length; j++) {
+                    const created = await recordGameCandidate(
+                        group[i].id,
+                        group[j].id,
+                        0.99,
+                        "exact-title-platform-collision",
+                    );
+                    if (created) candidatesRecorded++;
+                }
+            }
+            continue;
+        }
 
         const retroGames = group.filter((g) => g.platforms.includes(RETRO_PLATFORM_ID));
         const safeGames = group.filter((g) => !g.platforms.includes(RETRO_PLATFORM_ID));
