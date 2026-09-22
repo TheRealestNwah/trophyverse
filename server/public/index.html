@@ -344,19 +344,54 @@
     }
     .game-row:hover { background: var(--card-hover); }
     .game-row.link-selected { background: var(--card-hover); box-shadow: inset 0 0 0 2px var(--accent); }
+    .game-cover-wrap {
+        position: relative;
+        width: 48px;
+        height: 72px;
+        padding: 0;
+        border: 1px dashed var(--text-dim);
+        border-radius: 7px;
+        background: var(--placeholder-bg);
+        color: var(--text-dim);
+        flex-shrink: 0;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        font: inherit;
+    }
+    .game-cover-wrap:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+    .game-cover-wrap.has-cover { border-color: transparent; border-style: solid; }
     .game-cover {
         /* 2:3 - matches SteamGridDB's standard 600x900 grid image, so a
            pasted SteamGridDB link renders at its native aspect ratio
            instead of being squished into a square. */
-        width: 48px;
-        height: 72px;
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
         border-radius: 6px;
         object-fit: cover;
-        flex-shrink: 0;
         background: var(--placeholder-bg);
     }
-    .game-cover-wrap { position: relative; flex-shrink: 0; cursor: pointer; }
-    .game-cover-wrap:hover .game-cover { opacity: 0.75; }
+    .game-cover-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1;
+    }
+    .game-cover-placeholder-icon { font-size: 24px; font-weight: 300; }
+    .game-cover-wrap.has-cover .game-cover-placeholder { opacity: 0; }
+    .game-cover-wrap:hover { border-color: var(--accent); color: var(--accent); }
+    .game-cover-wrap.has-cover:hover .game-cover { opacity: 0.72; }
     .achievement-icon-wrap { position: relative; flex-shrink: 0; cursor: pointer; display: inline-flex; }
     .achievement-icon-wrap:hover .achievement-icon { opacity: 0.75; }
     .image-action-menu {
@@ -704,6 +739,7 @@
     </div>
 </div>
 
+<script src="/image-controls.js"></script>
 <script>
 const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null };
 
@@ -1092,13 +1128,7 @@ function renderGames(games) {
         el.className = "game";
         el.innerHTML = `
             <div class="game-row" data-game-id="${game.id}">
-                <div class="game-cover-wrap" title="Click to change cover image">
-                    ${
-                        game.cover_image_url
-                            ? `<img class="game-cover" src="${game.cover_image_url}" alt="" loading="lazy" onerror="this.remove()" />`
-                            : `<div class="game-cover"></div>`
-                    }
-                </div>
+                ${ImageControls.gameCoverMarkup(game.cover_image_url)}
                 <div class="game-title">${game.title}</div>
                 ${platformBadges(game)}
                 <div class="tier-pips">${tierDots(game)}</div>
@@ -1112,7 +1142,14 @@ function renderGames(games) {
         } else {
             row.addEventListener("click", () => toggleAchievements(el, game.id));
         }
-        el.querySelector(".game-cover-wrap").addEventListener("click", (e) => {
+        const coverWrap = el.querySelector(".game-cover-wrap");
+        const coverImage = coverWrap.querySelector(".game-cover");
+        if (coverImage) {
+            const showPlaceholder = () => ImageControls.markCoverImageFailed(coverImage);
+            coverImage.addEventListener("error", showPlaceholder);
+            if (coverImage.complete && coverImage.naturalWidth === 0) showPlaceholder();
+        }
+        coverWrap.addEventListener("click", (e) => {
             e.stopPropagation();
             showImageActionMenu(e.currentTarget, {
                 onUpload: () => uploadCoverArt(game.id),
