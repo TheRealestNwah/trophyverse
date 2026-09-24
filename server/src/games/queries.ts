@@ -1,4 +1,5 @@
 import { pool } from "../db";
+import { TIER_POINTS, qualifiesForCompletionPlatinum, GameCompletionCounts } from "../scoring/tier";
 
 export async function getGamesForUser(userId: string) {
     const result = await pool.query(
@@ -65,7 +66,66 @@ export async function getGamesForUser(userId: string) {
          order by unlocked_achievements desc, g.title`,
         [userId]
     );
-    return result.rows;
+    return result.rows.map((row) => {
+        const totalAchievements = Number(row.total_achievements);
+        const unlockedAchievements = Number(row.unlocked_achievements);
+        const realPlatinumUnlocked = Number(row.platinum_unlocked);
+        const isCompletionPlatinum = qualifiesForCompletionPlatinum({
+            totalAchievements,
+            unlockedAchievements,
+            platinumUnlocked: realPlatinumUnlocked,
+        });
+
+        if (!isCompletionPlatinum) return { ...row, platinum_synthetic: false };
+
+        // Synthetic completion platinum (see scoring/tier.ts, #145) - not a
+        // real canonical_achievements row, so bump the counts/points the
+        // frontend already renders for this game as if a real platinum had
+        // been unlocked, matching the bonus recomputeUserScore adds to the
+        // user's total (scoring/index.ts).
+        return {
+            ...row,
+            platinum_unlocked: realPlatinumUnlocked + 1,
+            points_earned: Number(row.points_earned) + TIER_POINTS.platinum,
+            platinum_synthetic: true,
+        };
+    });
+}
+
+// Per-game achievement totals used to compute the synthetic completion-
+// platinum bonus (scoring/tier.ts, #145) for scoring purposes. Deliberately
+// a separate, lighter query rather than reusing getGamesForUser: scoring
+// only needs these three counts per game, not cover art/console
+// variants/tier breakdowns, and recomputeUserScore runs after every sync.
+// Keep the join/group shape here in sync with getGamesForUser above if that
+// one's ownership or unlock-scoping logic ever changes.
+export async function getGameCompletionCountsForUser(userId: string): Promise<GameCompletionCounts[]> {
+    const result = await pool.query(
+        `select
+            count(ca.id) as total_achievements,
+            count(uau.id) as unlocked_achievements,
+            count(*) filter (where ca.tier = 'platinum' and uau.id is not null) as platinum_unlocked
+         from games g
+         join canonical_achievements ca on ca.game_id = g.id
+         left join achievement_platform_links apl on apl.canonical_achievement_id = ca.id
+         left join user_achievement_unlocks uau
+                on uau.achievement_platform_link_id = apl.id
+               and uau.user_platform_account_id in (
+                   select id from user_platform_accounts where user_id = $1
+               )
+         where exists (
+             select 1 from user_owned_games uog
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where upa.user_id = $1 and uog.game_id = g.id
+         )
+         group by g.id`,
+        [userId]
+    );
+    return result.rows.map((row) => ({
+        totalAchievements: Number(row.total_achievements),
+        unlockedAchievements: Number(row.unlocked_achievements),
+        platinumUnlocked: Number(row.platinum_unlocked),
+    }));
 }
 
 export async function getRecentActivity(userId: string, limit = 20) {
@@ -150,9 +210,13 @@ export async function getFunStats(userId: string) {
         [userId, UNLOCK_TIMESTAMP_FLOOR]
     );
 
-    // Platinum only ever comes from a real PSN trophy (see scoring/tier.ts) -
-    // the only tier where "completed everything else in the game" is a real,
-    // native signal rather than an inferred rarity guess.
+    // Real platinums only (a genuine psn_native canonical_achievements row,
+    // or one matched in from PSN) - counted per unlock row, so the same
+    // trophy earned separately on two linked platforms counts twice here,
+    // matching recomputeUserScore's own per-platform accounting
+    // (scoring/index.ts). Synthetic completion platinums (#145) aren't rows
+    // in this table at all - see getGamesForUser's platinum_synthetic flag,
+    // folded into totalPlatinums below instead.
     const platinums = await pool.query(
         `select uau.unlocked_at
          from user_achievement_unlocks uau
@@ -209,13 +273,14 @@ export async function getFunStats(userId: string) {
     const fullyCompletedGames = games.filter(
         (g) => Number(g.total_achievements) > 0 && Number(g.unlocked_achievements) === Number(g.total_achievements)
     ).length;
+    const syntheticPlatinums = games.filter((g) => g.platinum_synthetic).length;
 
     return {
         rarestAchievement: rarest.rows[0] ?? null,
         busiestPointsDay: busiestPointsDay.rows[0] ?? null,
         busiestUnlockDay: busiestUnlockDay.rows[0] ?? null,
         oldestUnlock: oldest.rows[0] ?? null,
-        totalPlatinums: platinums.rows.length,
+        totalPlatinums: platinums.rows.length + syntheticPlatinums,
         totalGold: Number(golds.rows[0].count),
         totalSilver: Number(silvers.rows[0].count),
         totalBronze: Number(bronzes.rows[0].count),
