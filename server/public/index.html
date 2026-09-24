@@ -233,7 +233,54 @@
         color: var(--text);
         font: inherit;
     }
-    #text-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    #text-prompt-actions, .sgdb-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    #sgdb-picker {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg);
+        color: var(--text);
+        padding: 20px;
+        width: min(820px, calc(100vw - 32px));
+        max-height: calc(100vh - 48px);
+    }
+    #sgdb-picker::backdrop { background: rgba(0, 0, 0, 0.45); }
+    #sgdb-picker h3 { margin: 0 0 12px; font-size: 16px; }
+    .sgdb-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .sgdb-controls input[type="text"], .sgdb-controls select {
+        background: var(--input-bg);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 7px 10px;
+        color: var(--text);
+        font: inherit;
+    }
+    .sgdb-controls input[type="text"] { flex: 1; min-width: 180px; }
+    .sgdb-controls label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+    #sgdb-status { font-size: 13px; color: var(--text-dim); min-height: 18px; margin: 0 0 8px; }
+    #sgdb-results {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+        max-height: 55vh;
+        overflow-y: auto;
+    }
+    .sgdb-result {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 0;
+        background: none;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        color: var(--text-dim);
+        font-size: 11px;
+        text-align: left;
+        cursor: pointer;
+    }
+    .sgdb-result:hover, .sgdb-result:focus-visible { border-color: var(--accent); }
+    .sgdb-result img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: var(--placeholder-bg); }
+    .sgdb-result span { padding: 0 2px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #sgdb-results[aria-busy="true"] { opacity: 0.5; pointer-events: none; }
     button.secondary {
         background: var(--card);
         color: var(--text);
@@ -850,6 +897,29 @@
     </form>
 </dialog>
 
+<dialog id="sgdb-picker" aria-labelledby="sgdb-title">
+    <h3 id="sgdb-title">Pick a cover from SteamGridDB</h3>
+    <form class="sgdb-controls" id="sgdb-search-form">
+        <input type="text" id="sgdb-term" placeholder="Search by game title" autocomplete="off" spellcheck="false" />
+        <button type="submit">Search</button>
+        <select id="sgdb-match" class="hidden" aria-label="SteamGridDB game"></select>
+        <select id="sgdb-style" aria-label="Style">
+            <option value="">All styles</option>
+            <option value="alternate">Alternate</option>
+            <option value="blurred">Blurred</option>
+            <option value="white_logo">White logo</option>
+            <option value="material">Material</option>
+            <option value="no_logo">No logo</option>
+        </select>
+        <label><input type="checkbox" id="sgdb-animated" /> Animated</label>
+    </form>
+    <p id="sgdb-status" role="status"></p>
+    <div id="sgdb-results"></div>
+    <div class="sgdb-actions">
+        <button type="button" class="secondary" id="sgdb-cancel">Cancel</button>
+    </div>
+</dialog>
+
 <script src="/image-controls.js"></script>
 <script>
 const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null };
@@ -1110,7 +1180,7 @@ const gameSorters = {
 // Small popover anchored to the clicked cover/icon, offering the two ways to
 // replace it. Anchoring here (instead of a modal) keeps the choice next to
 // the image the user just clicked instead of somewhere else on screen.
-function showImageActionMenu(anchorEl, { onUpload, onPaste }) {
+function showImageActionMenu(anchorEl, { onUpload, onPaste, onSteamGridDb }) {
     document.querySelectorAll(".image-action-menu").forEach((m) => m.remove());
 
     const rect = anchorEl.getBoundingClientRect();
@@ -1119,6 +1189,7 @@ function showImageActionMenu(anchorEl, { onUpload, onPaste }) {
     menu.innerHTML = `
         <button type="button" data-action="upload">Upload file&hellip;</button>
         <button type="button" data-action="paste">Paste image URL&hellip;</button>
+        ${onSteamGridDb ? `<button type="button" data-action="steamgriddb">Search SteamGridDB&hellip;</button>` : ""}
     `;
     document.body.appendChild(menu);
 
@@ -1147,7 +1218,150 @@ function showImageActionMenu(anchorEl, { onUpload, onPaste }) {
         close();
         onPaste();
     });
+    menu.querySelector('[data-action="steamgriddb"]')?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        close();
+        onSteamGridDb();
+    });
     setTimeout(() => document.addEventListener("click", onDocClick, true), 0);
+}
+
+// Searches run on submit or filter change, never per keystroke, since
+// SteamGridDB doesn't publish rate limits. Author names and titles come from
+// SteamGridDB, so results are built with DOM APIs rather than innerHTML.
+function openSteamGridDbPicker(game) {
+    const dialog = document.getElementById("sgdb-picker");
+    const form = document.getElementById("sgdb-search-form");
+    const termInput = document.getElementById("sgdb-term");
+    const matchSelect = document.getElementById("sgdb-match");
+    const styleSelect = document.getElementById("sgdb-style");
+    const animatedBox = document.getElementById("sgdb-animated");
+    const status = document.getElementById("sgdb-status");
+    const results = document.getElementById("sgdb-results");
+    const cancelBtn = document.getElementById("sgdb-cancel");
+
+    let requestId = 0;
+    let sgdbGameId = null;
+    termInput.value = "";
+    matchSelect.classList.add("hidden");
+    results.replaceChildren();
+    document.getElementById("sgdb-title").textContent = `Pick a cover for ${game.title}`;
+
+    async function load({ term = termInput.value.trim() } = {}) {
+        const thisRequest = ++requestId;
+        const params = new URLSearchParams();
+        if (sgdbGameId) params.set("sgdbGameId", sgdbGameId);
+        else if (term) params.set("term", term);
+        if (styleSelect.value) params.set("styles", styleSelect.value);
+        if (animatedBox.checked) params.set("animated", "true");
+
+        status.textContent = "Searching SteamGridDB…";
+        results.setAttribute("aria-busy", "true");
+        try {
+            const data = await api(`/api/me/games/${game.id}/cover/steamgriddb/search?${params}`);
+            if (thisRequest !== requestId) return;
+            if (data.source === "search") {
+                termInput.value = data.term || term;
+                matchSelect.replaceChildren(
+                    ...data.matches.map((m) => {
+                        const option = document.createElement("option");
+                        option.value = m.id;
+                        option.textContent = m.name;
+                        return option;
+                    })
+                );
+                matchSelect.value = data.selectedGameId ?? "";
+                matchSelect.classList.toggle("hidden", data.matches.length < 2);
+                sgdbGameId = data.selectedGameId;
+            } else if (data.source === "steam") {
+                matchSelect.classList.add("hidden");
+            }
+            renderResults(data.grids);
+            status.textContent = data.grids.length
+                ? `${data.grids.length} cover${data.grids.length === 1 ? "" : "s"}. Click one to use it.`
+                : data.source === "search" && !data.matches.length
+                  ? "No SteamGridDB game matches that title. Try a different search."
+                  : "No covers match these filters.";
+        } catch (err) {
+            if (thisRequest !== requestId) return;
+            results.replaceChildren();
+            status.textContent = err.message;
+        } finally {
+            if (thisRequest === requestId) results.removeAttribute("aria-busy");
+        }
+    }
+
+    function renderResults(grids) {
+        results.replaceChildren(
+            ...grids.map((grid) => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "sgdb-result";
+                const img = document.createElement("img");
+                img.src = grid.thumb;
+                img.alt = "";
+                img.loading = "lazy";
+                const caption = document.createElement("span");
+                caption.textContent = grid.author ? `by ${grid.author}` : grid.style;
+                button.title = `${grid.width}×${grid.height}, ${grid.style}${grid.author ? `, by ${grid.author}` : ""}`;
+                button.append(img, caption);
+                button.addEventListener("click", () => select(grid));
+                return button;
+            })
+        );
+    }
+
+    async function select(grid) {
+        requestId++;
+        status.textContent = "Saving cover…";
+        results.setAttribute("aria-busy", "true");
+        try {
+            await api(`/api/me/games/${game.id}/cover/steamgriddb/select`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: grid.url }),
+            });
+            finish();
+            await refreshGamesAndScore();
+        } catch (err) {
+            status.textContent = `Couldn't use that cover: ${err.message}`;
+            results.removeAttribute("aria-busy");
+        }
+    }
+
+    const onSubmit = (e) => {
+        e.preventDefault();
+        sgdbGameId = null;
+        load();
+    };
+    const onMatchChange = () => {
+        sgdbGameId = matchSelect.value;
+        load();
+    };
+    const onFilterChange = () => load();
+    const onCancel = (e) => {
+        e.preventDefault();
+        finish();
+    };
+    function finish() {
+        requestId++;
+        form.removeEventListener("submit", onSubmit);
+        matchSelect.removeEventListener("change", onMatchChange);
+        styleSelect.removeEventListener("change", onFilterChange);
+        animatedBox.removeEventListener("change", onFilterChange);
+        cancelBtn.removeEventListener("click", onCancel);
+        dialog.removeEventListener("cancel", onCancel);
+        dialog.close();
+    }
+
+    form.addEventListener("submit", onSubmit);
+    matchSelect.addEventListener("change", onMatchChange);
+    styleSelect.addEventListener("change", onFilterChange);
+    animatedBox.addEventListener("change", onFilterChange);
+    cancelBtn.addEventListener("click", onCancel);
+    dialog.addEventListener("cancel", onCancel);
+    dialog.showModal();
+    load({ term: "" });
 }
 
 // Opens a native file picker and POSTs the chosen image as multipart form
@@ -1303,6 +1517,7 @@ function renderGames(games) {
             showImageActionMenu(e.currentTarget, {
                 onUpload: () => uploadCoverArt(game.id),
                 onPaste: () => setCoverArt(game.id),
+                onSteamGridDb: () => openSteamGridDbPicker(game),
             });
         });
         list.appendChild(el);
