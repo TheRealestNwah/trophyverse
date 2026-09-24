@@ -171,6 +171,37 @@ export async function getFunStats(userId: string) {
         if (longestPlatinumGapDays === null || gapDays > longestPlatinumGapDays) longestPlatinumGapDays = gapDays;
     }
 
+    // Same shape as the platinums query above, just counted rather than
+    // collected (no gap-between-unlocks stat needed for these tiers) - backs
+    // the platinum/gold/silver/bronze totals breakdown (#147).
+    const golds = await pool.query(
+        `select count(*) as count
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         where upa.user_id = $1 and ca.tier = 'gold'`,
+        [userId]
+    );
+    const silvers = await pool.query(
+        `select count(*) as count
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         where upa.user_id = $1 and ca.tier = 'silver'`,
+        [userId]
+    );
+    const bronzes = await pool.query(
+        `select count(*) as count
+         from user_achievement_unlocks uau
+         join user_platform_accounts upa on upa.id = uau.user_platform_account_id
+         join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
+         join canonical_achievements ca on ca.id = apl.canonical_achievement_id
+         where upa.user_id = $1 and ca.tier = 'bronze'`,
+        [userId]
+    );
+
     // Reuses the same unlocked/total counts the games list already computes
     // (and has already been tested against) rather than re-deriving
     // completion at the canonical-achievement level from scratch.
@@ -185,6 +216,9 @@ export async function getFunStats(userId: string) {
         busiestUnlockDay: busiestUnlockDay.rows[0] ?? null,
         oldestUnlock: oldest.rows[0] ?? null,
         totalPlatinums: platinums.rows.length,
+        totalGold: Number(golds.rows[0].count),
+        totalSilver: Number(silvers.rows[0].count),
+        totalBronze: Number(bronzes.rows[0].count),
         longestPlatinumGapDays: longestPlatinumGapDays !== null ? Math.round(longestPlatinumGapDays) : null,
         fullyCompletedGames,
     };

@@ -1018,6 +1018,10 @@ function renderStats(stats) {
     if (stats.longestPlatinumGapDays !== null) {
         cards.push(statCard("Longest platinum drought", `${stats.longestPlatinumGapDays} days`, "between two platinums"));
     }
+    cards.push(statCard("Platinums earned", `${stats.totalPlatinums}`));
+    cards.push(statCard("Golds earned", `${stats.totalGold}`));
+    cards.push(statCard("Silvers earned", `${stats.totalSilver}`));
+    cards.push(statCard("Bronzes earned", `${stats.totalBronze}`));
 
     grid.innerHTML = cards.length > 0 ? cards.join("") : `<div class="loading-note">Not enough data yet.</div>`;
 }
