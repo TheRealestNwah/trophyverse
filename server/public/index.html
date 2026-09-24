@@ -679,12 +679,6 @@
                     and paste it in along with your username.
                 </p>
 
-                <div class="platform-row" id="public-profile-row" style="margin-bottom: 24px;">
-                    <span class="platform-name">Public profile</span>
-                    <span class="platform-note" id="public-profile-note">-</span>
-                    <button type="button" class="secondary" id="public-profile-toggle-btn">-</button>
-                </div>
-
                 <div class="platform-row" id="delete-account-row" style="margin-bottom: 24px;">
                     <span class="platform-name">Delete account</span>
                     <span class="platform-note">Permanently removes your account, linked data, and private overrides.</span>
@@ -1776,33 +1770,6 @@ async function refreshPlatforms() {
     renderPlatforms(await api("/api/me/accounts"));
 }
 
-function renderPublicProfile(user) {
-    const note = document.getElementById("public-profile-note");
-    const btn = document.getElementById("public-profile-toggle-btn");
-    const url = `${location.origin}/u/${user.public_slug}`;
-
-    note.innerHTML = user.is_public
-        ? `Live at <a href="${url}" target="_blank" style="color: var(--accent);">${url}</a>`
-        : "Off - your library is only visible to you";
-    btn.textContent = user.is_public ? "Turn off" : "Make public";
-
-    btn.onclick = async () => {
-        btn.disabled = true;
-        try {
-            const updated = await api("/api/me/public-profile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ isPublic: !user.is_public }),
-            });
-            renderPublicProfile({ ...user, ...updated });
-        } catch (err) {
-            alert(err.message || "Couldn't update your public profile setting.");
-        } finally {
-            btn.disabled = false;
-        }
-    };
-}
-
 function initAccountDeletion() {
     const button = document.getElementById("delete-account-btn");
     button.addEventListener("click", async () => {
@@ -1880,8 +1847,6 @@ async function init() {
 
     document.getElementById("dashboard-view").classList.remove("hidden");
     document.getElementById("header-actions").innerHTML = `
-        <a href="/compare">Compare</a>
-        <a href="/leaderboard">Leaderboard</a>
         <span style="color: var(--text-dim);">${user.username}</span>
         <button type="button" class="secondary" id="logout-btn" style="margin-left: auto;">Log out</button>
     `;
@@ -1889,7 +1854,6 @@ async function init() {
         await api("/auth/logout", { method: "POST" });
         location.reload();
     });
-    renderPublicProfile(user);
     initAccountDeletion();
     initSidebarNav();
     document.getElementById("sync-all-btn").addEventListener("click", (e) => {

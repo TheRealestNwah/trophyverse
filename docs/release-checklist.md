@@ -19,7 +19,6 @@ Use this checklist for a production release. A green CI run is required, but it 
 - [ ] Link one test account on each enabled platform, sync it twice, and confirm the second sync does not duplicate games, achievements, ownership, or unlock rows.
 - [ ] Exercise disconnect/reconnect and self-service account deletion; confirm private data is no longer returned and uploaded overrides are removed.
 - [ ] Confirm state-changing dashboard requests succeed with the CSRF token and fail without it; confirm session cookies have the expected `HttpOnly`, `SameSite`, and HTTPS `Secure` attributes.
-- [ ] Confirm public profiles and the leaderboard remain opt-in, and that turning a profile off removes it from public routes.
 - [ ] Confirm rate-limit responses and security headers are present through the production proxy.
 
 ## Rollout and rollback

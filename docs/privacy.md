@@ -4,21 +4,21 @@ This document describes the data the Unified Achievement Manager stores and how 
 
 ## What is stored
 
-- **Sign-in identity:** the Steam account identifier and display name returned by Steam OpenID, plus the app's generated user ID and profile slug.
+- **Sign-in identity:** the Steam account identifier and display name returned by Steam OpenID and the app's generated user ID.
 - **Linked-platform data:** platform account IDs, display names, owned games, achievement definitions, unlock timestamps, and derived score/level data for each linked account.
 - **Platform credentials:** PSN/GOG access and refresh tokens, Xbox/OpenXBL keys, and RetroAchievements keys are encrypted at rest with the deployment's AES-256-GCM `CREDENTIAL_ENCRYPTION_KEY`. They are decrypted only in application memory when a sync or catalog lookup needs them. The key is never stored in PostgreSQL.
 - **Sessions:** signed session records are stored in PostgreSQL so a restart does not silently log users out. The session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS deployments.
-- **Optional user content:** a user may opt into a public profile and leaderboard entry, and may add cover-art or achievement-icon overrides. Public profiles expose only the library, achievement, and score data rendered by the public routes.
+- **Optional user content:** cover-art and achievement-icon overrides a user adds.
 
 ## How data is used
 
-The service uses linked credentials only to request library and achievement data from the platform the user selected. It uses that data to build the private dashboard, calculate scores, match equivalent games/achievements, and render an explicitly opted-in public profile. It does not need a user's platform password.
+The service uses linked credentials only to request library and achievement data from the platform the user selected. It uses that data to build the private dashboard, calculate scores, and match equivalent games/achievements. It does not need a user's platform password.
 
 Requests to platform APIs are subject to those providers' terms and availability. Operators should link to the current Steam, Sony, OpenXBL, RetroAchievements, and GOG policies from their deployment's privacy notice rather than copying third-party terms here.
 
 ## Sharing and visibility
 
-Private libraries are available only to the signed-in user and server operators with database access. A public profile is off by default; enabling it makes that profile's rendered library and score available without login at `/u/<slug>` and in the public leaderboard. Turning it off removes it from those public routes.
+Private libraries are available only to the signed-in user and server operators with database access.
 
 The application does not include advertising, analytics, or a data sale feature. Operators must document any hosting logs, monitoring, backups, or additional integrations they add around this repository.
 

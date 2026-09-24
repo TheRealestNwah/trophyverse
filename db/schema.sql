@@ -46,14 +46,13 @@ create table if not exists users (
     id          uuid primary key default uuid_generate_v4(),
     email       text unique,
     username    text not null,
-    created_at  timestamptz not null default now(),
-    -- Public, PSNProfiles-style profile page (see games/publicRoutes.ts).
-    -- Off by default - a user's synced library only becomes visible to
-    -- anyone without an account once they explicitly opt in from the
-    -- dashboard, never automatically just by signing up or syncing.
-    is_public    boolean not null default false,
-    public_slug  text unique  -- generated once at signup from the platform display name; stable even if is_public is later toggled off and back on
+    created_at  timestamptz not null default now()
 );
+
+-- Public profiles, the leaderboard, and compare were removed when the app
+-- became a local desktop app; drop their columns from older databases.
+alter table users drop column if exists is_public;
+alter table users drop column if exists public_slug;
 
 -- One linked account per user per platform. Holds whatever the platform's
 -- API needs to pull unlock data (OAuth tokens for Xbox/PSN, a public
