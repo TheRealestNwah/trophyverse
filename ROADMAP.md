@@ -2,10 +2,7 @@
 
 ## Next up
 
-1.0 ships as a standalone Windows desktop app: an Electron shell around the server, with its own bundled PostgreSQL, a first-run Steam key setup, and an installer built and smoke-tested in CI ([#124](https://github.com/TheRealestNwah/unified-achievement-manager/issues/124)–[#129](https://github.com/TheRealestNwah/unified-achievement-manager/issues/129)). What remains is getting it out the door:
-
-1. **Run the live parts of the [1.0 release checklist](docs/release-checklist.md)** on a real Windows machine (Steam sign-in, every platform, sync twice, disconnect/reconnect, crash recovery, uninstall/reinstall), then tag once approved.
-2. **Live-verify GOG** against a real account ([#130](https://github.com/TheRealestNwah/unified-achievement-manager/issues/130)). The client follows the community API docs but hasn't been checked against a real library yet.
+1.0 ships as a standalone Windows desktop app: an Electron shell around the server, with its own bundled PostgreSQL, a first-run Steam key setup, and an installer built and smoke-tested in CI ([#124](https://github.com/TheRealestNwah/unified-achievement-manager/issues/124)–[#129](https://github.com/TheRealestNwah/unified-achievement-manager/issues/129)). What remains is getting it out the door: **run the live parts of the [1.0 release checklist](docs/release-checklist.md)** on a real Windows machine (Steam sign-in, every platform, sync twice, disconnect/reconnect, crash recovery, uninstall/reinstall), then tag once approved.
 
 After 1.0: code-sign the installer (removes the SmartScreen warning), auto-update, and macOS/Linux builds. The code is already cross-platform apart from the installer.
 
@@ -35,7 +32,7 @@ Working discipline for unmonitored runs is unchanged: one focused PR per item, `
 | 9 | **Xbox client** | ✅ Done | OpenXBL-based OAuth + achievement pull (raw Microsoft OAuth was passed over — see PR history). Includes a merge of the modern and legacy (x360) achievement endpoints, since the modern one returns nothing for legacy titles. |
 | 10 | **RetroAchievements client** | ✅ Done | Public API, no OAuth key exchange (a personal Web API key + username, same personal-key pattern as Xbox). No native tiers (`has_native_tiers = false`), so achievements are tiered from global unlock rarity like Steam/Xbox, using `NumDistinctPlayersCasual` as the rarity denominator. |
 | 11 | **PSN client** | ✅ Done | Unofficial API (NPSSO token → OAuth exchange), implemented directly on Node's `https` module (Node's `fetch`/undici had a confirmed incompatibility with OpenXBL and was avoided here too). This is the scoring source of truth — its native trophy tier always wins when a match includes it. |
-| 11b | **GOG client** | 🟡 Built, not live-verified | Unofficial API following the community gogapidocs (paste-the-redirect-code login, since there's no callback we control). Ubisoft Connect and Epic were researched under [#31](https://github.com/TheRealestNwah/unified-achievement-manager/issues/31) and not built. |
+| 11b | **GOG client** | ✅ Done | Unofficial API following the community gogapidocs (paste-the-redirect-code login, since there's no callback we control). Verified against a real account in the 1.0 build ([#130](https://github.com/TheRealestNwah/unified-achievement-manager/issues/130)). Ubisoft Connect and Epic were researched under [#31](https://github.com/TheRealestNwah/unified-achievement-manager/issues/31) and not built. |
 
 ## P2 — polish & scale
 
@@ -58,4 +55,4 @@ Working discipline for unmonitored runs is unchanged: one focused PR per item, `
 
 ## Suggested order
 
-~~Auth → Steam client → game matching → achievement matching → scoring engine → sync pipeline → API → dashboard → Xbox → RetroAchievements → PSN → everything else.~~ Every P0/P1/P2 item is done apart from live-verifying GOG. See "Next up" at the top for what's left before 1.0.
+~~Auth → Steam client → game matching → achievement matching → scoring engine → sync pipeline → API → dashboard → Xbox → RetroAchievements → PSN → everything else.~~ Every P0/P1/P2 item is done. See "Next up" at the top for what's left before 1.0.
