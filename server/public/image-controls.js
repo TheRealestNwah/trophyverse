@@ -34,22 +34,41 @@
         image.closest(".game-cover-wrap")?.classList.remove("has-cover");
     }
 
-    // Achievement icons are rendered with class="achievement-icon" and no
-    // onerror handler (inline event attributes can't be nonce-allowed under
-    // CSP) - a broken icon URL is instead removed here, via a capturing
-    // listener since "error" on <img> doesn't bubble.
+    const ICON_RETRY_DELAY_MS = 2000;
+
+    // One retry covers transient failures (network blips, CDN hiccups). An
+    // icon that still fails becomes the same placeholder used for achievements
+    // with no icon, so the row keeps its shape and the click-to-change-icon
+    // target stays in place.
+    function handleAchievementIconError(image, schedule = setTimeout) {
+        if (!image.dataset.retried) {
+            image.dataset.retried = "true";
+            const src = image.src;
+            schedule(() => {
+                if (image.isConnected) image.src = src;
+            }, ICON_RETRY_DELAY_MS);
+            return;
+        }
+        const placeholder = image.ownerDocument.createElement("div");
+        placeholder.className = "achievement-icon";
+        image.replaceWith(placeholder);
+    }
+
+    // Inline onerror attributes can't be nonce-allowed under CSP, so icon
+    // errors are caught here with a capturing listener ("error" on <img>
+    // doesn't bubble).
     if (typeof document !== "undefined") {
         document.addEventListener(
             "error",
             (event) => {
                 const target = event.target;
                 if (target instanceof HTMLImageElement && target.classList.contains("achievement-icon")) {
-                    target.remove();
+                    handleAchievementIconError(target);
                 }
             },
             true
         );
     }
 
-    return { gameCoverMarkup, markCoverImageFailed };
+    return { gameCoverMarkup, markCoverImageFailed, handleAchievementIconError };
 });
