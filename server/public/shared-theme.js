@@ -27,6 +27,24 @@ function updateThemeToggle() {
     btn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
 }
 
+// Broken achievement icons / game covers are rendered with no onerror
+// handler (inline event attributes can't be nonce-allowed under CSP) - this
+// capturing listener removes them instead, since "error" on <img> doesn't
+// bubble.
+document.addEventListener(
+    "error",
+    (event) => {
+        const target = event.target;
+        if (
+            target instanceof HTMLImageElement &&
+            (target.classList.contains("achievement-icon") || target.classList.contains("game-cover"))
+        ) {
+            target.remove();
+        }
+    },
+    true
+);
+
 function initThemeToggle() {
     const btn = document.getElementById("theme-toggle-btn");
     if (!btn) return;

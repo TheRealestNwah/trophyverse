@@ -19,17 +19,35 @@ import { startScheduler } from "./scheduler";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { csrfProtection } from "./middleware/csrf";
+import { nonceMiddleware } from "./middleware/nonce";
+import { sendPageWithNonce } from "./staticPages";
 import { Server } from "node:http";
 
 export const app = express();
 
 app.disable("x-powered-by");
 if (config.trustProxy) app.set("trust proxy", 1);
+app.use(nonceMiddleware);
 app.use(
     helmet({
-        // The dashboard is currently served as a static page with inline
-        // scripts; CSP will be added alongside a nonce-based template pass.
-        contentSecurityPolicy: false,
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", (_req, res) => `'nonce-${(res as express.Response).locals.cspNonce}'`],
+                // <style> blocks get the nonce; inline style="" attributes
+                // (used throughout the dashboard for one-off colors) are
+                // left as 'unsafe-inline' since nonces don't apply to them.
+                styleSrcElem: ["'self'", (_req, res) => `'nonce-${(res as express.Response).locals.cspNonce}'`],
+                styleSrcAttr: ["'unsafe-inline'"],
+                // Achievement icons and game covers are served from each
+                // linked platform's own CDN (Steam, Xbox, PSN, RA, GOG).
+                imgSrc: ["'self'", "https:", "data:"],
+                connectSrc: ["'self'"],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"],
+                frameAncestors: ["'self'"],
+            },
+        },
         crossOriginResourcePolicy: false,
     })
 );
@@ -96,25 +114,38 @@ app.use("/api/me", gamesRouter);
 app.use("/api/matching", matchingRouter);
 app.use("/api/public", publicRouter);
 
+app.get("/", (req, res) => {
+    sendPageWithNonce("index.html", req, res);
+});
+
 // Serves the same static SPA shell as the dashboard - profile.html reads the
 // slug from the URL client-side and hits /api/public/:slug itself. No auth
 // here since a public profile is meant to be viewable without an account.
-app.get("/u/:slug", (_req, res) => {
-    res.sendFile(path.join(__dirname, "..", "public", "profile.html"));
+app.get("/u/:slug", (req, res) => {
+    sendPageWithNonce("profile.html", req, res);
 });
 
-app.get("/leaderboard", (_req, res) => {
-    res.sendFile(path.join(__dirname, "..", "public", "leaderboard.html"));
+app.get("/leaderboard", (req, res) => {
+    sendPageWithNonce("leaderboard.html", req, res);
 });
 
 // Same no-auth, slug-driven pattern as /u/:slug above - both profiles being
 // compared must independently be is_public (enforced by /api/public/:slug
 // itself), no separate access model introduced here.
-app.get("/compare", (_req, res) => {
-    res.sendFile(path.join(__dirname, "..", "public", "compare.html"));
+app.get("/compare", (req, res) => {
+    sendPageWithNonce("compare.html", req, res);
 });
 
-app.use(express.static(path.join(__dirname, "..", "public")));
+// The four routes above serve these same files with the per-request CSP
+// nonce injected; a direct request for the raw file would bypass that.
+app.use((req, res, next) => {
+    if (req.path.endsWith(".html")) {
+        res.status(404).end();
+        return;
+    }
+    next();
+});
+app.use(express.static(path.join(__dirname, "..", "public"), { index: false }));
 
 // Every route above hands failures to next(err); without this, Express's
 // default handler sends an HTML error page, which breaks every fetch()-based

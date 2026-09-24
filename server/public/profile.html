@@ -111,7 +111,7 @@ function renderActivity(items) {
         <div class="activity-item">
             ${
                 a.icon_url
-                    ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                    ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" />`
                     : ""
             }
             <span class="tier-tag ${a.tier}">${a.tier}</span>
@@ -225,7 +225,7 @@ function renderGames(games) {
             <div class="game-row" data-game-id="${game.id}">
                 ${
                     game.cover_image_url
-                        ? `<img class="game-cover" src="${game.cover_image_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                        ? `<img class="game-cover" src="${game.cover_image_url}" alt="" loading="lazy" />`
                         : ""
                 }
                 <div class="game-title">${game.title}</div>
@@ -274,7 +274,7 @@ async function toggleAchievements(gameEl, gameId) {
                 <div class="achievement ${a.unlocked ? "" : "locked"}">
                     ${
                         a.icon_url
-                            ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                            ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" />`
                             : ""
                     }
                     <span class="tier-tag ${a.tier}">${a.tier}</span>

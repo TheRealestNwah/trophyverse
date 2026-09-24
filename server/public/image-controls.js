@@ -34,5 +34,22 @@
         image.closest(".game-cover-wrap")?.classList.remove("has-cover");
     }
 
+    // Achievement icons are rendered with class="achievement-icon" and no
+    // onerror handler (inline event attributes can't be nonce-allowed under
+    // CSP) - a broken icon URL is instead removed here, via a capturing
+    // listener since "error" on <img> doesn't bubble.
+    if (typeof document !== "undefined") {
+        document.addEventListener(
+            "error",
+            (event) => {
+                const target = event.target;
+                if (target instanceof HTMLImageElement && target.classList.contains("achievement-icon")) {
+                    target.remove();
+                }
+            },
+            true
+        );
+    }
+
     return { gameCoverMarkup, markCoverImageFailed };
 });
