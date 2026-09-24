@@ -1,0 +1,215 @@
+import fs from "fs";
+import path from "path";
+import { format } from "util";
+import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
+
+interface RunningApp {
+    url: string;
+    dataDir: string;
+    stop(): Promise<void>;
+}
+
+const PROJECT_URL = "https://github.com/TheRealestNwah/unified-achievement-manager";
+
+let mainWindow: BrowserWindow | null = null;
+let running: RunningApp | null = null;
+let shutdown: Promise<void> | null = null;
+let appOrigin = "";
+
+// Tests and the installer smoke check point the app at a scratch folder.
+if (process.env.TROPHYVERSE_DATA_DIR) app.setPath("userData", path.resolve(process.env.TROPHYVERSE_DATA_DIR));
+const dataDir = app.getPath("userData");
+const logFile = path.join(dataDir, "logs", "main.log");
+
+// A packaged app has no console, so everything the server logs goes to a file
+// the user can find from the File menu.
+function captureLogs(): void {
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    try {
+        if (fs.statSync(logFile).size > 5 * 1024 * 1024) fs.renameSync(logFile, `${logFile}.old`);
+    } catch {
+        // No log yet.
+    }
+    const stream = fs.createWriteStream(logFile, { flags: "a" });
+    for (const level of ["log", "info", "warn", "error"] as const) {
+        const original = console[level].bind(console);
+        console[level] = (...args: unknown[]) => {
+            stream.write(`${new Date().toISOString()} [${level}] ${format(...args)}\n`);
+            original(...args);
+        };
+    }
+}
+
+function serverEntry(): string {
+    return app.isPackaged
+        ? path.join(process.resourcesPath, "server", "dist", "app.js")
+        : path.join(__dirname, "..", "..", "server", "dist", "app.js");
+}
+
+function isAppUrl(url: string): boolean {
+    try {
+        return new URL(url).origin === appOrigin;
+    } catch {
+        return false;
+    }
+}
+
+// Steam's OpenID sign-in has to happen inside the app window so the session
+// cookie it ends with lands in the app, not in the user's browser.
+function isSteamSignIn(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === "https:" && parsed.hostname === "steamcommunity.com" && parsed.pathname.startsWith("/openid");
+    } catch {
+        return false;
+    }
+}
+
+function openExternally(url: string): void {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
+}
+
+function guardNavigation(event: Electron.Event, url: string): void {
+    if (isAppUrl(url) || isSteamSignIn(url)) return;
+    event.preventDefault();
+    openExternally(url);
+}
+
+const LOADING_PAGE = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Trophyverse</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; height: 100vh; display: grid; place-items: center; font-family: "Segoe UI", system-ui, sans-serif; background: Canvas; color: CanvasText; }
+  p { opacity: .7; }
+</style></head>
+<body><div style="text-align:center"><h2>Trophyverse</h2><p>Starting up&hellip; the first launch takes a few seconds longer.</p></div></body></html>`)}`;
+
+function createWindow(): BrowserWindow {
+    const window = new BrowserWindow({
+        width: 1280,
+        height: 860,
+        minWidth: 720,
+        minHeight: 520,
+        title: "Trophyverse",
+        show: false,
+        autoHideMenuBar: true,
+        webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+        },
+    });
+    window.once("ready-to-show", () => window.show());
+    window.webContents.setWindowOpenHandler(({ url }) => {
+        openExternally(url);
+        return { action: "deny" };
+    });
+    window.webContents.on("will-navigate", guardNavigation);
+    window.webContents.on("will-redirect", guardNavigation);
+    void window.loadURL(LOADING_PAGE);
+    return window;
+}
+
+function buildMenu(): void {
+    Menu.setApplicationMenu(
+        Menu.buildFromTemplate([
+            {
+                label: "File",
+                submenu: [
+                    { label: "Open Data Folder", click: () => void shell.openPath(dataDir) },
+                    { label: "Open Log File", click: () => void shell.openPath(logFile) },
+                    { type: "separator" },
+                    { role: "quit" },
+                ],
+            },
+            { role: "editMenu" },
+            {
+                label: "View",
+                submenu: [
+                    { role: "reload" },
+                    { role: "toggleDevTools" },
+                    { type: "separator" },
+                    { role: "resetZoom" },
+                    { role: "zoomIn" },
+                    { role: "zoomOut" },
+                    { type: "separator" },
+                    { role: "togglefullscreen" },
+                ],
+            },
+            {
+                label: "Help",
+                submenu: [
+                    { label: "Project Page", click: () => void shell.openExternal(PROJECT_URL) },
+                    {
+                        label: "About Trophyverse",
+                        click: () =>
+                            void dialog.showMessageBox({
+                                title: "About Trophyverse",
+                                message: `Trophyverse ${app.getVersion()}`,
+                                detail: `Your data is stored in:\n${dataDir}`,
+                            }),
+                    },
+                ],
+            },
+        ])
+    );
+}
+
+async function start(): Promise<void> {
+    captureLogs();
+    console.log(`Starting Trophyverse ${app.getVersion()} (data: ${dataDir})`);
+    buildMenu();
+
+    // Nothing the dashboard does needs camera, notifications, geolocation, etc.
+    session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+
+    mainWindow = createWindow();
+    mainWindow.on("closed", () => (mainWindow = null));
+
+    const { startApp } = require(serverEntry()) as { startApp(options: { dataDir: string }): Promise<RunningApp> };
+    running = await startApp({ dataDir });
+    appOrigin = new URL(running.url).origin;
+    console.log(`Server ready at ${running.url}`);
+    await mainWindow?.loadURL(running.url);
+}
+
+function stopServer(): Promise<void> {
+    shutdown ??= (running ? running.stop() : Promise.resolve()).catch((err) => console.error("Shutdown failed:", err));
+    return shutdown;
+}
+
+if (!app.requestSingleInstanceLock()) {
+    // Another copy is already running against the same data folder and
+    // database; hand focus to it instead of starting a second server.
+    app.quit();
+} else {
+    app.on("second-instance", () => {
+        if (!mainWindow) return;
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+    });
+
+    app.on("window-all-closed", () => app.quit());
+
+    let readyToQuit = false;
+    app.on("before-quit", (event) => {
+        if (readyToQuit) return;
+        event.preventDefault();
+        void stopServer().finally(() => {
+            readyToQuit = true;
+            app.quit();
+        });
+    });
+
+    app.whenReady()
+        .then(start)
+        .catch(async (err: unknown) => {
+            console.error("Startup failed:", err);
+            dialog.showErrorBox(
+                "Trophyverse couldn't start",
+                `${err instanceof Error ? err.message : String(err)}\n\nDetails are in the log file:\n${logFile}`
+            );
+            await stopServer();
+            app.exit(1);
+        });
+}
