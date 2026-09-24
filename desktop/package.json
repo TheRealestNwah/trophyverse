@@ -1,0 +1,20 @@
+{
+  "name": "trophyverse-desktop",
+  "productName": "Trophyverse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trophyverse desktop app: every platform's achievements in one place, running entirely on your computer.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "build:server": "npm --prefix ../server run build",
+    "start": "npm run build:server && npm run build && electron .",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "node node_modules/electron/install.js"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "electron": "44.4.5",
+    "typescript": "5.9.3"
+  }
+}

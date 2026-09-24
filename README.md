@@ -35,6 +35,14 @@ npm install
 npm run app
 ```
 
+Or as the actual desktop app (an Electron window around the same thing; builds the server first):
+
+```bash
+cd desktop
+npm install
+npm start
+```
+
 Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First login creates your account and links your Steam ID automatically. From the dashboard you can:
 
 - **Sync Steam** — one click, no extra setup.

@@ -23,6 +23,11 @@ export async function startApp({ dataDir = defaultDataDir(), port }: { dataDir?:
     process.env.TROPHYVERSE_DATA_DIR = resolvedDataDir;
     process.env.HOST = "127.0.0.1";
     process.env.PORT = String(port ?? (await findFreePort()));
+    // Single-user defaults: nobody else is going to press Sync, and one person
+    // clicking around can't trip limits meant for a shared public server.
+    process.env.SCHEDULER_ENABLED ??= "true";
+    process.env.RATE_LIMIT_MAX_REQUESTS ??= "5000";
+    process.env.AUTH_RATE_LIMIT_MAX_REQUESTS ??= "300";
 
     const database = await startEmbeddedDatabase(resolvedDataDir);
     try {
