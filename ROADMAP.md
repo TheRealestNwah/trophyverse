@@ -4,10 +4,11 @@
 
 Every item in the previous "Next up" backlog (#18 through #32) has shipped, along with the 1.0 hardening work (#107 through #119). What remains is getting 1.0 out the door:
 
-1. **Make `db:migrate` safe to re-run on an existing database.** `db/schema.sql` is all plain `create table`, so re-running it against an already-migrated database fails on the first statement (`relation "session" already exists`). `docs/operations.md` and the release checklist both tell operators to run it on every deploy, so the documented upgrade path doesn't work yet. Needs either an idempotent schema or a real migrations table.
-2. **Run the live parts of the [1.0 release checklist](docs/release-checklist.md)** - real platform logins, second-sync duplicate checks, disconnect/reconnect, restart survival - then tag once approved.
-3. **Live-verify GOG** against a real account. The client follows the community API docs but hasn't been checked against a real library yet (see #31).
-4. **Add a Content-Security-Policy.** Helmet's CSP is currently off because the dashboard uses inline scripts; it needs a nonce-based template pass first (see `server/src/index.ts`).
+1. **Run the live parts of the [1.0 release checklist](docs/release-checklist.md)** - real platform logins, second-sync duplicate checks, disconnect/reconnect, restart survival - then tag once approved.
+2. **Live-verify GOG** against a real account. The client follows the community API docs but hasn't been checked against a real library yet (see #31).
+3. **Add a Content-Security-Policy.** Helmet's CSP is currently off because the dashboard uses inline scripts; it needs a nonce-based template pass first (see `server/src/index.ts`).
+
+~~Make `db:migrate` safe to re-run on an existing database.~~ Done - `db/schema.sql` now guards every `create table`/`create index` with `if not exists`, wraps the three enum types in the standard idempotent `do $$ ... exception when duplicate_object` block, and both seed inserts use `on conflict do nothing` so a re-run can't reset hand-tuned `tier_points` values. Verified by migrating a fresh database, then re-running `db:migrate` twice more against it with no error, and confirming a hand-edited `tier_points` row survives a re-run untouched.
 
 Working discipline for unmonitored runs is unchanged: one focused PR per item, `npx tsc --noEmit` before every commit, live-verify against the real dev DB before merging where possible, and say plainly in the PR when a third-party API assumption couldn't be checked live. Check real API responses with `curl` rather than guessing from docs. File a new issue instead of building anything not listed here that comes up along the way.
 
