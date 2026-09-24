@@ -174,6 +174,7 @@ interface RawX360Achievement {
     timeUnlocked?: string;
     gamerscore: number;
     rarity?: { currentPercentage?: number };
+    mediaAssets?: Array<{ type: string; url: string }>;
 }
 
 interface X360Page {
@@ -230,6 +231,13 @@ export async function getX360AchievementsForTitle(
             timeUnlocked: plausibleUnlockTime(status?.timeUnlocked),
             gamerscore: def.gamerscore,
             rarityPercent: (status ?? def).rarity?.currentPercentage,
+            // The legacy per-title definitions endpoint carries the same
+            // mediaAssets shape the modern /v2/achievements/title endpoint
+            // does (see mapAchievement above) - this was never read here, so
+            // every classic Xbox 360 title's achievements synced with no
+            // icon at all regardless of unlock state, even though OpenXBL
+            // does return one.
+            iconUrl: def.mediaAssets?.find((m) => m.type === "Icon")?.url,
         };
     });
 }

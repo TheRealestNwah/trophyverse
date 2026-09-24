@@ -76,6 +76,32 @@ describe("GOG client response parsing", () => {
         expect(lost).toMatchObject({ id: "2", isUnlocked: false, unlockedAt: undefined });
     });
 
+    // Regression test for #146: an achievement nobody has unlocked yet only
+    // ever has image_url_locked set (GOG doesn't populate image_url_unlocked
+    // until it's actually been earned by someone), so falling back to
+    // image_url_unlocked alone left every never-unlocked achievement with no
+    // icon at all, despite GOG providing one for the locked state.
+    it("falls back to the locked icon when the unlocked variant isn't populated yet", async () => {
+        respond({
+            items: [
+                {
+                    achievement_id: "3",
+                    achievement_key: "NEVER_WON",
+                    name: "Never Won",
+                    image_url_locked: "https://images.gog.test/never-won-locked.png",
+                    date_unlocked: null,
+                },
+            ],
+        });
+
+        const [achievement] = await getAchievementsForGame("access", "1", "user");
+        expect(achievement).toMatchObject({
+            id: "3",
+            isUnlocked: false,
+            iconUrl: "https://images.gog.test/never-won-locked.png",
+        });
+    });
+
     it("returns no achievements for a game without an achievements schema", async () => {
         respond({}, 404);
         await expect(getAchievementsForGame("access", "1", "user")).resolves.toEqual([]);
