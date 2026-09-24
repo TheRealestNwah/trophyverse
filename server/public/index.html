@@ -15,6 +15,7 @@
 <style>
     :root {
         --bg: #FFFFFF;
+        --input-bg: #FFFFFF;
         --sidebar-bg: #F5F5F7;
         --topbar-bg: #FBFBFC;
         --card: #F7F7F8;
@@ -44,6 +45,7 @@
     @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) {
             --bg: #1C1C1E;
+            --input-bg: #1C1C1E;
             --sidebar-bg: #232326;
             --topbar-bg: #201F22;
             --card: #2C2C2E;
@@ -65,6 +67,7 @@
     }
     :root[data-theme="dark"] {
         --bg: #1C1C1E;
+        --input-bg: #1C1C1E;
         --sidebar-bg: #232326;
         --topbar-bg: #201F22;
         --card: #2C2C2E;
@@ -309,7 +312,7 @@
     .platform-note { font-size: 12px; color: var(--text-dim); flex: 1; }
     .platform-row input[type="text"] {
         flex: 1;
-        background: #FFFFFF;
+        background: var(--input-bg);
         border: 1px solid var(--border);
         border-radius: 7px;
         padding: 8px 14px;
@@ -322,7 +325,7 @@
         font-weight: 700;
         text-transform: uppercase;
         color: var(--text-dim);
-        background: #FFFFFF;
+        background: var(--input-bg);
         border: 1px solid var(--border);
         border-radius: 5px;
         padding: 2px 8px;
@@ -711,11 +714,11 @@
                         type="text"
                         id="games-filter"
                         placeholder="Filter your games..."
-                        style="flex: 1; background: #FFFFFF; border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; color: var(--text); font-size: 14px;"
+                        style="flex: 1; background: var(--input-bg); border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; color: var(--text); font-size: 14px;"
                     />
                     <select
                         id="games-sort"
-                        style="background: #FFFFFF; border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; color: var(--text); font-size: 14px;"
+                        style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; color: var(--text); font-size: 14px;"
                     >
                         <option value="unlocked-desc">Most unlocked</option>
                         <option value="completion-desc">Completion % (high to low)</option>
