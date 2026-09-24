@@ -20,21 +20,20 @@ create extension if not exists "uuid-ossp";
 -- Backing sessions with Postgres instead of express-session's default
 -- in-memory store means a server restart (or, later, running more than one
 -- server instance) doesn't silently log every signed-in user out.
-create table session (
+create table if not exists session (
     sid    varchar collate "default" not null,
     sess   json not null,
-    expire timestamp(6) not null
+    expire timestamp(6) not null,
+    constraint session_pkey primary key (sid)
 );
 
-alter table session add constraint session_pkey primary key (sid);
-
-create index idx_session_expire on session (expire);
+create index if not exists idx_session_expire on session (expire);
 
 -- ---------------------------------------------------------------------------
 -- Platforms & users
 -- ---------------------------------------------------------------------------
 
-create table platforms (
+create table if not exists platforms (
     id                text primary key,          -- 'steam' | 'xbox' | 'psn' | 'retroachievements'
     name              text not null,
     has_native_tiers  boolean not null default false  -- true only for psn today
@@ -43,7 +42,7 @@ create table platforms (
 -- Identity comes from whichever platform the user first signs in with
 -- (Steam OpenID, etc.) rather than a separate email/password system, so
 -- email is optional and username (a platform display name) isn't unique.
-create table users (
+create table if not exists users (
     id          uuid primary key default uuid_generate_v4(),
     email       text unique,
     username    text not null,
@@ -59,7 +58,7 @@ create table users (
 -- One linked account per user per platform. Holds whatever the platform's
 -- API needs to pull unlock data (OAuth tokens for Xbox/PSN, a public
 -- SteamID64 for Steam, a username for RetroAchievements).
-create table user_platform_accounts (
+create table if not exists user_platform_accounts (
     id                  uuid primary key default uuid_generate_v4(),
     user_id             uuid not null references users(id) on delete cascade,
     platform_id         text not null references platforms(id),
@@ -78,14 +77,14 @@ create table user_platform_accounts (
 -- platform's own copy of it.
 -- ---------------------------------------------------------------------------
 
-create table games (
+create table if not exists games (
     id               uuid primary key default uuid_generate_v4(),
     title            text not null,
     cover_image_url  text,
     created_at       timestamptz not null default now()
 );
 
-create table game_platform_links (
+create table if not exists game_platform_links (
     id                uuid primary key default uuid_generate_v4(),
     game_id           uuid not null references games(id) on delete cascade,
     platform_id       text not null references platforms(id),
@@ -105,15 +104,23 @@ create table game_platform_links (
 -- gets credit once even if they unlocked it on two platforms.
 -- ---------------------------------------------------------------------------
 
-create type trophy_tier as enum ('bronze', 'silver', 'gold', 'platinum');
+do $$ begin
+    create type trophy_tier as enum ('bronze', 'silver', 'gold', 'platinum');
+exception
+    when duplicate_object then null;
+end $$;
 
-create type tier_source as enum (
-    'psn_native',           -- game has a PSN release; this is its real trophy tier
-    'cross_platform_match', -- inherited from a matched PSN trophy on another platform's copy
-    'rarity_fallback'       -- no PSN release exists; tier inferred from global unlock rarity
-);
+do $$ begin
+    create type tier_source as enum (
+        'psn_native',           -- game has a PSN release; this is its real trophy tier
+        'cross_platform_match', -- inherited from a matched PSN trophy on another platform's copy
+        'rarity_fallback'       -- no PSN release exists; tier inferred from global unlock rarity
+    );
+exception
+    when duplicate_object then null;
+end $$;
 
-create table canonical_achievements (
+create table if not exists canonical_achievements (
     id           uuid primary key default uuid_generate_v4(),
     game_id      uuid not null references games(id) on delete cascade,
     name         text not null,
@@ -125,7 +132,7 @@ create table canonical_achievements (
     created_at   timestamptz not null default now()
 );
 
-create table achievement_platform_links (
+create table if not exists achievement_platform_links (
     id                      uuid primary key default uuid_generate_v4(),
     canonical_achievement_id uuid not null references canonical_achievements(id) on delete cascade,
     platform_id             text not null references platforms(id),
@@ -143,9 +150,13 @@ create table achievement_platform_links (
 
 -- Achievements a matching pass has proposed linking together, awaiting
 -- confirmation before they're merged into one canonical_achievements row.
-create type match_status as enum ('pending', 'confirmed', 'rejected');
+do $$ begin
+    create type match_status as enum ('pending', 'confirmed', 'rejected');
+exception
+    when duplicate_object then null;
+end $$;
 
-create table achievement_match_candidates (
+create table if not exists achievement_match_candidates (
     id                          uuid primary key default uuid_generate_v4(),
     achievement_platform_link_id uuid not null references achievement_platform_links(id) on delete cascade,
     candidate_canonical_achievement_id uuid not null references canonical_achievements(id) on delete cascade,
@@ -163,7 +174,7 @@ create table achievement_match_candidates (
 -- name). See #73, #76. game_a_id/game_b_id are always stored with
 -- game_a_id < game_b_id (as text) so the unique constraint catches the same
 -- pair regardless of which side gameMatcher happened to compare first.
-create table game_merge_candidates (
+create table if not exists game_merge_candidates (
     id              uuid primary key default uuid_generate_v4(),
     game_a_id       uuid not null references games(id) on delete cascade,
     game_b_id       uuid not null references games(id) on delete cascade,
@@ -178,7 +189,7 @@ create table game_merge_candidates (
 -- Unlocks & scoring
 -- ---------------------------------------------------------------------------
 
-create table user_achievement_unlocks (
+create table if not exists user_achievement_unlocks (
     id                          uuid primary key default uuid_generate_v4(),
     user_platform_account_id    uuid not null references user_platform_accounts(id) on delete cascade,
     achievement_platform_link_id uuid not null references achievement_platform_links(id) on delete cascade,
@@ -191,7 +202,7 @@ create table user_achievement_unlocks (
 -- user own this game" can't be inferred from a game merely existing in the
 -- canonical tables for a platform they've linked. This records it explicitly,
 -- populated during sync for every game the account has (achievements or not).
-create table user_owned_games (
+create table if not exists user_owned_games (
     id                       uuid primary key default uuid_generate_v4(),
     user_platform_account_id uuid not null references user_platform_accounts(id) on delete cascade,
     game_id                  uuid not null references games(id) on delete cascade,
@@ -204,7 +215,7 @@ create table user_owned_games (
 -- in a row a previously-owned game has been absent; reconcileMissingOwnership
 -- (canonicalStore.ts) only revokes/drops it once this crosses a threshold,
 -- and any sync where the game is seen again resets/removes the row.
-create table game_absence_streaks (
+create table if not exists game_absence_streaks (
     user_platform_account_id  uuid not null references user_platform_accounts(id) on delete cascade,
     game_id                   uuid not null references games(id) on delete cascade,
     consecutive_missing_syncs smallint not null default 1,
@@ -217,14 +228,14 @@ create table game_absence_streaks (
 -- deliberately its own per-user table rather than a column on those shared
 -- rows: one user's paste must never change what a different user who owns
 -- the same game/achievement sees.
-create table user_game_cover_overrides (
+create table if not exists user_game_cover_overrides (
     user_id         uuid not null references users(id) on delete cascade,
     game_id         uuid not null references games(id) on delete cascade,
     cover_image_url text not null,
     primary key (user_id, game_id)
 );
 
-create table user_achievement_icon_overrides (
+create table if not exists user_achievement_icon_overrides (
     user_id                  uuid not null references users(id) on delete cascade,
     canonical_achievement_id uuid not null references canonical_achievements(id) on delete cascade,
     icon_url                 text not null,
@@ -235,7 +246,7 @@ create table user_achievement_icon_overrides (
 -- rarity when nothing about that game could have changed since last sync -
 -- see #21. Steam-specific (keyed on appid, not a canonical game_id) since
 -- this is purely a sync-performance cache, not shared account/library state.
-create table steam_game_sync_state (
+create table if not exists steam_game_sync_state (
     user_platform_account_id uuid not null references user_platform_accounts(id) on delete cascade,
     appid                    integer not null,
     playtime_forever         integer not null,
@@ -247,7 +258,7 @@ create table steam_game_sync_state (
 -- sync, but global rarity shifts slowly - see #27. Shared across every user
 -- of the app (unlike steam_game_sync_state above, which is per-account),
 -- since one game's global percentages are the same for everyone who owns it.
-create table steam_global_rarity_cache (
+create table if not exists steam_global_rarity_cache (
     appid       integer primary key,
     percentages jsonb not null,
     fetched_at  timestamptz not null default now()
@@ -260,28 +271,28 @@ create table steam_global_rarity_cache (
 -- matching pass forever. A Steam release's achievement list/global rarity
 -- isn't something that appears later for a game that never had it, so this
 -- is never expired or retried automatically.
-create table steam_catalog_enrichment_attempts (
+create table if not exists steam_catalog_enrichment_attempts (
     game_id      uuid primary key references games(id) on delete cascade,
     attempted_at timestamptz not null default now()
 );
 
 -- Same purpose as steam_catalog_enrichment_attempts above, for
 -- matching/xboxCatalogEnrichment.ts.
-create table xbox_catalog_enrichment_attempts (
+create table if not exists xbox_catalog_enrichment_attempts (
     game_id      uuid primary key references games(id) on delete cascade,
     attempted_at timestamptz not null default now()
 );
 
 -- Same purpose as steam_catalog_enrichment_attempts above, for
 -- matching/retroCatalogEnrichment.ts.
-create table retro_catalog_enrichment_attempts (
+create table if not exists retro_catalog_enrichment_attempts (
     game_id      uuid primary key references games(id) on delete cascade,
     attempted_at timestamptz not null default now()
 );
 
 -- Point value per tier. A table rather than a hardcoded constant so it can
 -- be tuned without a migration; seeded with PSN's published values.
-create table tier_points (
+create table if not exists tier_points (
     tier    trophy_tier primary key,
     points  smallint not null
 );
@@ -290,18 +301,19 @@ insert into tier_points (tier, points) values
     ('bronze', 15),
     ('silver', 30),
     ('gold', 90),
-    ('platinum', 300);
+    ('platinum', 300)
+on conflict (tier) do nothing;
 
 -- Cumulative points required to reach each level, precomputed by the
 -- scoring service from a tunable curve (see docs/data-model.md).
-create table level_thresholds (
+create table if not exists level_thresholds (
     level           integer primary key,
     points_required bigint not null
 );
 
 -- Cached, precomputed per-user totals. Recomputed whenever a new unlock
 -- comes in rather than aggregated live on every profile view.
-create table user_scores (
+create table if not exists user_scores (
     user_id       uuid primary key references users(id) on delete cascade,
     total_points  bigint not null default 0,
     level         integer not null default 1,
@@ -317,5 +329,6 @@ insert into platforms (id, name, has_native_tiers) values
     ('steam', 'Steam', false),
     ('xbox', 'Xbox', false),
     ('retroachievements', 'RetroAchievements', false),
-    ('gog', 'GOG', false);
+    ('gog', 'GOG', false)
+on conflict (id) do nothing;
 
