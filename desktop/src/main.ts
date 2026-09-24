@@ -17,7 +17,7 @@ let shutdown: Promise<void> | null = null;
 let appOrigin = "";
 
 // Tests and the installer smoke check point the app at a scratch folder.
-if (process.env.TROPHYVERSE_DATA_DIR) app.setPath("userData", path.resolve(process.env.TROPHYVERSE_DATA_DIR));
+if (process.env.UAM_DATA_DIR) app.setPath("userData", path.resolve(process.env.UAM_DATA_DIR));
 const dataDir = app.getPath("userData");
 const logFile = path.join(dataDir, "logs", "main.log");
 
@@ -76,13 +76,13 @@ function guardNavigation(event: Electron.Event, url: string): void {
 }
 
 const LOADING_PAGE = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Trophyverse</title>
+<html><head><meta charset="utf-8"><title>Unified Achievement Manager</title>
 <style>
   :root { color-scheme: light dark; }
   body { margin: 0; height: 100vh; display: grid; place-items: center; font-family: "Segoe UI", system-ui, sans-serif; background: Canvas; color: CanvasText; }
   p { opacity: .7; }
 </style></head>
-<body><div style="text-align:center"><h2>Trophyverse</h2><p>Starting up&hellip; the first launch takes a few seconds longer.</p></div></body></html>`)}`;
+<body><div style="text-align:center"><h2>Unified Achievement Manager</h2><p>Starting up&hellip; the first launch takes a few seconds longer.</p></div></body></html>`)}`;
 
 function createWindow(): BrowserWindow {
     const window = new BrowserWindow({
@@ -90,7 +90,7 @@ function createWindow(): BrowserWindow {
         height: 860,
         minWidth: 720,
         minHeight: 520,
-        title: "Trophyverse",
+        title: "Unified Achievement Manager",
         show: false,
         autoHideMenuBar: true,
         webPreferences: {
@@ -141,11 +141,11 @@ function buildMenu(): void {
                 submenu: [
                     { label: "Project Page", click: () => void shell.openExternal(PROJECT_URL) },
                     {
-                        label: "About Trophyverse",
+                        label: "About Unified Achievement Manager",
                         click: () =>
                             void dialog.showMessageBox({
-                                title: "About Trophyverse",
-                                message: `Trophyverse ${app.getVersion()}`,
+                                title: "About Unified Achievement Manager",
+                                message: `Unified Achievement Manager ${app.getVersion()}`,
                                 detail: `Your data is stored in:\n${dataDir}`,
                             }),
                     },
@@ -157,7 +157,7 @@ function buildMenu(): void {
 
 async function start(): Promise<void> {
     captureLogs();
-    console.log(`Starting Trophyverse ${app.getVersion()} (data: ${dataDir})`);
+    console.log(`Starting Unified Achievement Manager ${app.getVersion()} (data: ${dataDir})`);
     buildMenu();
 
     // Nothing the dashboard does needs camera, notifications, geolocation, etc.
@@ -173,7 +173,7 @@ async function start(): Promise<void> {
     await mainWindow?.loadURL(running.url);
 
     // CI launches the packaged app with this set to prove it boots end to end.
-    if (process.env.TROPHYVERSE_SMOKE_TEST === "1") {
+    if (process.env.UAM_SMOKE_TEST === "1") {
         const ready = await fetch(`${running.url}/readyz`);
         const title = await mainWindow?.webContents.executeJavaScript("document.title");
         if (!ready.ok || !title) throw new Error(`Smoke test failed: readyz ${ready.status}, title ${JSON.stringify(title)}`);
@@ -214,9 +214,9 @@ if (!app.requestSingleInstanceLock()) {
         .then(start)
         .catch(async (err: unknown) => {
             console.error("Startup failed:", err);
-            if (process.env.TROPHYVERSE_SMOKE_TEST !== "1") {
+            if (process.env.UAM_SMOKE_TEST !== "1") {
                 dialog.showErrorBox(
-                    "Trophyverse couldn't start",
+                    "Unified Achievement Manager couldn't start",
                     `${err instanceof Error ? err.message : String(err)}\n\nDetails are in the log file:\n${logFile}`
                 );
             }

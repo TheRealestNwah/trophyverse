@@ -1,10 +1,10 @@
 # Privacy and data handling
 
-Trophyverse runs entirely on your computer. There's no Trophyverse server, account, analytics, telemetry, or advertising. This page describes what the app stores locally and which outside services it talks to. It's product documentation, not legal advice.
+Unified Achievement Manager runs entirely on your computer. There's no Unified Achievement Manager server, account, analytics, telemetry, or advertising. This page describes what the app stores locally and which outside services it talks to. It's product documentation, not legal advice.
 
 ## What is stored, and where
 
-Everything is kept in your Windows user's data folder, `%APPDATA%\Trophyverse` (see [operations.md](operations.md)):
+Everything is kept in your Windows user's data folder, `%APPDATA%\Unified Achievement Manager` (see [operations.md](operations.md)):
 
 - **Sign-in identity:** your Steam account ID and display name, returned by Steam's own sign-in page, and the app's generated user ID.
 - **Library data:** for each linked platform, the account ID and display name, owned games, achievement definitions, unlock times, and the derived score and level.
@@ -28,5 +28,5 @@ Those requests are subject to each provider's own terms and privacy policies. Th
 
 - **Disconnect** removes that platform's linked account and its synced ownership and unlock data.
 - **Delete account** removes your account, sessions, linked accounts, unlocks, scores, and overrides, and deletes uploaded images.
-- **Uninstalling** removes the program but keeps the data folder. Delete `%APPDATA%\Trophyverse` to remove everything.
+- **Uninstalling** removes the program but keeps the data folder. Delete `%APPDATA%\Unified Achievement Manager` to remove everything.
 - Credentials you issued (API keys, tokens) can also be revoked on each platform's own site.

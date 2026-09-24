@@ -6,9 +6,9 @@ import { findFreePort, startEmbeddedDatabase } from "./runtime/embeddedDatabase"
 // Everything lives in one per-user data folder.
 
 export function defaultDataDir(): string {
-    if (process.platform === "win32") return path.join(process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming"), "Trophyverse");
-    if (process.platform === "darwin") return path.join(os.homedir(), "Library", "Application Support", "Trophyverse");
-    return path.join(process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share"), "trophyverse");
+    if (process.platform === "win32") return path.join(process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming"), "Unified Achievement Manager");
+    if (process.platform === "darwin") return path.join(os.homedir(), "Library", "Application Support", "Unified Achievement Manager");
+    return path.join(process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share"), "unified-achievement-manager");
 }
 
 export interface RunningApp {
@@ -19,8 +19,8 @@ export interface RunningApp {
 
 export async function startApp({ dataDir = defaultDataDir(), port }: { dataDir?: string; port?: number } = {}): Promise<RunningApp> {
     const resolvedDataDir = path.resolve(dataDir);
-    process.env.TROPHYVERSE_APP = "1";
-    process.env.TROPHYVERSE_DATA_DIR = resolvedDataDir;
+    process.env.UAM_APP = "1";
+    process.env.UAM_DATA_DIR = resolvedDataDir;
     process.env.HOST = "127.0.0.1";
     process.env.PORT = String(port ?? (await findFreePort()));
     // Single-user defaults: nobody else is going to press Sync, and one person
@@ -54,9 +54,9 @@ export async function startApp({ dataDir = defaultDataDir(), port }: { dataDir?:
 }
 
 if (require.main === module) {
-    startApp({ dataDir: process.env.TROPHYVERSE_DATA_DIR || undefined, port: Number(process.env.PORT) || undefined })
+    startApp({ dataDir: process.env.UAM_DATA_DIR || undefined, port: Number(process.env.PORT) || undefined })
         .then((app) => {
-            console.log(`Trophyverse is running at ${app.url} (data in ${app.dataDir})`);
+            console.log(`Unified Achievement Manager is running at ${app.url} (data in ${app.dataDir})`);
             const onSignal = () => {
                 app.stop()
                     .catch((err) => {

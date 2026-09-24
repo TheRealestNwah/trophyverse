@@ -1,4 +1,4 @@
-; A crashed Trophyverse can leave its bundled PostgreSQL running, which locks
+; A crashed Unified Achievement Manager can leave its bundled PostgreSQL running, which locks
 ; files the installer needs to replace or remove. Only processes started from
 ; this app's own bundled binaries are touched, never a separately installed
 ; PostgreSQL. NSIS is 32-bit, and a 32-bit PowerShell can't read a 64-bit

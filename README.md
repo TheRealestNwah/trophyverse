@@ -1,4 +1,4 @@
-# Trophyverse — Unified Achievement Manager
+# Unified Achievement Manager
 
 A Windows desktop app that pulls your Steam, Xbox, PlayStation, RetroAchievements, and GOG achievements into one place, with a unified score and level modeled on PlayStation's trophy system. Everything runs on your own computer. There's no server to set up, no account with us, and nothing leaves your PC except the requests to the platforms you connect.
 
@@ -8,7 +8,7 @@ A Windows desktop app that pulls your Steam, Xbox, PlayStation, RetroAchievement
 
 ## Install
 
-1. Download `Trophyverse-Setup-<version>.exe` from the [Releases page](https://github.com/TheRealestNwah/unified-achievement-manager/releases).
+1. Download `Unified-Achievement-Manager-Setup-<version>.exe` from the [Releases page](https://github.com/TheRealestNwah/unified-achievement-manager/releases).
 2. Run it. It installs for your Windows user only and doesn't need administrator rights.
 3. The 1.0 installer isn't code-signed yet, so Windows SmartScreen may say it "protected your PC" from an unrecognized app. Click **More info**, then **Run anyway**.
 
@@ -42,7 +42,7 @@ Links like these open in your normal web browser. Only Steam sign-in happens ins
 
 ## Your data
 
-Everything is stored in `%APPDATA%\Trophyverse` (open it from **File → Open Data Folder**). Uninstalling keeps it, so reinstalling picks up where you left off. See [docs/operations.md](docs/operations.md) for backups, moving to a new PC, removing everything, and troubleshooting, and [docs/privacy.md](docs/privacy.md) for exactly what is stored and sent where.
+Everything is stored in `%APPDATA%\Unified Achievement Manager` (open it from **File → Open Data Folder**). Uninstalling keeps it, so reinstalling picks up where you left off. See [docs/operations.md](docs/operations.md) for backups, moving to a new PC, removing everything, and troubleshooting, and [docs/privacy.md](docs/privacy.md) for exactly what is stored and sent where.
 
 ## Status
 

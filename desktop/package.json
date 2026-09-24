@@ -1,9 +1,9 @@
 {
-  "name": "trophyverse-desktop",
-  "productName": "Trophyverse",
+  "name": "unified-achievement-manager-desktop",
+  "productName": "Unified Achievement Manager",
   "version": "1.0.0",
   "private": true,
-  "description": "Trophyverse desktop app: every platform's achievements in one place, running entirely on your computer.",
+  "description": "Unified Achievement Manager desktop app: every platform's achievements in one place, running entirely on your computer.",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
@@ -21,9 +21,9 @@
   },
   "author": "TheRealestNwah",
   "build": {
-    "appId": "io.github.therealestnwah.trophyverse",
-    "productName": "Trophyverse",
-    "artifactName": "Trophyverse-Setup-${version}.${ext}",
+    "appId": "io.github.therealestnwah.unifiedachievementmanager",
+    "productName": "Unified Achievement Manager",
+    "artifactName": "Unified-Achievement-Manager-Setup-${version}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -79,7 +79,7 @@
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
       "include": "build/installer.nsh",
-      "shortcutName": "Trophyverse"
+      "shortcutName": "Unified Achievement Manager"
     }
   }
 }

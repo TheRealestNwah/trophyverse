@@ -14,16 +14,16 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: trophyverse_test
+          POSTGRES_DB: uam_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d trophyverse_test"
+          --health-cmd "pg_isready -U postgres -d uam_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/trophyverse_test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/uam_test
       BASE_URL: http://localhost:3000
       STEAM_API_KEY: ci-test-key
       SESSION_SECRET: ci-test-session-secret
@@ -95,11 +95,11 @@ jobs:
       - name: Install, launch, and uninstall the built installer
         shell: pwsh
         run: |
-          $installer = (Get-ChildItem desktop/release/Trophyverse-Setup-*.exe).FullName
+          $installer = (Get-ChildItem desktop/release/Unified-Achievement-Manager-Setup-*.exe).FullName
           ./desktop/scripts/smoke-test.ps1 -Installer $installer
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Trophyverse-Setup
-          path: desktop/release/Trophyverse-Setup-*.exe
+          name: Unified-Achievement-Manager-Setup
+          path: desktop/release/Unified-Achievement-Manager-Setup-*.exe
           retention-days: 14

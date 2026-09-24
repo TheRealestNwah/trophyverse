@@ -6,7 +6,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$work = Join-Path ([System.IO.Path]::GetTempPath()) ("trophyverse-smoke-" + [guid]::NewGuid())
+$work = Join-Path ([System.IO.Path]::GetTempPath()) ("uam-smoke-" + [guid]::NewGuid())
 $installDir = Join-Path $work 'app'
 $dataDir = Join-Path $work 'data'
 
@@ -23,12 +23,12 @@ function Fail([string]$message) {
 
 $install = Start-Process -FilePath $Installer -ArgumentList @('/S', "/D=$installDir") -PassThru -Wait
 if ($install.ExitCode -ne 0) { Fail "installer exited with $($install.ExitCode)" }
-$exe = Join-Path $installDir 'Trophyverse.exe'
+$exe = Join-Path $installDir 'Unified Achievement Manager.exe'
 if (-not (Test-Path $exe)) { Fail "installer didn't produce $exe" }
 Write-Host "Installed to $installDir"
 
-$env:TROPHYVERSE_DATA_DIR = $dataDir
-$env:TROPHYVERSE_SMOKE_TEST = '1'
+$env:UAM_DATA_DIR = $dataDir
+$env:UAM_SMOKE_TEST = '1'
 $app = Start-Process -FilePath $exe -PassThru
 if (-not $app.WaitForExit(180000)) { $app.Kill(); Fail 'app did not finish within 3 minutes' }
 if ($app.ExitCode -ne 0) { Fail "app exited with $($app.ExitCode)" }
@@ -37,7 +37,7 @@ if (-not $passed) { Fail 'log has no "Smoke test passed" line' }
 Write-Host $passed.Line
 if ((Get-BundledPostgres).Count -ne 0) { Fail 'bundled PostgreSQL still running after the app quit' }
 
-$uninstall = Start-Process -FilePath (Join-Path $installDir 'Uninstall Trophyverse.exe') -ArgumentList '/S' -PassThru -Wait
+$uninstall = Start-Process -FilePath (Join-Path $installDir 'Uninstall Unified Achievement Manager.exe') -ArgumentList '/S' -PassThru -Wait
 if ($uninstall.ExitCode -ne 0) { Fail "uninstaller exited with $($uninstall.ExitCode)" }
 # The uninstaller hands off to a copy of itself, so give it a moment to finish.
 $deadline = (Get-Date).AddSeconds(60)
