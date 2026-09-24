@@ -80,6 +80,7 @@ The dashboard is a thin client over these routes (all under the signed-in sessio
 
 - `GET /api/setup/status`: whether a Steam Web API key is configured, plus a CSRF token (works before sign-in)
 - `PUT /api/setup/steam-api-key` (body: `{ apiKey }`): set the Steam Web API key (open until one exists; replacing it needs a session)
+- `GET /api/settings/steamgriddb-api-key`: whether a SteamGridDB key is saved; `PUT` (body: `{ apiKey }`) checks the key with SteamGridDB and saves it; `DELETE` removes it
 - `POST /api/steam/sync`, `POST /api/xbox/sync`, `POST /api/psn/sync`, `POST /api/retro/sync`, `POST /api/gog/sync`: pull each platform's library and unlocks, and recompute the score
 - `POST /api/xbox/connect` (body: `{ apiKey }`), `POST /api/psn/connect` (body: `{ npsso }`), `POST /api/retro/connect` (body: `{ username, apiKey }`), `POST /api/gog/connect` (body: `{ code }`): link an account
 - `GET /api/gog/login-url`: the GOG login page whose redirect carries the `code` for `/api/gog/connect`

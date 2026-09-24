@@ -772,6 +772,17 @@
                     <button type="button" class="secondary" id="steam-key-change-btn">Change</button>
                 </div>
 
+                <div class="platform-row" id="steamgriddb-key-row" style="margin-bottom: 24px;">
+                    <span class="platform-name">SteamGridDB API key</span>
+                    <span class="platform-note" id="steamgriddb-key-status">
+                        Optional, for picking cover art. Get a free key from your
+                        <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank" style="color: var(--accent);">SteamGridDB preferences</a>.
+                        Stored encrypted on this computer, and kept if you delete your account.
+                    </span>
+                    <button type="button" class="secondary" id="steamgriddb-key-set-btn">Add</button>
+                    <button type="button" class="secondary hidden" id="steamgriddb-key-remove-btn">Remove</button>
+                </div>
+
                 <div class="platform-row" id="delete-account-row" style="margin-bottom: 24px;">
                     <span class="platform-name">Delete account</span>
                     <span class="platform-note">Permanently removes your account, linked data, and private overrides.</span>
@@ -2049,6 +2060,53 @@ function initSteamKeyRow(setup) {
     });
 }
 
+async function initSteamGridDbKeyRow() {
+    const setBtn = document.getElementById("steamgriddb-key-set-btn");
+    const removeBtn = document.getElementById("steamgriddb-key-remove-btn");
+    const showConfigured = (configured) => {
+        setBtn.textContent = configured ? "Change" : "Add";
+        removeBtn.classList.toggle("hidden", !configured);
+    };
+
+    try {
+        showConfigured((await api("/api/settings/steamgriddb-api-key")).configured);
+    } catch {
+        showConfigured(false);
+    }
+
+    setBtn.addEventListener("click", async () => {
+        const apiKey = await askText("Paste your SteamGridDB API key (from steamgriddb.com/profile/preferences/api):", { okLabel: "Save" });
+        if (!apiKey) return;
+        setBtn.disabled = true;
+        try {
+            await api("/api/settings/steamgriddb-api-key", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ apiKey: apiKey.trim() }),
+            });
+            showConfigured(true);
+            alert("SteamGridDB API key saved.");
+        } catch (err) {
+            alert(err.message || "Couldn't save the SteamGridDB API key.");
+        } finally {
+            setBtn.disabled = false;
+        }
+    });
+
+    removeBtn.addEventListener("click", async () => {
+        if (!confirm("Remove your SteamGridDB API key? Covers you already picked stay as they are.")) return;
+        removeBtn.disabled = true;
+        try {
+            await api("/api/settings/steamgriddb-api-key", { method: "DELETE" });
+            showConfigured(false);
+        } catch (err) {
+            alert(err.message || "Couldn't remove the SteamGridDB API key.");
+        } finally {
+            removeBtn.disabled = false;
+        }
+    });
+}
+
 function initAccountDeletion() {
     const button = document.getElementById("delete-account-btn");
     button.addEventListener("click", async () => {
@@ -2142,6 +2200,7 @@ async function init() {
         location.reload();
     });
     initSteamKeyRow(setup);
+    initSteamGridDbKeyRow();
     initAccountDeletion();
     initSidebarNav();
     initDashboardCustomization();

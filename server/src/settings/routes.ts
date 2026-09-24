@@ -1,8 +1,46 @@
 import { Router } from "express";
 import { getCsrfToken } from "../middleware/csrf";
+import { requireAuth } from "../middleware/requireAuth";
 import { isValidSteamApiKey, saveSteamApiKey, steamApiKeySource } from "./steamApiKey";
+import { getSteamGridDbApiKey, isValidSteamGridDbApiKey, removeSteamGridDbApiKey, saveSteamGridDbApiKey } from "./steamGridDbKey";
 
 export const setupRouter = Router();
+export const settingsRouter = Router();
+
+settingsRouter.get("/steamgriddb-api-key", requireAuth, async (_req, res, next) => {
+    try {
+        res.json({ configured: Boolean(await getSteamGridDbApiKey()) });
+    } catch (err) {
+        next(err);
+    }
+});
+
+settingsRouter.put("/steamgriddb-api-key", requireAuth, async (req, res, next) => {
+    try {
+        const apiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
+        if (!/^\S{1,200}$/.test(apiKey)) {
+            res.status(400).json({ error: "Paste the API key from your SteamGridDB preferences." });
+            return;
+        }
+        if (!(await isValidSteamGridDbApiKey(apiKey))) {
+            res.status(400).json({ error: "SteamGridDB rejected that key. Check it at steamgriddb.com/profile/preferences/api." });
+            return;
+        }
+        await saveSteamGridDbApiKey(apiKey);
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+});
+
+settingsRouter.delete("/steamgriddb-api-key", requireAuth, async (_req, res, next) => {
+    try {
+        await removeSteamGridDbApiKey();
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+});
 
 // Reachable before sign-in: the Steam key has to exist before anyone can sign
 // in with Steam at all.

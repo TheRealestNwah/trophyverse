@@ -14,7 +14,7 @@ import { gogRouter } from "./gog/routes";
 import { scoreRouter } from "./scoring/routes";
 import { gamesRouter } from "./games/routes";
 import { matchingRouter } from "./matching/routes";
-import { setupRouter } from "./settings/routes";
+import { settingsRouter, setupRouter } from "./settings/routes";
 import { loadSteamApiKey } from "./settings/steamApiKey";
 import { startScheduler } from "./scheduler";
 import helmet from "helmet";
@@ -114,6 +114,7 @@ app.use("/api/me", scoreRouter);
 app.use("/api/me", gamesRouter);
 app.use("/api/matching", matchingRouter);
 app.use("/api/setup", setupRouter);
+app.use("/api/settings", settingsRouter);
 
 app.get("/", (req, res) => {
     sendPageWithNonce("index.html", req, res);
