@@ -153,29 +153,45 @@ export async function shutdownServer(server: Server): Promise<void> {
     }
 }
 
-export async function startServer(): Promise<Server> {
+export interface RunningServer {
+    server: Server;
+    stop(): Promise<void>;
+}
+
+export async function startServer({ handleSignals = true } = {}): Promise<RunningServer> {
     await loadSteamApiKey();
-    const onListening = () => console.log(`Unified Achievement Manager server listening on ${config.baseUrl}`);
-    const server = config.host ? app.listen(config.port, config.host, onListening) : app.listen(config.port, onListening);
+    const server = await new Promise<Server>((resolve, reject) => {
+        const onListening = () => {
+            console.log(`Unified Achievement Manager server listening on ${config.baseUrl}`);
+            resolve(listening);
+        };
+        const listening = config.host ? app.listen(config.port, config.host, onListening) : app.listen(config.port, onListening);
+        listening.once("error", reject);
+    });
 
     const stopScheduler = config.schedulerEnabled ? startScheduler(config.schedulerIntervalMinutes) : () => undefined;
 
     let shutdownPromise: Promise<void> | undefined;
-    const shutdown = (signal: string) => {
+    const stop = () => {
         if (!shutdownPromise) {
-            console.log(`Received ${signal}; draining HTTP connections and closing the database pool.`);
+            console.log("Shutting down: draining HTTP connections and closing the database pool.");
             stopScheduler();
-            shutdownPromise = shutdownServer(server).catch((err) => {
-                console.error("Graceful shutdown failed:", err);
-                process.exitCode = 1;
-            });
+            shutdownPromise = shutdownServer(server);
         }
         return shutdownPromise;
     };
-    process.once("SIGTERM", () => void shutdown("SIGTERM"));
-    process.once("SIGINT", () => void shutdown("SIGINT"));
 
-    return server;
+    if (handleSignals) {
+        const onSignal = () =>
+            void stop().catch((err) => {
+                console.error("Graceful shutdown failed:", err);
+                process.exitCode = 1;
+            });
+        process.once("SIGTERM", onSignal);
+        process.once("SIGINT", onSignal);
+    }
+
+    return { server, stop };
 }
 
 if (require.main === module) {

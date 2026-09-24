@@ -29,6 +29,7 @@ jobs:
       SESSION_SECRET: ci-test-session-secret
       CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       INTEGRATION_TESTS: "true"
+      EMBEDDED_PG_TESTS: "true"
     defaults:
       run:
         working-directory: server

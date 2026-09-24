@@ -27,6 +27,14 @@ npm run db:migrate     # applies db/schema.sql and seeds the level curve
 npm run dev
 ```
 
+To run it the way the desktop app does instead, with its own bundled PostgreSQL and no `.env` (data goes to `%APPDATA%\Trophyverse` on Windows, or wherever `TROPHYVERSE_DATA_DIR` points):
+
+```bash
+cd server
+npm install
+npm run app
+```
+
 Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First login creates your account and links your Steam ID automatically. From the dashboard you can:
 
 - **Sync Steam** — one click, no extra setup.
