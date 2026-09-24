@@ -139,10 +139,38 @@ describe("Xbox (OpenXBL) client response parsing", () => {
         const achievements = await getX360AchievementsForTitle("key", "xuid", "4d5307e6");
         expect(requestedPaths).toEqual(["/v2/achievements/player/xuid/title/4d5307e6", "/v2/achievements/x360/xuid/title/4d5307e6"]);
         expect(achievements).toEqual([
-            { id: "1", name: "Earned", description: "a", isUnlocked: true, timeUnlocked: "2008-06-01T10:00:00Z", gamerscore: 10, rarityPercent: 55 },
-            { id: "2", name: "Sentinel date", description: "b", isUnlocked: true, timeUnlocked: undefined, gamerscore: 20, rarityPercent: undefined },
-            { id: "3", name: "Not earned", description: "c", isUnlocked: false, timeUnlocked: undefined, gamerscore: 30, rarityPercent: 5 },
+            { id: "1", name: "Earned", description: "a", isUnlocked: true, timeUnlocked: "2008-06-01T10:00:00Z", gamerscore: 10, rarityPercent: 55, iconUrl: undefined },
+            { id: "2", name: "Sentinel date", description: "b", isUnlocked: true, timeUnlocked: undefined, gamerscore: 20, rarityPercent: undefined, iconUrl: undefined },
+            { id: "3", name: "Not earned", description: "c", isUnlocked: false, timeUnlocked: undefined, gamerscore: 30, rarityPercent: 5, iconUrl: undefined },
         ]);
+    });
+
+    // Regression test for #146: the legacy per-title definitions endpoint
+    // used for classic Xbox 360 titles carries the same mediaAssets shape the
+    // modern endpoint does, but nothing here ever read it, so every Xbox 360
+    // achievement synced with no icon at all regardless of unlock status.
+    it("reads the icon out of the Xbox 360 definitions endpoint's mediaAssets", async () => {
+        const definitions = {
+            achievements: [
+                {
+                    id: 1,
+                    name: "Earned",
+                    description: "a",
+                    unlocked: false,
+                    timeUnlocked: "2002-01-01T00:00:00Z",
+                    gamerscore: 10,
+                    mediaAssets: [{ type: "Background", url: "https://bg.test" }, { type: "Icon", url: "https://icon.test/x360.png" }],
+                },
+            ],
+        };
+        const earned = {
+            achievements: [{ id: 1, name: "Earned", description: "a", unlocked: true, timeUnlocked: "2008-06-01T10:00:00Z", gamerscore: 10 }],
+        };
+        respond(definitions);
+        respond(earned);
+
+        const [achievement] = await getX360AchievementsForTitle("key", "xuid", "4d5307e6");
+        expect(achievement).toMatchObject({ id: "1", isUnlocked: true, iconUrl: "https://icon.test/x360.png" });
     });
 
     it("treats a Store product with no Xbox title id (404) as no match", async () => {

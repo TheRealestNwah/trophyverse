@@ -151,6 +151,7 @@ export async function getAchievementsForGame(
                 name: string;
                 description?: string;
                 image_url_unlocked?: string;
+                image_url_locked?: string;
                 date_unlocked: string | null;
             }>;
         }>(GAMEPLAY_BASE_URL, `/clients/${productId}/users/${userId}/achievements`, accessToken);
@@ -162,7 +163,20 @@ export async function getAchievementsForGame(
             description: a.description,
             isUnlocked: a.date_unlocked !== null,
             unlockedAt: a.date_unlocked ?? undefined,
-            iconUrl: a.image_url_unlocked,
+            // GOG gives a locked (silhouette) variant and an unlocked (full
+            // color) variant per achievement - image_url_unlocked isn't
+            // populated until someone has actually unlocked it, so an
+            // achievement nobody has earned yet was always coming back with
+            // no icon at all even though GOG does provide one for the locked
+            // state. Falling back to the locked variant means every
+            // achievement gets an icon regardless of unlock status; once
+            // someone does unlock it, a later sync's opportunistic backfill
+            // (see canonicalStore.getOrCreateAchievementLink) can't upgrade
+            // it to the color version since icon_url is only ever backfilled
+            // while still null - acceptable here since a locked-vs-unlocked
+            // icon swap on an already-displayed achievement is cosmetic, not
+            // a missing-icon bug.
+            iconUrl: a.image_url_unlocked ?? a.image_url_locked,
         }));
     } catch (err) {
         if (err instanceof GogApiError && err.status === 401) throw err;
