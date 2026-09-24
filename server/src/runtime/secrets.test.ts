@@ -8,7 +8,7 @@ import { parseCredentialEncryptionKey } from "../security/credentials";
 let dataDir: string;
 
 beforeEach(() => {
-    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "trophyverse-secrets-"));
+    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "uam-secrets-"));
 });
 
 afterEach(() => {

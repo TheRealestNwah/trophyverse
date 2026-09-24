@@ -70,7 +70,7 @@ Since this is fit from a single real data point rather than Sony's actual formul
 
 The 50%-gold-share trigger was tuned against real synced data, not guessed: a naive "median rarity below 15%" trigger was tried first and rejected because it fired for the *majority* of the library — Steam's overall completion rates run low across nearly every game (Half-Life 2's median achievement rarity is 7.1%, Portal's is 12%), not just true outliers. Measuring the actual gold share directly instead correctly separates Payday 2 (93% gold under fixed thresholds) from ordinary games like Half-Life 2/Portal (~14%, left on fixed thresholds). One-off correction for pre-existing data: `npm run fix:rarity-tiering`.
 
-This was tracked as [issue #10](https://github.com/TheRealestNwah/trophyverse/issues/10).
+This was tracked as [issue #10](https://github.com/TheRealestNwah/unified-achievement-manager/issues/10).
 
 ## Not yet modeled
 

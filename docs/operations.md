@@ -2,7 +2,7 @@
 
 ## Where everything lives
 
-All of Trophyverse's data is in one folder: `%APPDATA%\Trophyverse` (usually `C:\Users\<you>\AppData\Roaming\Trophyverse`). **File → Open Data Folder** opens it.
+All of Unified Achievement Manager's data is in one folder: `%APPDATA%\Unified Achievement Manager` (usually `C:\Users\<you>\AppData\Roaming\Unified Achievement Manager`). **File → Open Data Folder** opens it.
 
 | Path | What it is |
 |---|---|
@@ -12,26 +12,26 @@ All of Trophyverse's data is in one folder: `%APPDATA%\Trophyverse` (usually `C:
 | `uploads\` | Cover art and icons you uploaded |
 | `logs\main.log`, `postgres.log` | App and database logs |
 
-The program itself is installed separately (by default in `%LOCALAPPDATA%\Programs\Trophyverse`). Uninstalling removes the program and **keeps** the data folder.
+The program itself is installed separately (by default in `%LOCALAPPDATA%\Programs\Unified Achievement Manager`). Uninstalling removes the program and **keeps** the data folder.
 
 ## Backing up and moving to a new PC
 
-1. Quit Trophyverse (closing the window quits it).
-2. Copy the whole `%APPDATA%\Trophyverse` folder somewhere safe.
+1. Quit Unified Achievement Manager (closing the window quits it).
+2. Copy the whole `%APPDATA%\Unified Achievement Manager` folder somewhere safe.
 
-To restore, or to move to another PC: install Trophyverse, don't launch it (or quit it), replace `%APPDATA%\Trophyverse` with your copy, and start the app. Always copy the folder as a whole. `secrets.json` and `postgres\` only work together, and a copy taken while the app is running may not be consistent.
+To restore, or to move to another PC: install Unified Achievement Manager, don't launch it (or quit it), replace `%APPDATA%\Unified Achievement Manager` with your copy, and start the app. Always copy the folder as a whole. `secrets.json` and `postgres\` only work together, and a copy taken while the app is running may not be consistent.
 
 The **Export** button gives you a portable JSON or CSV of your unlock history too, but it isn't something the app can import back.
 
 ## Removing everything
 
-Delete your account from the dashboard (**Delete account**), or simply uninstall Trophyverse and then delete the `%APPDATA%\Trophyverse` folder. Platform credentials you gave the app (Xbox/OpenXBL key, PSN token, RetroAchievements key, GOG login) can also be revoked on those platforms' own sites.
+Delete your account from the dashboard (**Delete account**), or simply uninstall Unified Achievement Manager and then delete the `%APPDATA%\Unified Achievement Manager` folder. Platform credentials you gave the app (Xbox/OpenXBL key, PSN token, RetroAchievements key, GOG login) can also be revoked on those platforms' own sites.
 
 ## Troubleshooting
 
 - **"Windows protected your PC" when installing:** the 1.0 installer isn't code-signed yet. Click **More info → Run anyway**.
 - **The app won't start:** it shows an error with the log file's location. `logs\main.log` has the details and `postgres.log` has database errors. Include both when reporting a problem, after checking them for anything personal.
-- **It says it's already running:** only one copy runs at a time, and starting it again brings the existing window forward. If no window is visible, end any leftover `Trophyverse.exe` in Task Manager.
+- **It says it's already running:** only one copy runs at a time, and starting it again brings the existing window forward. If no window is visible, end any leftover `Unified Achievement Manager.exe` in Task Manager.
 - **After a crash:** a database left running by a crash is stopped cleanly the next time the app starts. The installer and uninstaller also stop it, so updates and uninstalling aren't blocked by locked files.
 - **Steam sign-in or sync fails right after setup:** check the Steam Web API key under **Platforms → Steam Web API key**. Steam rejects mistyped keys, and a key revoked on Steam's site stops working here too.
 - **PSN or GOG stops syncing:** their tokens expire. Disconnect and reconnect that platform with a fresh token or code.

@@ -6,7 +6,7 @@ import { loadOrCreateSecrets } from "./runtime/secrets";
 // The self-contained app (app.ts) never reads a .env: everything it needs is
 // generated or passed in, so a stray .env in the working directory can't
 // point it at some other database.
-if (process.env.TROPHYVERSE_APP !== "1") dotenv.config();
+if (process.env.UAM_APP !== "1") dotenv.config();
 
 function required(name: string): string {
     const value = process.env[name];
@@ -17,7 +17,7 @@ function required(name: string): string {
 // Set by the desktop app to its per-user data folder. When present, secrets
 // are generated there on first run and uploads live there instead of inside
 // the (read-only once installed) app bundle.
-const dataDir = process.env.TROPHYVERSE_DATA_DIR ? path.resolve(process.env.TROPHYVERSE_DATA_DIR) : undefined;
+const dataDir = process.env.UAM_DATA_DIR ? path.resolve(process.env.UAM_DATA_DIR) : undefined;
 const generatedSecrets = dataDir ? loadOrCreateSecrets(dataDir) : undefined;
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST || undefined;

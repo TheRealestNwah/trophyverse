@@ -5,8 +5,8 @@ import { spawn } from "child_process";
 import { randomBytes } from "crypto";
 import { Client } from "pg";
 
-const DB_NAME = "trophyverse";
-const DB_USER = "trophyverse";
+const DB_NAME = "uam";
+const DB_USER = "uam";
 const MAX_LOG_BYTES = 10 * 1024 * 1024;
 
 interface Binaries {
@@ -108,7 +108,7 @@ async function initCluster(bins: Binaries, dataDir: string, pgData: string, pass
     }
     fs.appendFileSync(
         path.join(scratch, "postgresql.conf"),
-        "\n# Added by Trophyverse: reachable from this computer only.\nlisten_addresses = '127.0.0.1'\nunix_socket_directories = ''\n"
+        "\n# Added by Unified Achievement Manager: reachable from this computer only.\nlisten_addresses = '127.0.0.1'\nunix_socket_directories = ''\n"
     );
     fs.renameSync(scratch, pgData);
 }

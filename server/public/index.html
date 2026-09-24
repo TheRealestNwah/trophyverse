@@ -1296,24 +1296,11 @@ async function handleLinkClick(game) {
 // toggled on, since a long platform's list (e.g. Steam) burying a shorter
 // one is a recurring annoyance across a whole library, not a one-off.
 const COLLAPSED_PLATFORMS_KEY = "unified-achievement-manager:collapsedPlatforms";
-// Renamed from "trophyverse:collapsedPlatforms" - read once as a fallback so
-// a returning user's existing preference migrates forward instead of
-// silently resetting to "everything expanded".
-const LEGACY_COLLAPSED_PLATFORMS_KEY = "trophyverse:collapsedPlatforms";
 
 function getCollapsedPlatforms() {
     try {
         const current = localStorage.getItem(COLLAPSED_PLATFORMS_KEY);
-        if (current !== null) return new Set(JSON.parse(current));
-
-        const legacy = localStorage.getItem(LEGACY_COLLAPSED_PLATFORMS_KEY);
-        if (legacy !== null) {
-            localStorage.setItem(COLLAPSED_PLATFORMS_KEY, legacy);
-            localStorage.removeItem(LEGACY_COLLAPSED_PLATFORMS_KEY);
-            return new Set(JSON.parse(legacy));
-        }
-
-        return new Set();
+        return current !== null ? new Set(JSON.parse(current)) : new Set();
     } catch {
         return new Set();
     }

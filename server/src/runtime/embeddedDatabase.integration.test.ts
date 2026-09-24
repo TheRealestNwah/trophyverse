@@ -19,7 +19,7 @@ async function query<T>(url: string, sql: string): Promise<T[]> {
 }
 
 suite("embedded PostgreSQL", () => {
-    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "trophyverse-embedded-pg-"));
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "uam-embedded-pg-"));
 
     afterAll(() => {
         fs.rmSync(dataDir, { recursive: true, force: true });

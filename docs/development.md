@@ -17,7 +17,7 @@ npm install
 npm start          # builds the server, then launches Electron
 ```
 
-The app uses the same data folder as an installed copy (`%APPDATA%\Trophyverse`). Point it somewhere else with `TROPHYVERSE_DATA_DIR`. If `npm start` complains that Electron failed to install (npm 11 can block dependency install scripts), run `node node_modules/electron/install.js` in `desktop/`.
+The app uses the same data folder as an installed copy (`%APPDATA%\Unified Achievement Manager`). Point it somewhere else with `UAM_DATA_DIR`. If `npm start` complains that Electron failed to install (npm 11 can block dependency install scripts), run `node node_modules/electron/install.js` in `desktop/`.
 
 ### App mode without Electron
 
@@ -50,7 +50,7 @@ cd desktop
 npm run dist
 ```
 
-This builds the server, stages it with production-only dependencies (`desktop/scripts/stage-server.mjs`), and writes `desktop/release/Trophyverse-Setup-<version>.exe`. `desktop/scripts/smoke-test.ps1 -Installer <path>` installs it silently into a temp folder, launches it in smoke-test mode, uninstalls it, and checks nothing is left running.
+This builds the server, stages it with production-only dependencies (`desktop/scripts/stage-server.mjs`), and writes `desktop/release/Unified-Achievement-Manager-Setup-<version>.exe`. `desktop/scripts/smoke-test.ps1 -Installer <path>` installs it silently into a temp folder, launches it in smoke-test mode, uninstalls it, and checks nothing is left running.
 
 The installer is currently unsigned. Code signing needs a certificate; electron-builder picks one up from `CSC_LINK`/`CSC_KEY_PASSWORD` once one exists.
 
@@ -65,7 +65,7 @@ npx tsc --noEmit -p tsconfig.test.json
 npm test
 ```
 
-Integration tests need `INTEGRATION_TESTS=true` and a `DATABASE_URL`. The embedded-PostgreSQL tests need `EMBEDDED_PG_TESTS=true`. CI (`.github/workflows/ci.yml`) runs all of the above against PostgreSQL 16 on every pull request, typechecks `desktop/`, and on Windows builds the installer, runs the smoke test, and uploads the installer as the `Trophyverse-Setup` artifact.
+Integration tests need `INTEGRATION_TESTS=true` and a `DATABASE_URL`. The embedded-PostgreSQL tests need `EMBEDDED_PG_TESTS=true`. CI (`.github/workflows/ci.yml`) runs all of the above against PostgreSQL 16 on every pull request, typechecks `desktop/`, and on Windows builds the installer, runs the smoke test, and uploads the installer as the `Unified-Achievement-Manager-Setup` artifact.
 
 ## How app mode works
 
