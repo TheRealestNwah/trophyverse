@@ -14,6 +14,8 @@ import { gogRouter } from "./gog/routes";
 import { scoreRouter } from "./scoring/routes";
 import { gamesRouter } from "./games/routes";
 import { matchingRouter } from "./matching/routes";
+import { setupRouter } from "./settings/routes";
+import { loadSteamApiKey } from "./settings/steamApiKey";
 import { startScheduler } from "./scheduler";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -111,6 +113,7 @@ app.use("/api/gog", gogRouter);
 app.use("/api/me", scoreRouter);
 app.use("/api/me", gamesRouter);
 app.use("/api/matching", matchingRouter);
+app.use("/api/setup", setupRouter);
 
 app.get("/", (req, res) => {
     sendPageWithNonce("index.html", req, res);
@@ -125,6 +128,7 @@ app.use((req, res, next) => {
     }
     next();
 });
+app.use("/uploads", express.static(config.uploadsDir, { index: false }));
 app.use(express.static(path.join(__dirname, "..", "public"), { index: false }));
 
 // Every route above hands failures to next(err); without this, Express's
@@ -149,10 +153,10 @@ export async function shutdownServer(server: Server): Promise<void> {
     }
 }
 
-export function startServer(): Server {
-    const server = app.listen(config.port, () => {
-        console.log(`Unified Achievement Manager server listening on ${config.baseUrl}`);
-    });
+export async function startServer(): Promise<Server> {
+    await loadSteamApiKey();
+    const onListening = () => console.log(`Unified Achievement Manager server listening on ${config.baseUrl}`);
+    const server = config.host ? app.listen(config.port, config.host, onListening) : app.listen(config.port, onListening);
 
     const stopScheduler = config.schedulerEnabled ? startScheduler(config.schedulerIntervalMinutes) : () => undefined;
 
@@ -174,4 +178,9 @@ export function startServer(): Server {
     return server;
 }
 
-if (require.main === module) startServer();
+if (require.main === module) {
+    startServer().catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });
+}

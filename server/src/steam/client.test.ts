@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// config.ts requires the full server env at import time; only the key matters here.
-vi.mock("../config", () => ({ config: { steamApiKey: "test-steam-key" } }));
+vi.mock("../settings/steamApiKey", () => ({ getSteamApiKey: () => "test-steam-key" }));
 
 import { getGlobalAchievementPercentages, getOwnedGames, getPlayerAchievements, getSchemaForGame, searchApps } from "./client";
 

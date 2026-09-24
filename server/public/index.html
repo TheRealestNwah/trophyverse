@@ -229,6 +229,11 @@
 
     #signin-view { text-align: center; padding: 80px 24px; }
     #signin-view p { color: var(--text-dim); margin-bottom: 24px; }
+    #setup-view { max-width: 560px; margin: 0 auto; padding: 64px 24px; }
+    #setup-view h2 { margin-bottom: 12px; }
+    #setup-view p, #setup-view ol { color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
+    #setup-view ol { padding-left: 20px; }
+    #setup-error { color: #B91C1C; min-height: 1.4em; margin-top: 8px; }
 
     /* ---------- Level ring (signature element) ---------- */
     .score-card {
@@ -617,6 +622,21 @@
         </div>
 
         <main>
+            <section id="setup-view" class="hidden">
+                <h2>Welcome! One-time setup</h2>
+                <p>Reading your Steam library needs your own free Steam Web API key. It's stored encrypted on this computer and only used to talk to Steam.</p>
+                <ol>
+                    <li>Open <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener" style="color: var(--accent);">steamcommunity.com/dev/apikey</a> and sign in.</li>
+                    <li>For "Domain Name", enter <code>localhost</code>, agree to the terms, and click Register.</li>
+                    <li>Copy the key it shows and paste it below.</li>
+                </ol>
+                <form class="platform-row" id="setup-form">
+                    <input type="text" id="setup-key-input" placeholder="Paste your Steam Web API key" autocomplete="off" spellcheck="false" />
+                    <button type="submit" id="setup-save-btn">Save</button>
+                </form>
+                <div id="setup-error" role="alert"></div>
+            </section>
+
             <section id="signin-view" class="hidden">
                 <p>Connect your Steam account to see your achievements in one place.</p>
                 <a href="/auth/steam"><button type="button">Sign in with Steam</button></a>
@@ -678,6 +698,12 @@
                     <a href="https://retroachievements.org/settings" target="_blank" style="color: var(--accent);">account settings page</a>
                     and paste it in along with your username.
                 </p>
+
+                <div class="platform-row hidden" id="steam-key-row" style="margin-bottom: 24px;">
+                    <span class="platform-name">Steam Web API key</span>
+                    <span class="platform-note">Stored encrypted on this computer.</span>
+                    <button type="button" class="secondary" id="steam-key-change-btn">Change</button>
+                </div>
 
                 <div class="platform-row" id="delete-account-row" style="margin-bottom: 24px;">
                     <span class="platform-name">Delete account</span>
@@ -760,12 +786,12 @@ updateThemeToggle();
 let csrfTokenPromise;
 async function getCsrfToken() {
     if (!csrfTokenPromise) {
-        csrfTokenPromise = fetch("/auth/csrf-token", { credentials: "same-origin" })
+        csrfTokenPromise = fetch("/api/setup/status", { credentials: "same-origin" })
             .then((res) => {
                 if (!res.ok) throw new Error("Unable to initialize request security");
                 return res.json();
             })
-            .then(({ token }) => token);
+            .then(({ csrfToken }) => csrfToken);
     }
     return csrfTokenPromise;
 }
@@ -1770,6 +1796,54 @@ async function refreshPlatforms() {
     renderPlatforms(await api("/api/me/accounts"));
 }
 
+async function saveSteamApiKey(apiKey) {
+    await api("/api/setup/steam-api-key", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey }),
+    });
+}
+
+function showSetup() {
+    document.getElementById("setup-view").classList.remove("hidden");
+    const form = document.getElementById("setup-form");
+    const input = document.getElementById("setup-key-input");
+    const error = document.getElementById("setup-error");
+    const btn = document.getElementById("setup-save-btn");
+    input.focus();
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        btn.disabled = true;
+        error.textContent = "";
+        try {
+            await saveSteamApiKey(input.value.trim());
+            location.reload();
+        } catch (err) {
+            error.textContent = err.message || "Couldn't save that key.";
+            btn.disabled = false;
+        }
+    });
+}
+
+function initSteamKeyRow(setup) {
+    if (!setup.steamApiKeyEditable) return;
+    document.getElementById("steam-key-row").classList.remove("hidden");
+    const btn = document.getElementById("steam-key-change-btn");
+    btn.addEventListener("click", async () => {
+        const apiKey = prompt("Paste your new Steam Web API key (from steamcommunity.com/dev/apikey):");
+        if (!apiKey) return;
+        btn.disabled = true;
+        try {
+            await saveSteamApiKey(apiKey.trim());
+            alert("Steam Web API key updated.");
+        } catch (err) {
+            alert(err.message || "Couldn't update the Steam Web API key.");
+        } finally {
+            btn.disabled = false;
+        }
+    });
+}
+
 function initAccountDeletion() {
     const button = document.getElementById("delete-account-btn");
     button.addEventListener("click", async () => {
@@ -1837,6 +1911,12 @@ function initSidebarNav() {
 }
 
 async function init() {
+    const setup = await api("/api/setup/status");
+    if (!setup.steamApiKeyConfigured) {
+        showSetup();
+        return;
+    }
+
     let user;
     try {
         user = await api("/auth/me");
@@ -1854,6 +1934,7 @@ async function init() {
         await api("/auth/logout", { method: "POST" });
         location.reload();
     });
+    initSteamKeyRow(setup);
     initAccountDeletion();
     initSidebarNav();
     document.getElementById("sync-all-btn").addEventListener("click", (e) => {

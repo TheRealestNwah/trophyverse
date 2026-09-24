@@ -1,10 +1,10 @@
-import { config } from "../config";
+import { getSteamApiKey } from "../settings/steamApiKey";
 
 const BASE_URL = "https://api.steampowered.com";
 
 async function get<T>(path: string, params: Record<string, string>): Promise<T> {
     const url = new URL(`${BASE_URL}${path}`);
-    url.searchParams.set("key", config.steamApiKey);
+    url.searchParams.set("key", getSteamApiKey());
     url.searchParams.set("format", "json");
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 

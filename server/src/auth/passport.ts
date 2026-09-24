@@ -50,19 +50,23 @@ async function findOrCreateSteamUser(profile: SteamProfile): Promise<Express.Use
     }
 }
 
-passport.use(
-    new SteamStrategy(
-        {
-            returnURL: `${config.baseUrl}/auth/steam/return`,
-            realm: config.baseUrl,
-            apiKey: config.steamApiKey,
-        },
-        (_identifier, profile, done) => {
-            findOrCreateSteamUser(profile)
-                .then((user) => done(null, user))
-                .catch((err) => done(err));
-        }
-    )
-);
+// Re-registered whenever the Steam Web API key changes; passport replaces a
+// strategy registered under the same name.
+export function configureSteamStrategy(apiKey: string): void {
+    passport.use(
+        new SteamStrategy(
+            {
+                returnURL: `${config.baseUrl}/auth/steam/return`,
+                realm: config.baseUrl,
+                apiKey,
+            },
+            (_identifier, profile, done) => {
+                findOrCreateSteamUser(profile)
+                    .then((user) => done(null, user))
+                    .catch((err) => done(err));
+            }
+        )
+    );
+}
 
 export { passport };
