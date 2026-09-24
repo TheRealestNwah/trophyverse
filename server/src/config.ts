@@ -1,7 +1,12 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import path from "path";
 import { parseCredentialEncryptionKey } from "./security/credentials";
 import { loadOrCreateSecrets } from "./runtime/secrets";
+
+// The self-contained app (app.ts) never reads a .env: everything it needs is
+// generated or passed in, so a stray .env in the working directory can't
+// point it at some other database.
+if (process.env.TROPHYVERSE_APP !== "1") dotenv.config();
 
 function required(name: string): string {
     const value = process.env[name];
