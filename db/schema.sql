@@ -54,6 +54,14 @@ create table if not exists users (
 alter table users drop column if exists is_public;
 alter table users drop column if exists public_slug;
 
+-- Install-wide settings entered through the app rather than env vars (e.g.
+-- the user's own Steam Web API key, stored encrypted like other credentials).
+create table if not exists app_settings (
+    key         text primary key,
+    value       text not null,
+    updated_at  timestamptz not null default now()
+);
+
 -- One linked account per user per platform. Holds whatever the platform's
 -- API needs to pull unlock data (OAuth tokens for Xbox/PSN, a public
 -- SteamID64 for Steam, a username for RetroAchievements).

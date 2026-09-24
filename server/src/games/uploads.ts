@@ -2,12 +2,11 @@ import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import multer from "multer";
+import { config } from "../config";
 
-// Uploaded cover art/icons are served straight out of server/public, the
-// same static directory index.html/profile.html already come from (see
-// index.ts's express.static) - no separate file-serving route needed.
-const PUBLIC_ROOT = path.join(__dirname, "..", "..", "public");
-const UPLOADS_ROOT = path.join(PUBLIC_ROOT, "uploads");
+// Served at /uploads by index.ts. Lives in the desktop app's data folder when
+// packaged, since the installed app bundle is read-only.
+const UPLOADS_ROOT = config.uploadsDir;
 
 const ALLOWED_MIME_TYPES: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -50,7 +49,7 @@ export function publicUploadUrl(subdir: "covers" | "icons", file: Express.Multer
 
 function uploadedFilePath(url: string | null | undefined): string | undefined {
     if (!url || !url.startsWith("/uploads/")) return undefined;
-    const resolved = path.resolve(PUBLIC_ROOT, `.${url}`);
+    const resolved = path.resolve(UPLOADS_ROOT, `.${url.slice("/uploads".length)}`);
     const uploadsRoot = `${path.resolve(UPLOADS_ROOT)}${path.sep}`;
     return resolved.startsWith(uploadsRoot) ? resolved : undefined;
 }

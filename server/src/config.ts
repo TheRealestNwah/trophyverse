@@ -1,5 +1,7 @@
 import "dotenv/config";
+import path from "path";
 import { parseCredentialEncryptionKey } from "./security/credentials";
+import { loadOrCreateSecrets } from "./runtime/secrets";
 
 function required(name: string): string {
     const value = process.env[name];
@@ -7,13 +9,32 @@ function required(name: string): string {
     return value;
 }
 
+// Set by the desktop app to its per-user data folder. When present, secrets
+// are generated there on first run and uploads live there instead of inside
+// the (read-only once installed) app bundle.
+const dataDir = process.env.TROPHYVERSE_DATA_DIR ? path.resolve(process.env.TROPHYVERSE_DATA_DIR) : undefined;
+const generatedSecrets = dataDir ? loadOrCreateSecrets(dataDir) : undefined;
+const port = Number(process.env.PORT ?? 3000);
+const host = process.env.HOST || undefined;
+// Must match the host the browser actually uses: session cookies for
+// localhost and 127.0.0.1 are separate, so a mismatched Steam return URL
+// would silently drop the login.
+const defaultBaseHost = !host || host === "0.0.0.0" || host === "::" ? "localhost" : host.includes(":") ? `[${host}]` : host;
+
 export const config = {
-    port: Number(process.env.PORT ?? 3000),
-    baseUrl: required("BASE_URL"),
+    port,
+    host,
+    baseUrl: process.env.BASE_URL || `http://${defaultBaseHost}:${port}`,
+    dataDir,
+    uploadsDir: dataDir ? path.join(dataDir, "uploads") : path.join(__dirname, "..", "public", "uploads"),
     databaseUrl: required("DATABASE_URL"),
-    steamApiKey: required("STEAM_API_KEY"),
-    sessionSecret: required("SESSION_SECRET"),
-    credentialEncryptionKey: parseCredentialEncryptionKey(required("CREDENTIAL_ENCRYPTION_KEY")),
+    // Optional: without it the dashboard asks the user for their own key on
+    // first run and stores it encrypted (see settings/steamApiKey.ts).
+    steamApiKey: process.env.STEAM_API_KEY || undefined,
+    sessionSecret: process.env.SESSION_SECRET || generatedSecrets?.sessionSecret || required("SESSION_SECRET"),
+    credentialEncryptionKey: parseCredentialEncryptionKey(
+        process.env.CREDENTIAL_ENCRYPTION_KEY || generatedSecrets?.credentialEncryptionKey || required("CREDENTIAL_ENCRYPTION_KEY")
+    ),
     trustProxy: process.env.TRUST_PROXY === "true",
     rateLimitWindowMinutes: Number(process.env.RATE_LIMIT_WINDOW_MINUTES ?? 15),
     rateLimitMaxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS ?? 300),
