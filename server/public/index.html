@@ -213,6 +213,27 @@
         font-family: inherit;
     }
     button:disabled { opacity: 0.5; cursor: default; }
+    #text-prompt {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg);
+        color: var(--text);
+        padding: 20px;
+        width: min(480px, calc(100vw - 32px));
+    }
+    #text-prompt::backdrop { background: rgba(0, 0, 0, 0.45); }
+    #text-prompt-message { white-space: pre-line; margin: 0 0 12px; line-height: 1.5; }
+    #text-prompt-input {
+        width: 100%;
+        box-sizing: border-box;
+        background: var(--input-bg);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 8px 12px;
+        color: var(--text);
+        font: inherit;
+    }
+    #text-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     button.secondary {
         background: var(--card);
         color: var(--text);
@@ -762,9 +783,54 @@
     </div>
 </div>
 
+<dialog id="text-prompt">
+    <form id="text-prompt-form">
+        <p id="text-prompt-message"></p>
+        <input type="text" id="text-prompt-input" autocomplete="off" spellcheck="false" />
+        <div id="text-prompt-actions">
+            <button type="button" class="secondary" id="text-prompt-cancel">Cancel</button>
+            <button type="submit" id="text-prompt-ok">OK</button>
+        </div>
+    </form>
+</dialog>
+
 <script src="/image-controls.js"></script>
 <script>
 const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null };
+
+// In-page replacement for window.prompt(), which the desktop app's Electron
+// shell doesn't implement. Resolves to the entered text, or null on cancel.
+function askText(message, { okLabel = "OK" } = {}) {
+    const dialog = document.getElementById("text-prompt");
+    const form = document.getElementById("text-prompt-form");
+    const input = document.getElementById("text-prompt-input");
+    const cancelBtn = document.getElementById("text-prompt-cancel");
+    document.getElementById("text-prompt-message").textContent = message;
+    document.getElementById("text-prompt-ok").textContent = okLabel;
+    input.value = "";
+    return new Promise((resolve) => {
+        const finish = (value) => {
+            form.removeEventListener("submit", onSubmit);
+            cancelBtn.removeEventListener("click", onCancel);
+            dialog.removeEventListener("cancel", onCancel);
+            dialog.close();
+            resolve(value);
+        };
+        const onSubmit = (e) => {
+            e.preventDefault();
+            finish(input.value);
+        };
+        const onCancel = (e) => {
+            e.preventDefault();
+            finish(null);
+        };
+        form.addEventListener("submit", onSubmit);
+        cancelBtn.addEventListener("click", onCancel);
+        dialog.addEventListener("cancel", onCancel);
+        dialog.showModal();
+        input.focus();
+    });
+}
 
 const THEME_KEY = "uam-theme";
 function isDarkActive() {
@@ -1048,7 +1114,7 @@ function pickAndUploadImage(uploadUrl, onSuccess) {
 }
 
 async function setCoverArt(gameId) {
-    const url = prompt(
+    const url = await askText(
         "Paste an image URL to use as this game's cover art.\nLeave blank to remove your override and use the auto-detected one."
     );
     if (url === null) return;
@@ -1073,7 +1139,7 @@ function uploadCoverArt(gameId) {
 }
 
 async function setAchievementIcon(achievementId, gameEl, gameId) {
-    const url = prompt(
+    const url = await askText(
         "Paste an image URL to use as this achievement's icon.\nLeave blank to remove your override and use the auto-detected one."
     );
     if (url === null) return;
@@ -1833,7 +1899,7 @@ function initSteamKeyRow(setup) {
     document.getElementById("steam-key-row").classList.remove("hidden");
     const btn = document.getElementById("steam-key-change-btn");
     btn.addEventListener("click", async () => {
-        const apiKey = prompt("Paste your new Steam Web API key (from steamcommunity.com/dev/apikey):");
+        const apiKey = await askText("Paste your new Steam Web API key (from steamcommunity.com/dev/apikey):", { okLabel: "Save" });
         if (!apiKey) return;
         btn.disabled = true;
         try {
@@ -1850,7 +1916,9 @@ function initSteamKeyRow(setup) {
 function initAccountDeletion() {
     const button = document.getElementById("delete-account-btn");
     button.addEventListener("click", async () => {
-        const confirmation = prompt("This permanently deletes your account and private data. Type DELETE to continue.");
+        const confirmation = await askText("This permanently deletes your account and private data. Type DELETE to continue.", {
+            okLabel: "Delete account",
+        });
         if (confirmation !== "DELETE") return;
 
         button.disabled = true;
