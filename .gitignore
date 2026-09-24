@@ -3,3 +3,5 @@ dist/
 .env
 *.log
 server/public/uploads/
+desktop/staging/
+desktop/release/

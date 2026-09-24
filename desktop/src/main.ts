@@ -171,6 +171,15 @@ async function start(): Promise<void> {
     appOrigin = new URL(running.url).origin;
     console.log(`Server ready at ${running.url}`);
     await mainWindow?.loadURL(running.url);
+
+    // CI launches the packaged app with this set to prove it boots end to end.
+    if (process.env.TROPHYVERSE_SMOKE_TEST === "1") {
+        const ready = await fetch(`${running.url}/readyz`);
+        const title = await mainWindow?.webContents.executeJavaScript("document.title");
+        if (!ready.ok || !title) throw new Error(`Smoke test failed: readyz ${ready.status}, title ${JSON.stringify(title)}`);
+        console.log(`Smoke test passed: readyz ${ready.status}, dashboard "${title}"`);
+        app.quit();
+    }
 }
 
 function stopServer(): Promise<void> {
@@ -205,10 +214,12 @@ if (!app.requestSingleInstanceLock()) {
         .then(start)
         .catch(async (err: unknown) => {
             console.error("Startup failed:", err);
-            dialog.showErrorBox(
-                "Trophyverse couldn't start",
-                `${err instanceof Error ? err.message : String(err)}\n\nDetails are in the log file:\n${logFile}`
-            );
+            if (process.env.TROPHYVERSE_SMOKE_TEST !== "1") {
+                dialog.showErrorBox(
+                    "Trophyverse couldn't start",
+                    `${err instanceof Error ? err.message : String(err)}\n\nDetails are in the log file:\n${logFile}`
+                );
+            }
             await stopServer();
             app.exit(1);
         });

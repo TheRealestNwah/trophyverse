@@ -43,6 +43,8 @@ npm install
 npm start
 ```
 
+`npm run dist` (from `desktop`, on Windows) builds the installer into `desktop/release/Trophyverse-Setup-<version>.exe`. CI builds the same installer on every pull request, installs it, launches it, and uninstalls it, then attaches it to the run as the `Trophyverse-Setup` artifact.
+
 Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First login creates your account and links your Steam ID automatically. From the dashboard you can:
 
 - **Sync Steam** — one click, no extra setup.
