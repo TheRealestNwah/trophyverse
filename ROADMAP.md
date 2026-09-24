@@ -53,7 +53,7 @@ Working discipline for unmonitored runs is unchanged: one focused PR per item, `
 ## Parked
 
 - **EA/Origin** — no public API, no realistic path without violating ToS. Revisit only if a reliable third-party data source turns up.
-- **Ubisoft Connect** — no public achievements API; the only known auth path takes the user's raw email and password. See [#31](https://github.com/TheRealestNwah/unified-achievement-manager/issues/31).
+- **Ubisoft Connect** — won't build. There's no public achievements API, the only known sign-in takes the user's raw email and password, and Ubisoft's terms prohibit unofficial API access with account sanctions as the penalty. Putting users' accounts at risk of a ban isn't worth it. See [#148](https://github.com/TheRealestNwah/unified-achievement-manager/issues/148) and [#31](https://github.com/TheRealestNwah/unified-achievement-manager/issues/31).
 - **Epic Games Store** — achievements need per-game developer credentials, and most titles have none. See [#31](https://github.com/TheRealestNwah/unified-achievement-manager/issues/31).
 
 ## Suggested order
