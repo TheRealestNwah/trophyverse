@@ -1,21 +1,41 @@
-# Production operations
+# Your data, backups, and troubleshooting
 
-## Deploy and readiness
+## Where everything lives
 
-1. Keep `SESSION_SECRET` and `CREDENTIAL_ENCRYPTION_KEY` stable across deploys. Store both in the deployment secret manager, not in the repository or an image.
-2. Run `npm run db:migrate` from `server` before starting a new application version. The schema operation and level-threshold seed are safe to rerun.
-3. Start the server with `npm start` and wait for `GET /readyz` to return HTTP 200 before routing traffic. `GET /healthz` is a liveness check and does not require the database.
-4. On deploy or termination, send SIGTERM and allow the process to drain. The server stops accepting new connections, closes the database pool, and exits with a failure code if shutdown cannot complete.
+All of Trophyverse's data is in one folder: `%APPDATA%\Trophyverse` (usually `C:\Users\<you>\AppData\Roaming\Trophyverse`). **File → Open Data Folder** opens it.
 
-The command-line database check is also available as `npm run db:health` for diagnostics.
+| Path | What it is |
+|---|---|
+| `postgres\` | The app's private PostgreSQL database: your library, unlocks, scores, and encrypted platform credentials |
+| `secrets.json` | The key that encrypts your platform credentials, plus the session secret. Without it, stored credentials can't be decrypted |
+| `database.json` | The password for the private database |
+| `uploads\` | Cover art and icons you uploaded |
+| `logs\main.log`, `postgres.log` | App and database logs |
 
-## Backups and recovery
+The program itself is installed separately (by default in `%LOCALAPPDATA%\Programs\Trophyverse`). Uninstalling removes the program and **keeps** the data folder.
 
-Use PostgreSQL's native tools against the same `DATABASE_URL` used by the server:
+## Backing up and moving to a new PC
 
-```bash
-pg_dump --format=custom --file=trophyverse-$(date +%Y%m%d-%H%M%S).dump "$DATABASE_URL"
-pg_restore --clean --if-exists --dbname="$DATABASE_URL" trophyverse-backup.dump
-```
+1. Quit Trophyverse (closing the window quits it).
+2. Copy the whole `%APPDATA%\Trophyverse` folder somewhere safe.
 
-Take a backup before schema or data migrations and retain encrypted, access-controlled copies according to the deployment's retention policy. After restoring, run `npm run db:migrate`, then verify `/readyz` and `npm run db:health` before enabling traffic. If the credential-encryption key is lost, encrypted platform credentials cannot be recovered; preserve that key separately from database backups.
+To restore, or to move to another PC: install Trophyverse, don't launch it (or quit it), replace `%APPDATA%\Trophyverse` with your copy, and start the app. Always copy the folder as a whole. `secrets.json` and `postgres\` only work together, and a copy taken while the app is running may not be consistent.
+
+The **Export** button gives you a portable JSON or CSV of your unlock history too, but it isn't something the app can import back.
+
+## Removing everything
+
+Delete your account from the dashboard (**Delete account**), or simply uninstall Trophyverse and then delete the `%APPDATA%\Trophyverse` folder. Platform credentials you gave the app (Xbox/OpenXBL key, PSN token, RetroAchievements key, GOG login) can also be revoked on those platforms' own sites.
+
+## Troubleshooting
+
+- **"Windows protected your PC" when installing:** the 1.0 installer isn't code-signed yet. Click **More info → Run anyway**.
+- **The app won't start:** it shows an error with the log file's location. `logs\main.log` has the details and `postgres.log` has database errors. Include both when reporting a problem, after checking them for anything personal.
+- **It says it's already running:** only one copy runs at a time, and starting it again brings the existing window forward. If no window is visible, end any leftover `Trophyverse.exe` in Task Manager.
+- **After a crash:** a database left running by a crash is stopped cleanly the next time the app starts. The installer and uninstaller also stop it, so updates and uninstalling aren't blocked by locked files.
+- **Steam sign-in or sync fails right after setup:** check the Steam Web API key under **Platforms → Steam Web API key**. Steam rejects mistyped keys, and a key revoked on Steam's site stops working here too.
+- **PSN or GOG stops syncing:** their tokens expire. Disconnect and reconnect that platform with a fresh token or code.
+
+## Running as a classic server
+
+The server can still run against an external PostgreSQL with a `.env` (see [development.md](development.md)). In that mode: keep `SESSION_SECRET` and `CREDENTIAL_ENCRYPTION_KEY` stable across deploys, run `npm run db:migrate` before starting a new version (it's safe to re-run), wait for `GET /readyz` to return 200 before routing traffic, and send SIGTERM to drain. Back up with `pg_dump --format=custom` against the same `DATABASE_URL`, and store the encryption key separately from database backups.

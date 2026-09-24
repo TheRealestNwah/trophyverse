@@ -1,30 +1,36 @@
 # 1.0 release checklist
 
-Use this checklist for a production release. A green CI run is required, but it does not replace the live checks below. Do not create or push a release tag until the release owner explicitly approves it.
+A green CI run is required, but it doesn't replace the live checks below. **Do not create or push a release tag, or publish a GitHub Release, until the release owner explicitly approves it.**
 
 ## Before the release candidate
 
-- [ ] Confirm the issue and one-PR-per-item scope is complete; every PR is linked to an issue and carries the repository's established label.
-- [ ] Confirm the default branch is clean, current, and protected by the required CI workflow (`lint`, production TypeScript, test TypeScript, unit tests, and PostgreSQL integration tests).
-- [ ] Run `npm ci`, `npm run lint`, `npm run build`, `npx tsc --noEmit -p tsconfig.test.json`, and `npm test` from `server` locally.
-- [ ] Run `npm audit --omit=dev` and review any remaining advisory rather than blindly suppressing it.
-- [ ] Verify the deployment has stable `SESSION_SECRET` and `CREDENTIAL_ENCRYPTION_KEY` values in its secret manager. Never generate a new encryption key during a routine deploy.
-- [ ] For an existing database, take a PostgreSQL backup and run `npm run db:migrate`, then `npm run db:encrypt-platform-credentials` if plaintext credential rows predate the encryption rollout.
+- [ ] Every 1.0 issue is closed, and every PR is linked to an issue and carries the repository's established label.
+- [ ] `master` is clean and current, and its CI is green: server lint/typecheck/unit/integration/embedded-PostgreSQL tests, the `desktop` typecheck, and the `windows-installer` job, including its install → launch → uninstall smoke test.
+- [ ] `npm audit --omit=dev` in `server/` and `desktop/`. Review any remaining advisory rather than suppressing it.
+- [ ] `desktop/package.json` and `server/package.json` versions match the version being released.
+- [ ] Download the `Trophyverse-Setup` artifact from the release commit's CI run. That exact file is what gets published.
 
-## Production smoke test
+## Installer smoke test (on a real Windows machine, not a dev checkout)
 
-- [ ] Start the candidate and verify `/healthz` returns 200 without a database connection requirement.
-- [ ] Verify `/readyz` and `npm run db:health` return success before routing traffic.
-- [ ] Sign in with Steam and confirm the session survives a process restart.
-- [ ] Link one test account on each enabled platform, sync it twice, and confirm the second sync does not duplicate games, achievements, ownership, or unlock rows.
-- [ ] Exercise disconnect/reconnect and self-service account deletion; confirm private data is no longer returned and uploaded overrides are removed.
-- [ ] Confirm state-changing dashboard requests succeed with the CSRF token and fail without it; confirm session cookies have the expected `HttpOnly`, `SameSite`, and HTTPS `Secure` attributes.
-- [ ] Confirm rate-limit responses and security headers are present through the production proxy.
+- [ ] **Fresh install:** with no `%APPDATA%\Trophyverse`, run the installer. The SmartScreen "unrecognized app" prompt is expected while the build is unsigned. The install completes without an admin prompt, and the Start menu and desktop shortcuts exist.
+- [ ] **First run:** the loading screen appears, then the Steam Web API key setup. A mistyped key and a made-up key are both rejected. A real key is accepted.
+- [ ] **Steam sign-in:** Steam's page opens inside the app, sign-in completes, and you land on the dashboard. Quit and relaunch: still signed in.
+- [ ] **Platforms:** link one account on each platform. External links (xbl.io, PSN token page, GOG login, RetroAchievements settings) open in the system browser. Sync each twice and confirm the second sync doesn't duplicate games, achievements, ownership, or unlocks.
+- [ ] **Everyday features:** find/review matches, link games, set a cover via URL and via upload, and export JSON and CSV (the save dialog appears).
+- [ ] **Disconnect/reconnect** one platform, then **delete account**. The confirmation dialog requires `DELETE`, private data is gone, and uploaded overrides are removed.
+- [ ] **Single instance:** launching a second copy focuses the first window instead.
+- [ ] **Clean quit:** after closing the window, no `Trophyverse.exe` or bundled `postgres.exe` remains in Task Manager.
+- [ ] **Crash recovery:** end `Trophyverse.exe` in Task Manager, then relaunch. It starts normally.
+- [ ] **Uninstall/reinstall:** uninstall. The program folder is gone and `%APPDATA%\Trophyverse` remains. Reinstall, and the data is still there.
+- [ ] **Upgrade** (from 1.0.1 onward): install the previous release, add data, then install the candidate over it. Data and sign-in survive.
+- [ ] **Your own PostgreSQL untouched:** on a machine that also runs a separately installed PostgreSQL, install, crash-recover, and uninstall without affecting it.
 
-## Rollout and rollback
+## Publishing (only after explicit approval)
 
-- [ ] Apply database changes before starting the new application version; keep the previous application version available until readiness and smoke checks pass.
-- [ ] Send SIGTERM during a controlled restart and verify the process drains connections, stops the scheduler, and closes the database pool.
-- [ ] If the release fails, stop routing traffic, restore the prior application version, and use the documented PostgreSQL restore procedure. Do not rotate the credential-encryption key as a rollback step.
-- [ ] Record the deployed commit, migration status, backup identifier, and smoke-test result in the release notes.
-- [ ] After explicit approval, create/push the release tag and publish the changelog. Branch cleanup happens only after the PR is merged.
+- [ ] Tag the release commit and publish a GitHub Release with `Trophyverse-Setup-<version>.exe` attached and short release notes: what's new, the SmartScreen note, and where data lives.
+- [ ] Record the commit, the CI run the installer came from, and the smoke-test results in the release notes.
+- [ ] Branch cleanup happens only after PRs are merged.
+
+## Rollback
+
+Users keep their data folder across uninstalls, so a bad release is rolled back by pointing people at the previous installer: uninstall, then install the older version. Changes to `db/schema.sql` must stay backward compatible within 1.x so an older version can still open a newer data folder. Never ship anything that regenerates `secrets.json`.

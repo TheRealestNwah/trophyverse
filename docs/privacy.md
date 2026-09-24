@@ -1,33 +1,32 @@
 # Privacy and data handling
 
-This document describes the data the Unified Achievement Manager stores and how an operator should communicate that handling to users. It is product documentation, not legal advice; deployments must adapt it to their jurisdiction, hosting model, and contact details.
+Trophyverse runs entirely on your computer. There's no Trophyverse server, account, analytics, telemetry, or advertising. This page describes what the app stores locally and which outside services it talks to. It's product documentation, not legal advice.
 
-## What is stored
+## What is stored, and where
 
-- **Sign-in identity:** the Steam account identifier and display name returned by Steam OpenID and the app's generated user ID.
-- **Linked-platform data:** platform account IDs, display names, owned games, achievement definitions, unlock timestamps, and derived score/level data for each linked account.
-- **Platform credentials:** PSN/GOG access and refresh tokens, Xbox/OpenXBL keys, and RetroAchievements keys are encrypted at rest with the deployment's AES-256-GCM `CREDENTIAL_ENCRYPTION_KEY`. They are decrypted only in application memory when a sync or catalog lookup needs them. The key is never stored in PostgreSQL.
-- **Sessions:** signed session records are stored in PostgreSQL so a restart does not silently log users out. The session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS deployments.
-- **Optional user content:** cover-art and achievement-icon overrides a user adds.
+Everything is kept in your Windows user's data folder, `%APPDATA%\Trophyverse` (see [operations.md](operations.md)):
 
-## How data is used
+- **Sign-in identity:** your Steam account ID and display name, returned by Steam's own sign-in page, and the app's generated user ID.
+- **Library data:** for each linked platform, the account ID and display name, owned games, achievement definitions, unlock times, and the derived score and level.
+- **Credentials:** your Steam Web API key, Xbox/OpenXBL key, PSN and GOG tokens, and RetroAchievements key. These are encrypted with AES-256-GCM before they're written to the database. The encryption key is in `secrets.json` in the same folder. That keeps credentials unreadable in a copied database file on its own, but it doesn't protect them from someone who can already open your Windows account's files.
+- **Sessions:** the app's sign-in session is stored in its database, so you stay signed in across restarts.
+- **Your content:** cover art and achievement icons you add.
+- **Logs:** app and database logs in the data folder. They aren't meant to contain credentials, but check them before sharing them with anyone.
 
-The service uses linked credentials only to request library and achievement data from the platform the user selected. It uses that data to build the private dashboard, calculate scores, and match equivalent games/achievements. It does not need a user's platform password.
+The app's database and web server only accept connections from your own computer (`127.0.0.1`).
 
-Requests to platform APIs are subject to those providers' terms and availability. Operators should link to the current Steam, Sony, OpenXBL, RetroAchievements, and GOG policies from their deployment's privacy notice rather than copying third-party terms here.
+## What is sent where
 
-## Sharing and visibility
+The app only contacts:
 
-Private libraries are available only to the signed-in user and server operators with database access.
+- **The platforms you connect** (Steam, OpenXBL for Xbox, PlayStation Network, RetroAchievements, GOG), using the credentials you gave it, to read your library and achievements. Steam sign-in happens on Steam's own page. The app never sees your platform passwords.
+- **Image hosts** for game covers and achievement icons, which are loaded from each platform's CDN or from image URLs you paste.
 
-The application does not include advertising, analytics, or a data sale feature. Operators must document any hosting logs, monitoring, backups, or additional integrations they add around this repository.
+Those requests are subject to each provider's own terms and privacy policies. The app sends nothing anywhere else.
 
-## Retention and deletion
+## Deleting data
 
-Disconnecting Xbox, PSN, RetroAchievements, or GOG removes that linked account and its per-user ownership/unlock rows through the database cascade. Shared canonical game and achievement rows may remain because they can be used by other users. Steam is the sign-in identity and cannot be disconnected through the dashboard.
-
-Users can permanently delete their own signed-in account from the dashboard after typing `DELETE` to confirm. The service revokes sessions, deletes the user row and its cascaded linked accounts, ownership, unlocks, scores, and private overrides, then removes app-owned uploaded images. Shared canonical game and achievement rows may remain because other users can reference them. Operators must still publish a contact path for backup, external-log, or legal deletion requests.
-
-## Operator responsibilities
-
-Keep `SESSION_SECRET` and `CREDENTIAL_ENCRYPTION_KEY` in a secret manager, restrict database and backup access, rotate/revoke platform credentials when a user disconnects or suspects compromise, and never put tokens in logs or support tickets. Follow [the operations runbook](operations.md) for backups, restores, migrations, and readiness checks.
+- **Disconnect** removes that platform's linked account and its synced ownership and unlock data.
+- **Delete account** removes your account, sessions, linked accounts, unlocks, scores, and overrides, and deletes uploaded images.
+- **Uninstalling** removes the program but keeps the data folder. Delete `%APPDATA%\Trophyverse` to remove everything.
+- Credentials you issued (API keys, tokens) can also be revoked on each platform's own site.
