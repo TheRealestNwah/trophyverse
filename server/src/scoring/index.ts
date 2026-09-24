@@ -1,4 +1,6 @@
 import { pool } from "../db";
+import { getGameCompletionCountsForUser } from "../games/queries";
+import { TIER_POINTS, qualifiesForCompletionPlatinum } from "./tier";
 
 export interface UserScore {
     totalPoints: number;
@@ -23,7 +25,19 @@ export async function recomputeUserScore(userId: string): Promise<UserScore> {
          where upa.user_id = $1`,
         [userId]
     );
-    const totalPoints = Number(totalResult.rows[0].total);
+    const achievementPoints = Number(totalResult.rows[0].total);
+
+    // Synthetic completion platinums (see scoring/tier.ts, #145) aren't real
+    // canonical_achievements rows, so they never show up in the sum above -
+    // add their points here so a 100%-complete Steam/Xbox/GOG/
+    // RetroAchievements game (or a psn_native game without its own platinum
+    // row) credits the user the same TIER_POINTS.platinum a real platinum
+    // would, keeping level/points consistent with what getGamesForUser and
+    // getFunStats now display for that game.
+    const completionCounts = await getGameCompletionCountsForUser(userId);
+    const completionPlatinumBonus =
+        completionCounts.filter(qualifiesForCompletionPlatinum).length * TIER_POINTS.platinum;
+    const totalPoints = achievementPoints + completionPlatinumBonus;
 
     const levelResult = await pool.query(
         "select level from level_thresholds where points_required <= $1 order by level desc limit 1",

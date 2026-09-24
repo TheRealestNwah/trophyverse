@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { resolveTierFromRarity, planPercentileTiers, TIER_POINTS, GOLD_RARITY_THRESHOLD, SILVER_RARITY_THRESHOLD } from "./tier";
+import {
+    resolveTierFromRarity,
+    planPercentileTiers,
+    qualifiesForCompletionPlatinum,
+    TIER_POINTS,
+    GOLD_RARITY_THRESHOLD,
+    SILVER_RARITY_THRESHOLD,
+} from "./tier";
 
 describe("resolveTierFromRarity", () => {
     it("buckets below the gold threshold as gold", () => {
@@ -62,5 +69,33 @@ describe("planPercentileTiers", () => {
         // rank 1 of 1 -> 100th percentile -> falls past both cutoffs into bronze.
         const result = planPercentileTiers([50]);
         expect(result).toEqual([{ tier: "bronze", points: TIER_POINTS.bronze }]);
+    });
+});
+
+describe("qualifiesForCompletionPlatinum", () => {
+    it("awards the synthetic platinum for a 100%-complete game with no real platinum (Steam/Xbox/GOG/RetroAchievements)", () => {
+        expect(
+            qualifiesForCompletionPlatinum({ totalAchievements: 40, unlockedAchievements: 40, platinumUnlocked: 0 })
+        ).toBe(true);
+    });
+
+    it("does not award it when the game isn't fully complete yet", () => {
+        expect(
+            qualifiesForCompletionPlatinum({ totalAchievements: 40, unlockedAchievements: 39, platinumUnlocked: 0 })
+        ).toBe(false);
+    });
+
+    it("does not award it when a real platinum has already been unlocked for the game", () => {
+        // e.g. a psn_native game that's genuinely 100% including its own
+        // Platinum trophy row - already covered by the real thing.
+        expect(
+            qualifiesForCompletionPlatinum({ totalAchievements: 40, unlockedAchievements: 40, platinumUnlocked: 1 })
+        ).toBe(false);
+    });
+
+    it("does not award it for a game with no achievements at all", () => {
+        expect(
+            qualifiesForCompletionPlatinum({ totalAchievements: 0, unlockedAchievements: 0, platinumUnlocked: 0 })
+        ).toBe(false);
     });
 });
