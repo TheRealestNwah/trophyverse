@@ -1,92 +1,53 @@
-# Unified Achievement Manager
+# Trophyverse — Unified Achievement Manager
 
-A cross-platform achievement/trophy aggregator — connect your Steam, Xbox, PlayStation, RetroAchievements, and GOG accounts and see everything in one place, with a unified score and level modeled on PlayStation's trophy system.
+A Windows desktop app that pulls your Steam, Xbox, PlayStation, RetroAchievements, and GOG achievements into one place, with a unified score and level modeled on PlayStation's trophy system. Everything runs on your own computer. There's no server to set up, no account with us, and nothing leaves your PC except the requests to the platforms you connect.
 
-## Concept
+- Every achievement gets a PSN-style tier (Bronze/Silver/Gold/Platinum). If a game exists on PlayStation, its native trophy tier wins, even for the Steam or Xbox version of the same achievement. Otherwise the tier comes from global unlock rarity.
+- One combined score and level across all connected platforms, following a PSN-like leveling curve.
+- A dashboard grouped per game and per platform, so multiple platinums or 100%s on the same game each show up.
 
-- Link accounts from multiple platforms (Steam, Xbox, PSN, RetroAchievements, GOG)
-- View all achievements/trophies in a single dashboard
-- Unified scoring: every achievement is assigned a PSN-style tier (Bronze/Silver/Gold/Platinum)
-  - If a game exists on PlayStation, its native trophy tier is authoritative — even for the Steam/Xbox version of the same achievement
-  - Otherwise, tier is inferred from global unlock rarity
-- Combined score and level across all connected platforms, following a PSN-like leveling curve
+## Install
+
+1. Download `Trophyverse-Setup-<version>.exe` from the [Releases page](https://github.com/TheRealestNwah/unified-achievement-manager/releases).
+2. Run it. It installs for your Windows user only and doesn't need administrator rights.
+3. The 1.0 installer isn't code-signed yet, so Windows SmartScreen may say it "protected your PC" from an unrecognized app. Click **More info**, then **Run anyway**.
+
+Windows 10/11, 64-bit. The installer is about 135 MB because it bundles its own private copy of PostgreSQL, which only the app uses.
+
+## First run
+
+1. **Steam Web API key.** On first launch the app asks for your own free key. Open [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey), enter `localhost` as the domain name, and paste the key it gives you. The app checks the key with Steam and stores it encrypted on your computer. You can change it later from **Platforms → Steam Web API key**.
+2. **Sign in with Steam.** Steam's own sign-in page opens inside the app. Your Steam account becomes your identity in the app.
+3. Click **Sync** to pull your Steam library, then connect other platforms.
+
+## Connecting platforms
+
+- **Xbox:** get a personal API key from [xbl.io/dashboard](https://xbl.io/dashboard) (sign in with your Microsoft account there first) and paste it in.
+- **PlayStation:** log into [playstation.com](https://www.playstation.com) in your browser, then in the same browser visit https://ca.account.sony.com/api/v1/ssocookie and paste the `npsso` value it shows. Treat that token like a password, since it grants full account access.
+- **RetroAchievements:** get a personal Web API key from your [account settings page](https://retroachievements.org/settings) and paste it in with your username.
+- **GOG:** click **Log in at GOG**, sign in in your browser, then copy the `code` value out of the address GOG redirects you to and paste it in. Codes are single-use and expire quickly, so paste it straight away.
+
+Links like these open in your normal web browser. Only Steam sign-in happens inside the app.
+
+## Using it
+
+- **Sync:** pulls each platform's library and unlocks and recomputes your score. While the app is open it also re-syncs every linked platform automatically every 6 hours.
+- **Find matches:** links the same real-world game and achievement across platforms so they share one tier, with PSN's own tier always winning. Your score isn't collapsed: unlocking the same achievement on two platforms still counts both.
+- **Review matches:** high-confidence matches merge automatically. Anything uncertain waits here for you to confirm or reject.
+- **Link games:** automatic matching only merges exact titles, so it misses cases like "Skyrim" on PSN vs "The Elder Scrolls V: Skyrim" on Steam. Click **Link games**, click the game whose title you want to keep, then click the duplicate.
+- **Cover art and icons:** click a game's cover or an achievement's icon to paste an image URL or upload your own (PNG, JPEG, WebP, or GIF, up to 5 MB).
+- **Export:** download your full unlock history as JSON or CSV.
+- **Disconnect:** Xbox, PSN, RetroAchievements, and GOG can each be unlinked, which removes that platform's synced games and achievements. Steam can't be disconnected because it's how you sign in.
+- **Delete account:** permanently removes your account and everything linked to it after you type `DELETE` to confirm.
+
+## Your data
+
+Everything is stored in `%APPDATA%\Trophyverse` (open it from **File → Open Data Folder**). Uninstalling keeps it, so reinstalling picks up where you left off. See [docs/operations.md](docs/operations.md) for backups, moving to a new PC, removing everything, and troubleshooting, and [docs/privacy.md](docs/privacy.md) for exactly what is stored and sent where.
 
 ## Status
 
-See [ROADMAP.md](ROADMAP.md). Steam, Xbox, PSN, and RetroAchievements are all fully working end to end (auth, sync, scoring), and GOG is integrated but not yet verified against a live account. On top of that: cross-platform game/achievement matching with manual review queues, a dashboard grouped per platform so multiple platinums/100%s on the same game each show up, cover art and icons (with user overrides), background sync, a stats page, data export, and self-service account deletion. The app is in 1.0 release preparation — see the [release checklist](docs/release-checklist.md).
+See [ROADMAP.md](ROADMAP.md). Steam, Xbox, PSN, and RetroAchievements work end to end. GOG is integrated but not yet verified against a live account ([#130](https://github.com/TheRealestNwah/unified-achievement-manager/issues/130)).
 
-## Getting started (server)
+## Development
 
-Requires a local Postgres database and a [Steam Web API key](https://steamcommunity.com/dev/apikey). By default every platform syncs on demand only (click Sync); set `SCHEDULER_ENABLED=true` in `.env` to also re-sync every linked account automatically on an interval (`SCHEDULER_INTERVAL_MINUTES`, default 360).
-
-```bash
-cd server
-cp .env.example .env   # fill in the database, platform, session, and encryption settings
-npm install
-npm run db:migrate     # applies db/schema.sql and seeds the level curve
-npm run dev
-```
-
-To run it the way the desktop app does instead, with its own bundled PostgreSQL and no `.env` (data goes to `%APPDATA%\Trophyverse` on Windows, or wherever `TROPHYVERSE_DATA_DIR` points):
-
-```bash
-cd server
-npm install
-npm run app
-```
-
-Or as the actual desktop app (an Electron window around the same thing; builds the server first):
-
-```bash
-cd desktop
-npm install
-npm start
-```
-
-`npm run dist` (from `desktop`, on Windows) builds the installer into `desktop/release/Trophyverse-Setup-<version>.exe`. CI builds the same installer on every pull request, installs it, launches it, and uninstalls it, then attaches it to the run as the `Trophyverse-Setup` artifact.
-
-Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First login creates your account and links your Steam ID automatically. From the dashboard you can:
-
-- **Sync Steam** — one click, no extra setup.
-- **Connect Xbox** — get a personal API key from [xbl.io/dashboard](https://xbl.io/dashboard) (sign in with your Microsoft account there first) and paste it in.
-- **Connect PSN** — log into [playstation.com](https://www.playstation.com), then in the same browser visit https://ca.account.sony.com/api/v1/ssocookie and paste the `npsso` value from the JSON it shows. Treat that token like a password — it grants full account access.
-- **Connect RetroAchievements** — get a personal Web API key from your [account settings page](https://retroachievements.org/settings) and paste it in along with your username.
-- **Connect GOG** — click **Log in at GOG**, sign in, then copy the `code` value out of the URL GOG redirects you to and paste it in. Codes are single-use and short-lived, so paste it straight away.
-- **Disconnect** — Xbox, PSN, RetroAchievements, and GOG can each be unlinked; this removes that platform's synced games/achievements from your library and recomputes your score. Steam can't be disconnected since it's how you sign in.
-- **Find matches** — links the same real-world game/achievement across platforms so they share one tier, PSN's own trophy tier always winning when a match includes it (see [docs/data-model.md](docs/data-model.md)). This does **not** collapse your score — unlocking the same achievement on two platforms (e.g. two separate platinums) still counts both. Run it any time after syncing more than one platform.
-- **Review matches** — high-confidence matches auto-merge, but anything uncertain queues up here for you to confirm or reject by hand instead of guessing wrong.
-- **Link games** — automatic game matching only merges on exact title, which misses genuine same-game cases formatted differently per platform (e.g. "Skyrim" on PSN vs "The Elder Scrolls V: Skyrim" on Steam). Click **Link games**, then click the game whose title you want to keep, then the duplicate to merge into it — re-runs achievement matching for just that game afterward. A filter box above the games list helps find entries in a large library.
-- **Cover art and icons** — click a game's cover or an achievement's icon to paste an image URL or upload your own (PNG, JPEG, WebP or GIF, up to 5 MB). Overrides are private to your account.
-- **Export** — download your full unlock history as JSON or CSV.
-- **Delete account** — permanently removes your account and everything linked to it after you type `DELETE` to confirm.
-
-API endpoints, if you want to hit them directly:
-
-- `POST /api/steam/sync`, `POST /api/xbox/sync`, `POST /api/psn/sync`, `POST /api/retro/sync`, `POST /api/gog/sync` — pull each platform's library and unlocks, recompute score
-- `POST /api/xbox/connect` (body: `{ apiKey }`), `POST /api/psn/connect` (body: `{ npsso }`), `POST /api/retro/connect` (body: `{ username, apiKey }`), `POST /api/gog/connect` (body: `{ code }`) — link an account
-- `GET /api/gog/login-url` — the GOG login page whose redirect carries the `code` for `/api/gog/connect`
-- `POST /api/matching/run` — link matched games/achievements across all connected platforms (also runnable as `npm run match`)
-- `GET /api/matching/candidates` — pending low-confidence matches awaiting manual review
-- `POST /api/matching/candidates/:id/confirm`, `POST /api/matching/candidates/:id/reject` — resolve a pending candidate
-- `GET /api/matching/game-candidates`, `POST /api/matching/game-candidates/:id/confirm`, `POST /api/matching/game-candidates/:id/reject` — the same review queue for whole-game merges automatic matching wasn't sure about
-- `POST /api/matching/games/merge` (body: `{ keepGameId, mergeGameId }`) — manually merge two of your own library entries automatic matching missed (differently formatted titles across platforms)
-- `GET /api/me/accounts` — which platforms are linked and when each last synced
-- `DELETE /api/me/accounts/:platformId` — disconnect a linked platform (Steam can't be disconnected - it's the sign-in identity); removes that account's synced games/unlocks and recomputes your score
-- `DELETE /api/me/account` (body: `{ confirmation: "DELETE" }`) — permanently delete the signed-in account, sessions, linked platform data, unlocks, scores, and private overrides; shared canonical game data remains
-- `GET /api/me/games` — all your games across every linked platform, combined into one row per game, with unlock counts and per-tier breakdown
-- `GET /api/me/games/:gameId/achievements` — full achievement list for one game, one row per `(achievement, platform)` so a matched achievement's separate completions on each platform each show their own unlock status
-- `GET /api/me/activity` — recently unlocked achievements across every platform
-- `GET /api/me/stats` — fun stats (rarest unlock, best day, and so on)
-- `GET /api/me/export` (`?format=json` or `?format=csv`) — download your own unlock history
-- `PUT /api/me/games/:gameId/cover` (body: `{ url }`), `POST /api/me/games/:gameId/cover/upload` (multipart field `file`), `DELETE /api/me/games/:gameId/cover` — set, upload, or clear your cover override for a game; the same three routes exist under `/api/me/achievements/:achievementId/icon`
-- `GET /api/me/score` — total points, level, and progress to the next level, summing every unlock on every linked platform (no cross-platform dedup — see [docs/data-model.md](docs/data-model.md))
-- `GET /healthz` (liveness, no database) and `GET /readyz` (database reachable) — see [docs/operations.md](docs/operations.md)
-
-An achievement's tier is either inherited from PSN directly (`tier_source = 'psn_native'`) or, when no PSN copy exists or hasn't been matched yet, inferred from global unlock rarity (`tier_source = 'rarity_fallback'`) — capped at gold, since Platinum on real PSN is a one-per-game completion trophy, not a rarity tier. For games with an unusually skewed rarity distribution (most of the list under the global gold threshold, e.g. Payday 2), tiers are instead ranked within that game's own achievement list rather than against the fixed global cutoffs — see [docs/data-model.md](docs/data-model.md). The level curve is defined in `server/src/scoring/levelCurve.ts` and can be retuned by editing it and rerunning `npm run db:seed-levels` followed by `npm run db:rescore-all` (refreshes everyone's cached level against the new thresholds). Sessions are persisted in Postgres (`connect-pg-simple`), so a server restart doesn't log everyone out.
-Platform credentials are encrypted at rest with AES-256-GCM. Set a stable, randomly generated `CREDENTIAL_ENCRYPTION_KEY` in every server environment. After upgrading an existing deployment, run `npm run db:encrypt-platform-credentials` from the `server` directory once; the migration is transactional and safe to re-run.
-
-Sessions use `HttpOnly`, `SameSite=Lax` cookies (and `Secure` when `BASE_URL` is HTTPS). State-changing browser requests require the session-bound CSRF token that the dashboard obtains from `/auth/csrf-token`. Helmet security headers and separate API/authentication rate limits are enabled by default; tune their `RATE_LIMIT_*` settings and set `TRUST_PROXY=true` when the server is behind a trusted reverse proxy.
-
-See [docs/operations.md](docs/operations.md) for deployment readiness, graceful shutdown, backup, and recovery procedures.
-
-For the 1.0 handoff, see the [privacy and data-handling notice](docs/privacy.md) and [release checklist](docs/release-checklist.md). The checklist calls out the remaining operator-owned decisions, including account-deletion contact/process, hosting-log retention, and explicit release-tag approval.
+See [docs/development.md](docs/development.md) for running from source, building the installer, the tests, and the HTTP API. How tiers, matching, and scoring work is in [docs/data-model.md](docs/data-model.md).

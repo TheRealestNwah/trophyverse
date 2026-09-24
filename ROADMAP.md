@@ -2,11 +2,14 @@
 
 ## Next up
 
-Every item in the previous "Next up" backlog (#18 through #32) has shipped, along with the 1.0 hardening work (#107 through #119). What remains is getting 1.0 out the door:
+1.0 ships as a standalone Windows desktop app: an Electron shell around the server, with its own bundled PostgreSQL, a first-run Steam key setup, and an installer built and smoke-tested in CI ([#124](https://github.com/TheRealestNwah/unified-achievement-manager/issues/124)–[#129](https://github.com/TheRealestNwah/unified-achievement-manager/issues/129)). What remains is getting it out the door:
 
-1. **Run the live parts of the [1.0 release checklist](docs/release-checklist.md)** - real platform logins, second-sync duplicate checks, disconnect/reconnect, restart survival - then tag once approved.
-2. **Live-verify GOG** against a real account. The client follows the community API docs but hasn't been checked against a real library yet (see #31).
-3. **Add a Content-Security-Policy.** Helmet's CSP is currently off because the dashboard uses inline scripts; it needs a nonce-based template pass first (see `server/src/index.ts`).
+1. **Run the live parts of the [1.0 release checklist](docs/release-checklist.md)** on a real Windows machine (Steam sign-in, every platform, sync twice, disconnect/reconnect, crash recovery, uninstall/reinstall), then tag once approved.
+2. **Live-verify GOG** against a real account ([#130](https://github.com/TheRealestNwah/unified-achievement-manager/issues/130)). The client follows the community API docs but hasn't been checked against a real library yet.
+
+After 1.0: code-sign the installer (removes the SmartScreen warning), auto-update, and macOS/Linux builds. The code is already cross-platform apart from the installer.
+
+~~Add a Content-Security-Policy.~~ Done in [#123](https://github.com/TheRealestNwah/unified-achievement-manager/pull/123) (nonce-based).
 
 ~~Make `db:migrate` safe to re-run on an existing database.~~ Done - `db/schema.sql` now guards every `create table`/`create index` with `if not exists`, wraps the three enum types in the standard idempotent `do $$ ... exception when duplicate_object` block, and both seed inserts use `on conflict do nothing` so a re-run can't reset hand-tuned `tier_points` values. Verified by migrating a fresh database, then re-running `db:migrate` twice more against it with no error, and confirming a hand-edited `tier_points` row survives a re-run untouched.
 
