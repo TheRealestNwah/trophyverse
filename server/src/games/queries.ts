@@ -1,20 +1,12 @@
 import { pool } from "../db";
 
-// Shared by the authenticated /api/me/games routes and the public,
-// no-login profile routes (server/src/public/routes.ts) - same data, same
-// shape, just keyed by whichever user_id the caller already resolved
-// (a signed-in user's own id, or the owner of a public profile slug).
-
 export async function getGamesForUser(userId: string) {
     const result = await pool.query(
         `select
             g.id,
             g.title,
             -- A user's own pasted cover art (see #32) wins over the
-            -- auto-detected one on games.cover_image_url - scoped to
-            -- whichever user_id the caller resolved, so this works
-            -- unmodified for both the authenticated and public-profile
-            -- routes (a public profile shows its owner's own override).
+            -- auto-detected one on games.cover_image_url.
             coalesce(
                 (select cover_image_url from user_game_cover_overrides where user_id = $1 and game_id = g.id),
                 g.cover_image_url

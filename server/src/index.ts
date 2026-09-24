@@ -14,7 +14,6 @@ import { gogRouter } from "./gog/routes";
 import { scoreRouter } from "./scoring/routes";
 import { gamesRouter } from "./games/routes";
 import { matchingRouter } from "./matching/routes";
-import { publicRouter } from "./public/routes";
 import { startScheduler } from "./scheduler";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -112,31 +111,12 @@ app.use("/api/gog", gogRouter);
 app.use("/api/me", scoreRouter);
 app.use("/api/me", gamesRouter);
 app.use("/api/matching", matchingRouter);
-app.use("/api/public", publicRouter);
 
 app.get("/", (req, res) => {
     sendPageWithNonce("index.html", req, res);
 });
 
-// Serves the same static SPA shell as the dashboard - profile.html reads the
-// slug from the URL client-side and hits /api/public/:slug itself. No auth
-// here since a public profile is meant to be viewable without an account.
-app.get("/u/:slug", (req, res) => {
-    sendPageWithNonce("profile.html", req, res);
-});
-
-app.get("/leaderboard", (req, res) => {
-    sendPageWithNonce("leaderboard.html", req, res);
-});
-
-// Same no-auth, slug-driven pattern as /u/:slug above - both profiles being
-// compared must independently be is_public (enforced by /api/public/:slug
-// itself), no separate access model introduced here.
-app.get("/compare", (req, res) => {
-    sendPageWithNonce("compare.html", req, res);
-});
-
-// The four routes above serve these same files with the per-request CSP
+// The route above serves index.html with the per-request CSP
 // nonce injected; a direct request for the raw file would bypass that.
 app.use((req, res, next) => {
     if (req.path.endsWith(".html")) {

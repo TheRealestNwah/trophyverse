@@ -72,12 +72,6 @@ The 50%-gold-share trigger was tuned against real synced data, not guessed: a na
 
 This was tracked as [issue #10](https://github.com/TheRealestNwah/trophyverse/issues/10).
 
-## Public profiles are opt-in, never a side effect
-
-`users.is_public` and `users.public_slug` (see `db/schema.sql`) back the PSNProfiles-style public page at `/u/:slug`. `public_slug` is generated once for *every* user at signup regardless of whether they ever opt in, but a slug alone reaches nothing - `server/src/public/routes.ts` gates every query on `is_public = true` too, and none of its routes use `requireAuth` (the only routes in the app that don't). Toggling `is_public` (`POST /api/me/public-profile`) is the only way a profile ever becomes reachable; it defaults to `false` for every new account, and turning it off takes the page down immediately rather than just hiding a link to it.
-
-The public routes intentionally reuse the same query functions as the authenticated `/api/me/games*` routes (`server/src/games/queries.ts`), parameterized by whichever `user_id` the caller already resolved - a signed-in user's own id, or the public profile's owner. Same data, same shape, so the public page can't drift out of sync with what the dashboard shows.
-
 ## Not yet modeled
 
 - Auth/session tables beyond what's in `db/schema.sql` — sessions are handled by `connect-pg-simple`, not part of the canonical/link model this doc describes.

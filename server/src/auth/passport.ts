@@ -2,7 +2,6 @@ import passport from "passport";
 import { Strategy as SteamStrategy, SteamProfile } from "passport-steam";
 import { config } from "../config";
 import { pool } from "../db";
-import { generateUniqueSlug } from "./slug";
 
 passport.serializeUser((user: Express.User, done) => {
     done(null, user.id);
@@ -28,14 +27,12 @@ async function findOrCreateSteamUser(profile: SteamProfile): Promise<Express.Use
     );
     if (existing.rows[0]) return existing.rows[0];
 
-    const publicSlug = await generateUniqueSlug(profile.displayName);
-
     const client = await pool.connect();
     try {
         await client.query("begin");
         const userResult = await client.query(
-            "insert into users (username, public_slug) values ($1, $2) returning *",
-            [profile.displayName, publicSlug]
+            "insert into users (username) values ($1) returning *",
+            [profile.displayName]
         );
         const user = userResult.rows[0];
         await client.query(

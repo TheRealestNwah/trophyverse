@@ -13,7 +13,7 @@ A cross-platform achievement/trophy aggregator — connect your Steam, Xbox, Pla
 
 ## Status
 
-See [ROADMAP.md](ROADMAP.md). Steam, Xbox, PSN, and RetroAchievements are all fully working end to end (auth, sync, scoring), and GOG is integrated but not yet verified against a live account. On top of that: cross-platform game/achievement matching with manual review queues, a dashboard grouped per platform so multiple platinums/100%s on the same game each show up, cover art and icons (with user overrides), background sync, public profiles, a leaderboard, profile comparison, a stats page, data export, and self-service account deletion. The app is in 1.0 release preparation — see the [release checklist](docs/release-checklist.md).
+See [ROADMAP.md](ROADMAP.md). Steam, Xbox, PSN, and RetroAchievements are all fully working end to end (auth, sync, scoring), and GOG is integrated but not yet verified against a live account. On top of that: cross-platform game/achievement matching with manual review queues, a dashboard grouped per platform so multiple platinums/100%s on the same game each show up, cover art and icons (with user overrides), background sync, a stats page, data export, and self-service account deletion. The app is in 1.0 release preparation — see the [release checklist](docs/release-checklist.md).
 
 ## Getting started (server)
 
@@ -38,9 +38,6 @@ Open `http://localhost:3000` — it'll prompt you to sign in with Steam. First l
 - **Find matches** — links the same real-world game/achievement across platforms so they share one tier, PSN's own trophy tier always winning when a match includes it (see [docs/data-model.md](docs/data-model.md)). This does **not** collapse your score — unlocking the same achievement on two platforms (e.g. two separate platinums) still counts both. Run it any time after syncing more than one platform.
 - **Review matches** — high-confidence matches auto-merge, but anything uncertain queues up here for you to confirm or reject by hand instead of guessing wrong.
 - **Link games** — automatic game matching only merges on exact title, which misses genuine same-game cases formatted differently per platform (e.g. "Skyrim" on PSN vs "The Elder Scrolls V: Skyrim" on Steam). Click **Link games**, then click the game whose title you want to keep, then the duplicate to merge into it — re-runs achievement matching for just that game afterward. A filter box above the games list helps find entries in a large library.
-- **Public profile** — off by default. Turning it on publishes a PSNProfiles-style read-only page at `/u/<your-slug>` (no login required to view) showing your combined score, level, and full game/achievement list. Turning it back off takes it down immediately.
-- **Leaderboard** — `/leaderboard` ranks every opted-in public profile by total points. Private profiles never appear here, same as everywhere else.
-- **Compare** — `/compare?a=<slug>&b=<slug>` shows two public profiles side by side. Both must be opted in.
 - **Cover art and icons** — click a game's cover or an achievement's icon to paste an image URL or upload your own (PNG, JPEG, WebP or GIF, up to 5 MB). Overrides are private to your account.
 - **Export** — download your full unlock history as JSON or CSV.
 - **Delete account** — permanently removes your account and everything linked to it after you type `DELETE` to confirm.
@@ -65,9 +62,6 @@ API endpoints, if you want to hit them directly:
 - `GET /api/me/export` (`?format=json` or `?format=csv`) — download your own unlock history
 - `PUT /api/me/games/:gameId/cover` (body: `{ url }`), `POST /api/me/games/:gameId/cover/upload` (multipart field `file`), `DELETE /api/me/games/:gameId/cover` — set, upload, or clear your cover override for a game; the same three routes exist under `/api/me/achievements/:achievementId/icon`
 - `GET /api/me/score` — total points, level, and progress to the next level, summing every unlock on every linked platform (no cross-platform dedup — see [docs/data-model.md](docs/data-model.md))
-- `POST /api/me/public-profile` (body: `{ isPublic }`) — turn your public profile on/off
-- `GET /api/public/:slug`, `GET /api/public/:slug/games`, `GET /api/public/:slug/games/:gameId/achievements`, `GET /api/public/:slug/activity`, `GET /api/public/:slug/stats` — the no-login equivalents of the routes above, gated on that user having opted in
-- `GET /api/public/leaderboard` — top 50 opted-in public profiles by total points
 - `GET /healthz` (liveness, no database) and `GET /readyz` (database reachable) — see [docs/operations.md](docs/operations.md)
 
 An achievement's tier is either inherited from PSN directly (`tier_source = 'psn_native'`) or, when no PSN copy exists or hasn't been matched yet, inferred from global unlock rarity (`tier_source = 'rarity_fallback'`) — capped at gold, since Platinum on real PSN is a one-per-game completion trophy, not a rarity tier. For games with an unusually skewed rarity distribution (most of the list under the global gold threshold, e.g. Payday 2), tiers are instead ranked within that game's own achievement list rather than against the fixed global cutoffs — see [docs/data-model.md](docs/data-model.md). The level curve is defined in `server/src/scoring/levelCurve.ts` and can be retuned by editing it and rerunning `npm run db:seed-levels` followed by `npm run db:rescore-all` (refreshes everyone's cached level against the new thresholds). Sessions are persisted in Postgres (`connect-pg-simple`), so a server restart doesn't log everyone out.
