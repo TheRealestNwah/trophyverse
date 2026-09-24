@@ -722,6 +722,11 @@
                     <a href="https://retroachievements.org/settings" target="_blank" style="color: var(--accent);">account settings page</a>
                     and paste it in along with your username.
                 </p>
+                <p class="loading-note" style="margin: -8px 0 20px;">
+                    Xbox uses OpenXBL - get your API key from the
+                    <a href="https://xbl.io/dashboard" target="_blank" style="color: var(--accent);">OpenXBL dashboard</a>
+                    and paste it in below.
+                </p>
 
                 <div class="platform-row hidden" id="steam-key-row" style="margin-bottom: 24px;">
                     <span class="platform-name">Steam Web API key</span>
@@ -1673,7 +1678,7 @@ function renderPlatforms(accounts) {
     } else {
         xboxRow.innerHTML = `
             <span class="platform-name">Xbox</span>
-            <input type="text" id="xbox-key-input" placeholder="Paste your OpenXBL API key (from xbl.io/dashboard)" />
+            <input type="text" id="xbox-key-input" placeholder="Paste your OpenXBL API key" />
             <button id="xbox-connect-btn">Connect</button>
         `;
         list.appendChild(xboxRow);
