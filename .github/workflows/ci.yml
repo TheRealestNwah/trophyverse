@@ -68,3 +68,38 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
+
+  windows-installer:
+    runs-on: windows-latest
+    env:
+      # 1.0 ships unsigned; don't let electron-builder go looking for a cert.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            desktop/package-lock.json
+
+      - run: npm ci
+        working-directory: server
+      - run: npm ci
+        working-directory: desktop
+      - run: npm run dist
+        working-directory: desktop
+
+      - name: Install, launch, and uninstall the built installer
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem desktop/release/Trophyverse-Setup-*.exe).FullName
+          ./desktop/scripts/smoke-test.ps1 -Installer $installer
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Trophyverse-Setup
+          path: desktop/release/Trophyverse-Setup-*.exe
+          retention-days: 14

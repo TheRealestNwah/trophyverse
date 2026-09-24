@@ -1,7 +1,7 @@
 {
   "name": "trophyverse-desktop",
   "productName": "Trophyverse",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Trophyverse desktop app: every platform's achievements in one place, running entirely on your computer.",
   "main": "dist/main.js",
@@ -10,11 +10,76 @@
     "build:server": "npm --prefix ../server run build",
     "start": "npm run build:server && npm run build && electron .",
     "typecheck": "tsc --noEmit",
-    "postinstall": "node node_modules/electron/install.js"
+    "postinstall": "node node_modules/electron/install.js",
+    "dist": "npm run build:server && node scripts/stage-server.mjs && npm run build && electron-builder --win --publish never"
   },
   "devDependencies": {
     "@types/node": "24.13.6",
     "electron": "44.4.5",
+    "electron-builder": "26.15.3",
     "typescript": "5.9.3"
+  },
+  "author": "TheRealestNwah",
+  "build": {
+    "appId": "io.github.therealestnwah.trophyverse",
+    "productName": "Trophyverse",
+    "artifactName": "Trophyverse-Setup-${version}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../server/dist",
+        "to": "server/dist",
+        "filter": [
+          "**/*",
+          "!**/*.test.js"
+        ]
+      },
+      {
+        "from": "../server/public",
+        "to": "server/public",
+        "filter": [
+          "**/*",
+          "!uploads/**"
+        ]
+      },
+      {
+        "from": "staging/server/node_modules",
+        "to": "server/node_modules"
+      },
+      {
+        "from": "staging/server/package.json",
+        "to": "server/package.json"
+      },
+      {
+        "from": "../db/schema.sql",
+        "to": "db/schema.sql"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh",
+      "shortcutName": "Trophyverse"
+    }
   }
 }
