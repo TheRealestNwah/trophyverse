@@ -849,7 +849,7 @@ function renderActivity(items) {
         <div class="activity-item">
             ${
                 a.icon_url
-                    ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                    ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" />`
                     : ""
             }
             <span class="tier-tag ${a.tier}">${a.tier}</span>
@@ -1286,7 +1286,7 @@ async function toggleAchievements(gameEl, gameId) {
                     <div class="achievement-icon-wrap" title="Click to change icon">
                         ${
                             a.icon_url
-                                ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" onerror="this.remove()" />`
+                                ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" />`
                                 : `<div class="achievement-icon"></div>`
                         }
                     </div>
