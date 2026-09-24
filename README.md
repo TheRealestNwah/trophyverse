@@ -46,7 +46,7 @@ Everything is stored in `%APPDATA%\Unified Achievement Manager` (open it from **
 
 ## Status
 
-See [ROADMAP.md](ROADMAP.md). Steam, Xbox, PSN, and RetroAchievements work end to end. GOG is integrated but not yet verified against a live account ([#130](https://github.com/TheRealestNwah/unified-achievement-manager/issues/130)).
+See [ROADMAP.md](ROADMAP.md). Steam, Xbox, PSN, RetroAchievements, and GOG all work end to end.
 
 ## Development
 
