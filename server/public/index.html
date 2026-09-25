@@ -381,8 +381,21 @@
         border-radius: 14px;
         padding: 12px 18px;
     }
-    .platform-name { font-weight: 600; flex-shrink: 0; white-space: nowrap; margin-right: 4px; }
-    .platform-note { font-size: 12px; color: var(--text-dim); flex: 1; }
+    .platform-row { flex-wrap: wrap; }
+    .platform-name { font-weight: 600; flex-shrink: 0; white-space: nowrap; margin-right: 4px; min-width: 150px; }
+    .platform-note { font-size: 12px; color: var(--text-dim); flex: 1; min-width: 0; }
+    .platform-note a, .platform-help a { color: var(--accent); }
+    /* Two fixed slots so Sync lines up on every row, including Steam, which
+       has no Disconnect button (see #174). */
+    .platform-actions { display: grid; grid-template-columns: auto minmax(104px, auto); gap: 8px; align-items: center; margin-left: auto; }
+    .platform-actions > button { width: 100%; grid-row: 1; }
+    .platform-actions > .slot-1 { grid-column: 1; }
+    .platform-actions > .slot-2 { grid-column: 2; }
+    .platform-help { flex-basis: 100%; margin: 2px 0 0; font-size: 12px; color: var(--text-dim); }
+    .settings-heading { font-size: 14px; font-weight: 700; margin: 28px 0 4px; color: var(--text); }
+    .settings-subnote { font-size: 12px; color: var(--text-dim); margin: 0 0 10px; }
+    .danger-row { border-color: #FCA5A5; }
+    button.danger-btn { color: #B91C1C; border-color: #FCA5A5; }
     .platform-row input[type="text"] {
         flex: 1;
         background: var(--input-bg);
@@ -803,49 +816,43 @@
                     <h2>Platforms</h2>
                     <div>
                         <span class="platform-note" id="sync-all-status"></span>
-                        <button type="button" class="secondary" id="sync-all-btn">Sync all</button>
+                        <button type="button" id="sync-all-btn">Sync all</button>
                     </div>
                 </div>
                 <div class="platforms" id="platforms-list"></div>
-                <p class="loading-note" style="margin: -8px 0 20px;">
-                    PSN has no public login - to connect it, log into
-                    <a href="https://www.playstation.com" target="_blank" style="color: var(--accent);">playstation.com</a>,
-                    then visit
-                    <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" style="color: var(--accent);">this page</a>
-                    in the same browser and copy the <code>npsso</code> value from the JSON it shows.
-                </p>
-                <p class="loading-note" style="margin: -8px 0 20px;">
-                    RetroAchievements also has no OAuth - get a Web API key from your
-                    <a href="https://retroachievements.org/settings" target="_blank" style="color: var(--accent);">account settings page</a>
-                    and paste it in along with your username.
-                </p>
-                <p class="loading-note" style="margin: -8px 0 20px;">
-                    Xbox uses OpenXBL - get your API key from the
-                    <a href="https://xbl.io/dashboard" target="_blank" style="color: var(--accent);">OpenXBL dashboard</a>
-                    and paste it in below.
-                </p>
 
-                <div class="platform-row hidden" id="steam-key-row" style="margin-bottom: 24px;">
-                    <span class="platform-name">Steam Web API key</span>
-                    <span class="platform-note">Stored encrypted on this computer.</span>
-                    <button type="button" class="secondary" id="steam-key-change-btn">Change</button>
+                <h3 class="settings-heading">API keys</h3>
+                <p class="settings-subnote">Stored encrypted on this computer.</p>
+                <div class="platforms">
+                    <div class="platform-row hidden" id="steam-key-row">
+                        <span class="platform-name">Steam Web API</span>
+                        <span class="platform-note">Used to read your Steam library.</span>
+                        <div class="platform-actions">
+                            <button type="button" class="secondary slot-2" id="steam-key-change-btn">Change</button>
+                        </div>
+                    </div>
+                    <div class="platform-row" id="steamgriddb-key-row">
+                        <span class="platform-name">SteamGridDB</span>
+                        <span class="platform-note" id="steamgriddb-key-status">
+                            Optional, for picking cover art. Get a free key from
+                            <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank">SteamGridDB</a>.
+                        </span>
+                        <div class="platform-actions">
+                            <button type="button" class="secondary slot-2" id="steamgriddb-key-set-btn">Add</button>
+                            <button type="button" class="secondary slot-1 hidden" id="steamgriddb-key-remove-btn">Remove</button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="platform-row" id="steamgriddb-key-row" style="margin-bottom: 24px;">
-                    <span class="platform-name">SteamGridDB API key</span>
-                    <span class="platform-note" id="steamgriddb-key-status">
-                        Optional, for picking cover art. Get a free key from your
-                        <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank" style="color: var(--accent);">SteamGridDB preferences</a>.
-                        Stored encrypted on this computer, and kept if you delete your account.
-                    </span>
-                    <button type="button" class="secondary" id="steamgriddb-key-set-btn">Add</button>
-                    <button type="button" class="secondary hidden" id="steamgriddb-key-remove-btn">Remove</button>
-                </div>
-
-                <div class="platform-row" id="delete-account-row" style="margin-bottom: 24px;">
-                    <span class="platform-name">Delete account</span>
-                    <span class="platform-note">Permanently removes your account, linked data, and private overrides.</span>
-                    <button type="button" class="secondary" id="delete-account-btn" style="color: #B91C1C; border-color: #FCA5A5;">Delete account</button>
+                <h3 class="settings-heading">Account</h3>
+                <div class="platforms">
+                    <div class="platform-row danger-row" id="delete-account-row">
+                        <span class="platform-name">Delete account</span>
+                        <span class="platform-note">Permanently removes your account, linked data, and private overrides. Your SteamGridDB key is kept.</span>
+                        <div class="platform-actions">
+                            <button type="button" class="secondary danger-btn slot-2" id="delete-account-btn">Delete account</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="section-your-games">
@@ -2146,52 +2153,83 @@ async function disconnectPlatform(platformId, label) {
     }
 }
 
+// One shape for every connected platform (see #174): name, "account ·
+// synced 2 hours ago" (exact time on hover), then Sync and Disconnect in
+// fixed slots so the buttons line up down the list. Steam has no Disconnect
+// because it's how you signed in, so its second slot stays empty.
+function connectedPlatformRow(platformId, label, account, { canDisconnect = true } = {}) {
+    const row = document.createElement("div");
+    row.className = "platform-row";
+
+    const name = document.createElement("span");
+    name.className = "platform-name";
+    name.textContent = label;
+
+    const note = document.createElement("span");
+    note.className = "platform-note";
+    note.id = `${PLATFORM_NOTE_PREFIXES[platformId]}-note`;
+    const synced = account?.last_synced_at
+        ? `synced ${relativeTime(account.last_synced_at)}`
+        : "not synced yet";
+    note.textContent = account?.display_name ? `${account.display_name} · ${synced}` : synced[0].toUpperCase() + synced.slice(1);
+    if (account?.last_synced_at) note.title = `Last synced ${new Date(account.last_synced_at).toLocaleString()}`;
+
+    const actions = document.createElement("div");
+    actions.className = "platform-actions";
+    const syncBtn = document.createElement("button");
+    syncBtn.type = "button";
+    syncBtn.className = "secondary slot-1";
+    syncBtn.id = `${PLATFORM_NOTE_PREFIXES[platformId]}-sync-btn`;
+    syncBtn.textContent = "Sync";
+    syncBtn.addEventListener("click", (e) => syncPlatform(PLATFORM_SYNC_SLUGS[platformId], e.currentTarget, note));
+    actions.appendChild(syncBtn);
+    if (canDisconnect) {
+        const disconnectBtn = document.createElement("button");
+        disconnectBtn.type = "button";
+        disconnectBtn.className = "secondary slot-2";
+        disconnectBtn.textContent = "Disconnect";
+        disconnectBtn.addEventListener("click", () => disconnectPlatform(platformId, label));
+        actions.appendChild(disconnectBtn);
+    }
+
+    row.append(name, note, actions);
+    return row;
+}
+
+// Element ids predate this helper ("retro-note", not "retroachievements-note").
+const PLATFORM_NOTE_PREFIXES = { steam: "steam", xbox: "xbox", psn: "psn", retroachievements: "retro", gog: "gog" };
+
+// Setup help lives on the platform's own connect row, and only while it's
+// not connected - it used to sit in loose paragraphs below the whole list.
+function appendPlatformHelp(row, html) {
+    const help = document.createElement("p");
+    help.className = "platform-help";
+    help.innerHTML = html;
+    row.appendChild(help);
+}
+
 function renderPlatforms(accounts) {
     const byPlatform = Object.fromEntries(accounts.map((a) => [a.platform_id, a]));
     const list = document.getElementById("platforms-list");
     list.innerHTML = "";
 
     // Steam is always connected here - it's how you signed in.
-    const steamRow = document.createElement("div");
-    steamRow.className = "platform-row";
-    steamRow.innerHTML = `
-        <span class="platform-name">Steam</span>
-        <span class="platform-note" id="steam-note">${
-            byPlatform.steam?.last_synced_at
-                ? `Last synced ${new Date(byPlatform.steam.last_synced_at).toLocaleString()}`
-                : "Not synced yet"
-        }</span>
-        <button id="steam-sync-btn">Sync</button>
-    `;
-    list.appendChild(steamRow);
-    steamRow.querySelector("#steam-sync-btn").addEventListener("click", (e) =>
-        syncPlatform(PLATFORM_SYNC_SLUGS.steam, e.target, steamRow.querySelector("#steam-note"))
-    );
+    list.appendChild(connectedPlatformRow("steam", "Steam", byPlatform.steam, { canDisconnect: false }));
 
     const xboxRow = document.createElement("div");
     xboxRow.className = "platform-row";
     if (byPlatform.xbox) {
-        xboxRow.innerHTML = `
-            <span class="platform-name">Xbox</span>
-            <span class="platform-note" id="xbox-note">${byPlatform.xbox.display_name} — ${
-                byPlatform.xbox.last_synced_at
-                    ? `last synced ${new Date(byPlatform.xbox.last_synced_at).toLocaleString()}`
-                    : "not synced yet"
-            }</span>
-            <button id="xbox-sync-btn">Sync</button>
-            <button class="secondary" id="xbox-disconnect-btn">Disconnect</button>
-        `;
-        list.appendChild(xboxRow);
-        xboxRow.querySelector("#xbox-sync-btn").addEventListener("click", (e) =>
-            syncPlatform(PLATFORM_SYNC_SLUGS.xbox, e.target, xboxRow.querySelector("#xbox-note"))
-        );
-        xboxRow.querySelector("#xbox-disconnect-btn").addEventListener("click", () => disconnectPlatform("xbox", "Xbox"));
+        list.appendChild(connectedPlatformRow("xbox", "Xbox", byPlatform.xbox));
     } else {
         xboxRow.innerHTML = `
             <span class="platform-name">Xbox</span>
             <input type="text" id="xbox-key-input" placeholder="Paste your OpenXBL API key" />
-            <button id="xbox-connect-btn">Connect</button>
+            <div class="platform-actions"><button id="xbox-connect-btn" class="slot-2">Connect</button></div>
         `;
+        appendPlatformHelp(
+            xboxRow,
+            `Xbox uses OpenXBL. Get an API key from the <a href="https://xbl.io/dashboard" target="_blank">OpenXBL dashboard</a>.`
+        );
         list.appendChild(xboxRow);
         xboxRow.querySelector("#xbox-connect-btn").addEventListener("click", async () => {
             const input = xboxRow.querySelector("#xbox-key-input");
@@ -2216,27 +2254,17 @@ function renderPlatforms(accounts) {
     const psnRow = document.createElement("div");
     psnRow.className = "platform-row";
     if (byPlatform.psn) {
-        psnRow.innerHTML = `
-            <span class="platform-name">PSN</span>
-            <span class="platform-note" id="psn-note">${byPlatform.psn.display_name} — ${
-                byPlatform.psn.last_synced_at
-                    ? `last synced ${new Date(byPlatform.psn.last_synced_at).toLocaleString()}`
-                    : "not synced yet"
-            }</span>
-            <button id="psn-sync-btn">Sync</button>
-            <button class="secondary" id="psn-disconnect-btn">Disconnect</button>
-        `;
-        list.appendChild(psnRow);
-        psnRow.querySelector("#psn-sync-btn").addEventListener("click", (e) =>
-            syncPlatform(PLATFORM_SYNC_SLUGS.psn, e.target, psnRow.querySelector("#psn-note"))
-        );
-        psnRow.querySelector("#psn-disconnect-btn").addEventListener("click", () => disconnectPlatform("psn", "PSN"));
+        list.appendChild(connectedPlatformRow("psn", "PSN", byPlatform.psn));
     } else {
         psnRow.innerHTML = `
             <span class="platform-name">PSN</span>
             <input type="text" id="psn-key-input" placeholder="Paste your NPSSO token" />
-            <button id="psn-connect-btn">Connect</button>
+            <div class="platform-actions"><button id="psn-connect-btn" class="slot-2">Connect</button></div>
         `;
+        appendPlatformHelp(
+            psnRow,
+            `PSN has no public login. Sign in at <a href="https://www.playstation.com" target="_blank">playstation.com</a>, then open <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank">this page</a> in the same browser and copy the <code>npsso</code> value.`
+        );
         list.appendChild(psnRow);
         psnRow.querySelector("#psn-connect-btn").addEventListener("click", async () => {
             const input = psnRow.querySelector("#psn-key-input");
@@ -2261,30 +2289,18 @@ function renderPlatforms(accounts) {
     const retroRow = document.createElement("div");
     retroRow.className = "platform-row";
     if (byPlatform.retroachievements) {
-        retroRow.innerHTML = `
-            <span class="platform-name">RetroAchievements</span>
-            <span class="platform-note" id="retro-note">${byPlatform.retroachievements.display_name} — ${
-                byPlatform.retroachievements.last_synced_at
-                    ? `last synced ${new Date(byPlatform.retroachievements.last_synced_at).toLocaleString()}`
-                    : "not synced yet"
-            }</span>
-            <button id="retro-sync-btn">Sync</button>
-            <button class="secondary" id="retro-disconnect-btn">Disconnect</button>
-        `;
-        list.appendChild(retroRow);
-        retroRow.querySelector("#retro-sync-btn").addEventListener("click", (e) =>
-            syncPlatform(PLATFORM_SYNC_SLUGS.retroachievements, e.target, retroRow.querySelector("#retro-note"))
-        );
-        retroRow.querySelector("#retro-disconnect-btn").addEventListener("click", () =>
-            disconnectPlatform("retroachievements", "RetroAchievements")
-        );
+        list.appendChild(connectedPlatformRow("retroachievements", "RetroAchievements", byPlatform.retroachievements));
     } else {
         retroRow.innerHTML = `
             <span class="platform-name">RetroAchievements</span>
             <input type="text" id="retro-user-input" placeholder="Username" style="max-width: 140px;" />
             <input type="text" id="retro-key-input" placeholder="Paste your Web API key" />
-            <button id="retro-connect-btn">Connect</button>
+            <div class="platform-actions"><button id="retro-connect-btn" class="slot-2">Connect</button></div>
         `;
+        appendPlatformHelp(
+            retroRow,
+            `Get a Web API key from your RetroAchievements <a href="https://retroachievements.org/settings" target="_blank">account settings</a>.`
+        );
         list.appendChild(retroRow);
         retroRow.querySelector("#retro-connect-btn").addEventListener("click", async () => {
             const userInput = retroRow.querySelector("#retro-user-input");
@@ -2310,27 +2326,13 @@ function renderPlatforms(accounts) {
     const gogRow = document.createElement("div");
     gogRow.className = "platform-row";
     if (byPlatform.gog) {
-        gogRow.innerHTML = `
-            <span class="platform-name">GOG</span>
-            <span class="platform-note" id="gog-note">${byPlatform.gog.display_name} — ${
-                byPlatform.gog.last_synced_at
-                    ? `last synced ${new Date(byPlatform.gog.last_synced_at).toLocaleString()}`
-                    : "not synced yet"
-            }</span>
-            <button id="gog-sync-btn">Sync</button>
-            <button class="secondary" id="gog-disconnect-btn">Disconnect</button>
-        `;
-        list.appendChild(gogRow);
-        gogRow.querySelector("#gog-sync-btn").addEventListener("click", (e) =>
-            syncPlatform(PLATFORM_SYNC_SLUGS.gog, e.target, gogRow.querySelector("#gog-note"))
-        );
-        gogRow.querySelector("#gog-disconnect-btn").addEventListener("click", () => disconnectPlatform("gog", "GOG"));
+        list.appendChild(connectedPlatformRow("gog", "GOG", byPlatform.gog));
     } else {
         gogRow.innerHTML = `
             <span class="platform-name">GOG</span>
             <a href="#" id="gog-login-link" target="_blank" rel="noopener">Log in at GOG</a>
             <input type="text" id="gog-code-input" placeholder="Paste the code from the redirect URL" />
-            <button id="gog-connect-btn">Connect</button>
+            <div class="platform-actions"><button id="gog-connect-btn" class="slot-2">Connect</button></div>
         `;
         list.appendChild(gogRow);
         gogRow.querySelector("#gog-login-link").addEventListener("click", async (e) => {
