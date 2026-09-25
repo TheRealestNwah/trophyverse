@@ -21,6 +21,7 @@ The app only contacts:
 
 - **The platforms you connect** (Steam, OpenXBL for Xbox, PlayStation Network, RetroAchievements, GOG), using the credentials you gave it, to read your library and achievements. Steam sign-in happens on Steam's own page. The app never sees your platform passwords.
 - **Image hosts** for game covers and achievement icons, which are loaded from each platform's CDN or from image URLs you paste.
+- **SteamGridDB**, only when you use its cover picker. The app sends your SteamGridDB key and the game's Steam app ID or title to find covers, the picker loads thumbnails from SteamGridDB's servers, and the cover you pick is downloaded and kept on your computer.
 
 Those requests are subject to each provider's own terms and privacy policies. The app sends nothing anywhere else.
 

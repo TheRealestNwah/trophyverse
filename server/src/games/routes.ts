@@ -3,8 +3,27 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { getGamesForUser, getAchievementsForGame, getRecentActivity, getFunStats, getFullExportData } from "./queries";
 import { recomputeUserScore } from "../scoring";
-import { uploadCoverImage, uploadIconImage, publicUploadUrl, deleteIfUploaded } from "./uploads";
+import {
+    uploadCoverImage,
+    uploadIconImage,
+    publicUploadUrl,
+    deleteIfUploaded,
+    isAllowedImageType,
+    saveImageBuffer,
+    MAX_UPLOAD_BYTES,
+} from "./uploads";
 import { deleteUserAccount } from "../auth/accountDeletion";
+import { getSteamGridDbApiKey } from "../settings/steamGridDbKey";
+import {
+    GRID_STYLES,
+    GridFilters,
+    SteamGridDbError,
+    downloadGridImage,
+    gridsForGame,
+    gridsForSteamApp,
+    isSteamGridDbImageUrl,
+    searchGames,
+} from "../steamgriddb/client";
 
 export const gamesRouter = Router();
 
@@ -239,6 +258,96 @@ gamesRouter.delete("/games/:gameId/cover", requireAuth, async (req, res, next) =
         deleteIfUploaded(result.rows[0]?.cover_image_url);
         res.json({ ok: true });
     } catch (err) {
+        next(err);
+    }
+});
+
+function steamGridDbFilters(query: import("express").Request["query"]): GridFilters {
+    const requested = typeof query.styles === "string" ? query.styles.split(",") : [];
+    return {
+        animated: query.animated === "true",
+        styles: requested.filter((style) => (GRID_STYLES as readonly string[]).includes(style)),
+    };
+}
+
+// Steam games are looked up by app ID (one call). Everything else - or a Steam
+// game SteamGridDB has no portrait grids for - falls back to a title search,
+// showing the first match's grids and returning the other matches so the user
+// can switch to the right game.
+gamesRouter.get("/games/:gameId/cover/steamgriddb/search", requireAuth, async (req, res, next) => {
+    try {
+        const apiKey = await getSteamGridDbApiKey();
+        if (!apiKey) return res.status(409).json({ error: "Add a SteamGridDB API key in settings first." });
+        const { gameId } = req.params;
+        if (!(await userOwnsGame(req.user!.id, gameId))) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+
+        const filters = steamGridDbFilters(req.query);
+        const sgdbGameId = Number(req.query.sgdbGameId);
+        if (Number.isInteger(sgdbGameId) && sgdbGameId > 0) {
+            return res.json({ source: "game", matches: [], selectedGameId: sgdbGameId, grids: await gridsForGame(sgdbGameId, apiKey, filters) });
+        }
+
+        const term = typeof req.query.term === "string" ? req.query.term.trim().slice(0, 200) : "";
+        if (!term) {
+            const steam = await pool.query(
+                "select platform_game_id from game_platform_links where game_id = $1 and platform_id = 'steam' order by platform_game_id limit 1",
+                [gameId]
+            );
+            const appId = steam.rows[0]?.platform_game_id as string | undefined;
+            if (appId) {
+                const grids = await gridsForSteamApp(appId, apiKey, filters);
+                if (grids.length) return res.json({ source: "steam", matches: [], selectedGameId: null, grids });
+            }
+        }
+
+        const searchTerm = term || ((await pool.query("select title from games where id = $1", [gameId])).rows[0]?.title as string);
+        const matches = (await searchGames(searchTerm, apiKey)).slice(0, 10);
+        const selected = matches[0];
+        res.json({
+            source: "search",
+            term: searchTerm,
+            matches,
+            selectedGameId: selected?.id ?? null,
+            grids: selected ? await gridsForGame(selected.id, apiKey, filters) : [],
+        });
+    } catch (err) {
+        if (err instanceof SteamGridDbError) return res.status(err.status === 401 || err.status === 403 ? 400 : 502).json({ error: err.message });
+        next(err);
+    }
+});
+
+gamesRouter.post("/games/:gameId/cover/steamgriddb/select", requireAuth, async (req, res, next) => {
+    try {
+        const url = req.body?.url;
+        if (!isSteamGridDbImageUrl(url)) {
+            return res.status(400).json({ error: "Only images from SteamGridDB can be picked here." });
+        }
+        if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+
+        const { buffer, mimeType } = await downloadGridImage(url, MAX_UPLOAD_BYTES);
+        if (!isAllowedImageType(mimeType)) {
+            return res.status(400).json({ error: "That image isn't a JPEG, PNG, WebP, or GIF." });
+        }
+        const saved = await saveImageBuffer("covers", buffer, mimeType);
+
+        const previous = await pool.query(
+            "select cover_image_url from user_game_cover_overrides where user_id = $1 and game_id = $2",
+            [req.user!.id, req.params.gameId]
+        );
+        await pool.query(
+            `insert into user_game_cover_overrides (user_id, game_id, cover_image_url)
+             values ($1, $2, $3)
+             on conflict (user_id, game_id) do update set cover_image_url = excluded.cover_image_url`,
+            [req.user!.id, req.params.gameId, saved]
+        );
+        deleteIfUploaded(previous.rows[0]?.cover_image_url);
+        res.json({ ok: true, url: saved });
+    } catch (err) {
+        if (err instanceof SteamGridDbError) return res.status(err.status === 413 ? 400 : 502).json({ error: err.message });
         next(err);
     }
 });

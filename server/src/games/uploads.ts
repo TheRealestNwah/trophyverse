@@ -15,7 +15,21 @@ const ALLOWED_MIME_TYPES: Record<string, string> = {
     "image/gif": "gif",
 };
 
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+export function isAllowedImageType(mimeType: string): boolean {
+    return Object.prototype.hasOwnProperty.call(ALLOWED_MIME_TYPES, mimeType);
+}
+
+// For images the server fetched itself (not a multipart upload). Same folder
+// and naming as multer's uploads, so replace/delete cleanup treats it the same.
+export async function saveImageBuffer(subdir: "covers" | "icons", buffer: Buffer, mimeType: string): Promise<string> {
+    const dir = path.join(UPLOADS_ROOT, subdir);
+    await fs.promises.mkdir(dir, { recursive: true });
+    const filename = `${randomUUID()}.${ALLOWED_MIME_TYPES[mimeType]}`;
+    await fs.promises.writeFile(path.join(dir, filename), buffer);
+    return `/uploads/${subdir}/${filename}`;
+}
 
 function storageFor(subdir: "covers" | "icons") {
     const dir = path.join(UPLOADS_ROOT, subdir);
