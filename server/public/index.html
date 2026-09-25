@@ -584,6 +584,7 @@
     .platform-link-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; min-width: 0; }
     .platform-link-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
     .platform-link-action { padding: 4px 10px; font-size: 12px; flex-shrink: 0; }
+    .platform-link-current { font-size: 12px; color: var(--text-dim); flex-shrink: 0; padding: 4px 10px; }
     .platform-section { margin-bottom: 12px; }
     .platform-section:last-child { margin-bottom: 0; }
     .platform-section-header {
@@ -1769,7 +1770,10 @@ async function toggleAchievements(gameEl, gameId) {
         })
         .join("");
 
-    if (platformLinks.length > 1) panel.prepend(platformLinksBar(platformLinks, gameId));
+    if (platformLinks.length > 1) {
+        const game = state.games.find((g) => g.id === gameId);
+        panel.prepend(platformLinksBar(platformLinks, gameId, game?.title));
+    }
 
     panel.querySelectorAll(".platform-section-header").forEach((header) => {
         header.addEventListener("click", (e) => {
@@ -1791,9 +1795,10 @@ async function toggleAchievements(gameEl, gameId) {
 }
 
 // Lists the platform entries a merged game is made of, each with a way to
-// split it back out into its own game (see #169). Titles come from the
-// platforms, so this is built with DOM APIs rather than innerHTML.
-function platformLinksBar(links, gameId) {
+// split it back out into its own game (see #169) or to use its title for the
+// whole game (see #170). Titles come from the platforms, so this is built
+// with DOM APIs rather than innerHTML.
+function platformLinksBar(links, gameId, currentTitle) {
     const bar = document.createElement("div");
     bar.className = "platform-links";
     bar.addEventListener("click", (e) => e.stopPropagation());
@@ -1820,10 +1825,40 @@ function platformLinksBar(links, gameId) {
         splitBtn.textContent = "Split out";
         splitBtn.addEventListener("click", () => splitPlatformLink(gameId, link, splitBtn));
 
-        row.append(badge, title, splitBtn);
+        let nameControl;
+        if (link.platform_title === currentTitle) {
+            nameControl = document.createElement("span");
+            nameControl.className = "platform-link-current";
+            nameControl.textContent = "Current name";
+        } else {
+            nameControl = document.createElement("button");
+            nameControl.type = "button";
+            nameControl.className = "secondary platform-link-action";
+            nameControl.textContent = "Use this name";
+            nameControl.addEventListener("click", () => useGameTitleFrom(gameId, link, nameControl));
+        }
+
+        row.append(badge, title, nameControl, splitBtn);
         bar.appendChild(row);
     }
     return bar;
+}
+
+async function useGameTitleFrom(gameId, link, button) {
+    const status = document.getElementById("match-status");
+    button.disabled = true;
+    try {
+        await api(`/api/me/games/${gameId}/title`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ gamePlatformLinkId: link.id }),
+        });
+        status.textContent = `Renamed to "${link.platform_title}".`;
+        await refreshGamesAndScore();
+    } catch (err) {
+        status.textContent = `Rename failed: ${err.message}`;
+        button.disabled = false;
+    }
 }
 
 async function splitPlatformLink(gameId, link, button) {
