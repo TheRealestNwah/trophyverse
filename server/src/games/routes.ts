@@ -179,6 +179,35 @@ gamesRouter.get("/games/:gameId/platforms", requireAuth, async (req, res, next) 
     }
 });
 
+// Picks which platform's own title a merged game shows (see #170). Limited to
+// the titles the game's platform entries already carry rather than free
+// text, since games are shared canonical rows. Sync never overwrites
+// games.title for an existing game, so the choice sticks.
+gamesRouter.put("/games/:gameId/title", requireAuth, async (req, res, next) => {
+    try {
+        const { gamePlatformLinkId } = req.body ?? {};
+        if (!gamePlatformLinkId || typeof gamePlatformLinkId !== "string") {
+            return res.status(400).json({ error: "gamePlatformLinkId is required" });
+        }
+        if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+        const result = await pool.query(
+            `update games g set title = gpl.platform_title
+             from game_platform_links gpl
+             where g.id = $1 and gpl.id = $2 and gpl.game_id = g.id
+             returning g.title`,
+            [req.params.gameId, gamePlatformLinkId]
+        );
+        if (!result.rows[0]) {
+            return res.status(400).json({ error: "That platform entry isn't part of this game" });
+        }
+        res.json({ title: result.rows[0].title });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // Only checks that the URL is well-formed http(s) - deliberately doesn't
 // fetch it server-side to validate content-type, which would let a pasted
 // URL make the server issue requests to arbitrary (including internal)
