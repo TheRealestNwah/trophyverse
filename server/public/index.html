@@ -932,6 +932,7 @@
 </dialog>
 
 <script src="/image-controls.js"></script>
+<script src="/search-text.js"></script>
 <script>
 const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null };
 
@@ -1481,10 +1482,10 @@ function renderGames(games) {
     document.getElementById("games-heading").textContent =
         `Your games (${games.length})`;
 
-    const filterText = document.getElementById("games-filter").value.trim().toLowerCase();
+    const filterText = document.getElementById("games-filter").value;
     const sortMode = document.getElementById("games-sort").value;
     const visible = games
-        .filter((g) => !filterText || g.title.toLowerCase().includes(filterText))
+        .filter((g) => SearchText.titleMatchesSearch(g.title, filterText))
         .filter(presetMatches)
         .sort(gameSorters[sortMode] || gameSorters["unlocked-desc"]);
 
