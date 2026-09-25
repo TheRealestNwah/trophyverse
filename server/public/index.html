@@ -639,6 +639,7 @@
     .tier-tag.bronze { background: var(--bronze); }
     .achievement-body { flex: 1; min-width: 0; }
     .achievement-name { font-weight: 600; font-size: 14px; }
+    .achievement-platform-tag { margin-left: 6px; vertical-align: 1px; }
     .achievement-desc { font-size: 12px; color: var(--text-dim); }
     .achievement-rarity { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
 
@@ -1706,6 +1707,14 @@ function initDashboardCustomization() {
     });
 }
 
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+}
+
 async function toggleAchievements(gameEl, gameId) {
     const existing = gameEl.querySelector(".achievements");
     if (existing) {
@@ -1726,23 +1735,44 @@ async function toggleAchievements(gameEl, gameId) {
     // matched across platforms appears once per platform - each with that
     // platform's own completion status. Re-earning something on a second
     // platform is a separate accomplishment, not a duplicate to collapse.
-    const byPlatform = new Map();
+    //
+    // Sections are per trophy list, not per platform (see #175): a remaster's
+    // PS4 and PS5 lists are both "psn", and grouping them together
+    // interleaved every trophy with its twin.
+    const sections = new Map();
     for (const a of achievements) {
-        if (!byPlatform.has(a.platform_id)) byPlatform.set(a.platform_id, []);
-        byPlatform.get(a.platform_id).push(a);
+        const key = a.game_platform_link_id || a.platform_id;
+        if (!sections.has(key)) {
+            const label = `${a.platform_id}${a.console_variant ? ` (${a.console_variant})` : ""}`;
+            sections.set(key, { platformId: a.platform_id, label, list: [] });
+        }
+        sections.get(key).list.push(a);
     }
+    // Two lists with the same platform and no console variant (e.g. two
+    // Steam apps) would get the same label - add each list's own title.
+    const labelCounts = new Map();
+    for (const section of sections.values()) labelCounts.set(section.label, (labelCounts.get(section.label) || 0) + 1);
+    for (const section of sections.values()) {
+        const title = section.list[0].platform_title;
+        if (labelCounts.get(section.label) > 1 && title) section.label = `${section.label} · ${title}`;
+    }
+    // Only a game with several lists needs each row tagged with its own.
+    const tagRows = sections.size > 1;
 
     const collapsedPlatforms = getCollapsedPlatforms();
-    panel.innerHTML = [...byPlatform.entries()]
-        .map(([platformId, list]) => {
+    panel.innerHTML = [...sections.values()]
+        .map(({ platformId, label, list }) => {
+            // The label can now carry a platform's own title.
+            const safeLabel = escapeHtml(label);
             const unlockedCount = list.filter((a) => a.unlocked).length;
-            const variant = [...new Set(list.map((a) => a.console_variant).filter(Boolean))].sort().join(", ");
-            const collapsed = collapsedPlatforms.has(platformId);
+            // Collapse is remembered per list label ("psn (PS5)"). A bare
+            // platform saved before #175 still collapses all of its lists.
+            const collapsed = collapsedPlatforms.has(label) || collapsedPlatforms.has(platformId);
             return `
-        <div class="platform-section${collapsed ? " collapsed" : ""}" data-platform-id="${platformId}">
+        <div class="platform-section${collapsed ? " collapsed" : ""}" data-platform-id="${platformId}" data-collapse-key="${safeLabel}">
             <div class="platform-section-header">
                 <span class="platform-section-collapse-chevron">▾</span>
-                <span class="platform-badge">${platformId}${variant ? ` (${variant})` : ""}</span>
+                <span class="platform-badge">${safeLabel}</span>
                 <span>${unlockedCount}/${list.length}</span>
             </div>
             ${list
@@ -1758,7 +1788,9 @@ async function toggleAchievements(gameEl, gameId) {
                     </div>
                     <span class="tier-tag ${a.tier}">${a.tier}</span>
                     <div class="achievement-body">
-                        <div class="achievement-name">${a.name}</div>
+                        <div class="achievement-name">${a.name}${
+                            tagRows ? ` <span class="platform-badge achievement-platform-tag">${safeLabel}</span>` : ""
+                        }</div>
                         ${a.description ? `<div class="achievement-desc">${a.description}</div>` : ""}
                     </div>
                     <div class="achievement-rarity">${a.global_unlock_rarity != null ? Number(a.global_unlock_rarity).toFixed(1) + "%" : ""}</div>
@@ -1780,7 +1812,11 @@ async function toggleAchievements(gameEl, gameId) {
         header.addEventListener("click", (e) => {
             e.stopPropagation();
             const section = header.closest(".platform-section");
-            toggleCollapsedPlatform(section.dataset.platformId, section.classList.toggle("collapsed"));
+            const collapsed = section.classList.toggle("collapsed");
+            toggleCollapsedPlatform(section.dataset.collapseKey, collapsed);
+            // Expanding also clears an older whole-platform preference, or
+            // the list would collapse again next time.
+            if (!collapsed) toggleCollapsedPlatform(section.dataset.platformId, false);
         });
     });
     panel.querySelectorAll(".achievement-icon-wrap").forEach((wrap) => {
