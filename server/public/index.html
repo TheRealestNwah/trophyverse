@@ -1065,7 +1065,7 @@ function renderActivity(items) {
             ${
                 a.icon_url
                     ? `<img class="achievement-icon" src="${a.icon_url}" alt="" loading="lazy" />`
-                    : ""
+                    : `<div class="achievement-icon"></div>`
             }
             <span class="tier-tag ${a.tier}">${a.tier}</span>
             <div class="activity-body">
