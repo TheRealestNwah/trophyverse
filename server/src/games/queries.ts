@@ -350,6 +350,7 @@ export async function getAchievementsForGame(userId: string, gameId: string) {
                 ca.icon_url
             ) as icon_url,
             apl.platform_id, apl.global_unlock_rarity, gpl.console_variant,
+            gpl.id as game_platform_link_id, gpl.platform_title,
             (uau.id is not null) as unlocked, uau.unlocked_at
          from canonical_achievements ca
          join achievement_platform_links apl on apl.canonical_achievement_id = ca.id
