@@ -168,6 +168,8 @@ export async function getAchievementsForTitle(apiKey: string, titleId: string): 
 
 interface RawX360Achievement {
     id: number;
+    titleId?: number;
+    imageId?: number;
     name: string;
     description: string;
     unlocked: boolean;
@@ -231,15 +233,18 @@ export async function getX360AchievementsForTitle(
             timeUnlocked: plausibleUnlockTime(status?.timeUnlocked),
             gamerscore: def.gamerscore,
             rarityPercent: (status ?? def).rarity?.currentPercentage,
-            // The legacy per-title definitions endpoint carries the same
-            // mediaAssets shape the modern /v2/achievements/title endpoint
-            // does (see mapAchievement above) - this was never read here, so
-            // every classic Xbox 360 title's achievements synced with no
-            // icon at all regardless of unlock state, even though OpenXBL
-            // does return one.
-            iconUrl: def.mediaAssets?.find((m) => m.type === "Icon")?.url,
+            iconUrl: def.mediaAssets?.find((m) => m.type === "Icon")?.url ?? x360IconUrl(def.titleId ?? Number(titleId), def.imageId),
         };
     });
+}
+
+// The legacy definitions endpoint has no mediaAssets (confirmed against a
+// live account, see #165 - #151 assumed it did), only an imageId. Xbox
+// Live's classic achievement tile URL is built from the title id and image
+// id, both in lowercase hex.
+function x360IconUrl(titleId: number, imageId: number | undefined): string | undefined {
+    if (!Number.isInteger(titleId) || titleId <= 0 || imageId === undefined) return undefined;
+    return `https://image-ssl.xboxlive.com/global/t.${titleId.toString(16)}/ach/0/${imageId.toString(16)}`;
 }
 
 // Even the "real" per-player earned endpoint above isn't fully trustworthy

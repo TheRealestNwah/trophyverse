@@ -145,10 +145,8 @@ describe("Xbox (OpenXBL) client response parsing", () => {
         ]);
     });
 
-    // Regression test for #146: the legacy per-title definitions endpoint
-    // used for classic Xbox 360 titles carries the same mediaAssets shape the
-    // modern endpoint does, but nothing here ever read it, so every Xbox 360
-    // achievement synced with no icon at all regardless of unlock status.
+    // mediaAssets, if the definitions endpoint ever sends it, wins over the
+    // URL built from imageId (see #165 below).
     it("reads the icon out of the Xbox 360 definitions endpoint's mediaAssets", async () => {
         const definitions = {
             achievements: [
@@ -171,6 +169,24 @@ describe("Xbox (OpenXBL) client response parsing", () => {
 
         const [achievement] = await getX360AchievementsForTitle("key", "xuid", "4d5307e6");
         expect(achievement).toMatchObject({ id: "1", isUnlocked: true, iconUrl: "https://icon.test/x360.png" });
+    });
+
+    // Regression test for #165: the real definitions endpoint has no
+    // mediaAssets, only an imageId, so the icon has to be built from it.
+    it("builds the Xbox 360 icon URL from the title id and image id", async () => {
+        respond({
+            achievements: [
+                { id: 1, titleId: 1112737745, imageId: 1, name: "Escaped the Imperial Sewers", description: "a", unlocked: false, gamerscore: 50 },
+                { id: 64, titleId: 1297287449, imageId: 139, name: "Dawn", description: "b", unlocked: false, gamerscore: 10 },
+            ],
+        });
+        respond({ achievements: [] });
+
+        const achievements = await getX360AchievementsForTitle("key", "xuid", "1112737745");
+        expect(achievements.map((a) => a.iconUrl)).toEqual([
+            "https://image-ssl.xboxlive.com/global/t.425307d1/ach/0/1",
+            "https://image-ssl.xboxlive.com/global/t.4d530919/ach/0/8b",
+        ]);
     });
 
     it("treats a Store product with no Xbox title id (404) as no match", async () => {
