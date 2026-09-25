@@ -161,6 +161,24 @@ gamesRouter.get("/games/:gameId/achievements", requireAuth, async (req, res, nex
     }
 });
 
+// The platform entries a (possibly merged) game is made of, for the split
+// control (see #169).
+gamesRouter.get("/games/:gameId/platforms", requireAuth, async (req, res, next) => {
+    try {
+        if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+        const result = await pool.query(
+            `select id, platform_id, platform_title, console_variant from game_platform_links
+             where game_id = $1 order by platform_id, console_variant nulls first`,
+            [req.params.gameId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        next(err);
+    }
+});
+
 // Only checks that the URL is well-formed http(s) - deliberately doesn't
 // fetch it server-side to validate content-type, which would let a pasted
 // URL make the server issue requests to arbitrary (including internal)

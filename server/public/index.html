@@ -574,6 +574,16 @@
     .stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 
     .achievements { border-top: 1px solid var(--border); padding: 8px 18px; }
+    .platform-links {
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-2);
+        cursor: default;
+    }
+    .platform-links-heading { font-size: 12px; color: var(--text-dim); font-weight: 600; padding: 4px 0; }
+    .platform-link-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; min-width: 0; }
+    .platform-link-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .platform-link-action { padding: 4px 10px; font-size: 12px; flex-shrink: 0; }
     .platform-section { margin-bottom: 12px; }
     .platform-section:last-child { margin-bottom: 0; }
     .platform-section-header {
@@ -1705,7 +1715,10 @@ async function toggleAchievements(gameEl, gameId) {
     panel.innerHTML = `<div class="loading-note">Loading achievements...</div>`;
     gameEl.appendChild(panel);
 
-    const achievements = await api(`/api/me/games/${gameId}/achievements`);
+    const [achievements, platformLinks] = await Promise.all([
+        api(`/api/me/games/${gameId}/achievements`),
+        api(`/api/me/games/${gameId}/platforms`),
+    ]);
 
     // One row per (achievement, platform link), so the same real achievement
     // matched across platforms appears once per platform - each with that
@@ -1756,6 +1769,8 @@ async function toggleAchievements(gameEl, gameId) {
         })
         .join("");
 
+    if (platformLinks.length > 1) panel.prepend(platformLinksBar(platformLinks, gameId));
+
     panel.querySelectorAll(".platform-section-header").forEach((header) => {
         header.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -1773,6 +1788,60 @@ async function toggleAchievements(gameEl, gameId) {
             });
         });
     });
+}
+
+// Lists the platform entries a merged game is made of, each with a way to
+// split it back out into its own game (see #169). Titles come from the
+// platforms, so this is built with DOM APIs rather than innerHTML.
+function platformLinksBar(links, gameId) {
+    const bar = document.createElement("div");
+    bar.className = "platform-links";
+    bar.addEventListener("click", (e) => e.stopPropagation());
+
+    const heading = document.createElement("div");
+    heading.className = "platform-links-heading";
+    heading.textContent = "Merged from";
+    bar.appendChild(heading);
+
+    for (const link of links) {
+        const row = document.createElement("div");
+        row.className = "platform-link-row";
+
+        const badge = document.createElement("span");
+        badge.className = "platform-badge";
+        badge.textContent = link.platform_id + (link.console_variant ? ` (${link.console_variant})` : "");
+        const title = document.createElement("span");
+        title.className = "platform-link-title";
+        title.textContent = link.platform_title;
+
+        const splitBtn = document.createElement("button");
+        splitBtn.type = "button";
+        splitBtn.className = "secondary platform-link-action";
+        splitBtn.textContent = "Split out";
+        splitBtn.addEventListener("click", () => splitPlatformLink(gameId, link, splitBtn));
+
+        row.append(badge, title, splitBtn);
+        bar.appendChild(row);
+    }
+    return bar;
+}
+
+async function splitPlatformLink(gameId, link, button) {
+    if (!confirm(`Split "${link.platform_title}" (${link.platform_id}) back out into its own game? Your unlocks stay as they are.`)) return;
+    const status = document.getElementById("match-status");
+    button.disabled = true;
+    try {
+        await api(`/api/matching/games/${gameId}/split`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ gamePlatformLinkId: link.id }),
+        });
+        status.textContent = `Split "${link.platform_title}" into its own game.`;
+        await refreshGamesAndScore();
+    } catch (err) {
+        status.textContent = `Split failed: ${err.message}`;
+        button.disabled = false;
+    }
 }
 
 async function refreshGamesAndScore() {
