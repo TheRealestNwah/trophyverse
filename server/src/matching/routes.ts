@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import { runMatching } from "./index";
 import { confirmMatchCandidate, rejectMatchCandidate, matchAchievementsForGame } from "./achievementMatcher";
 import { mergeGames, confirmGameMergeCandidate, rejectGameMergeCandidate } from "./gameMatcher";
+import { splitPlatformLink, GameSplitError } from "./gameSplitter";
 import { recomputeUserScore } from "../scoring";
 import { normalizeRarityTiersForAllGames, normalizeRarityTiersForGame } from "../scoring/rarityNormalization";
 
@@ -70,6 +71,53 @@ matchingRouter.post("/games/merge", requireAuth, async (req, res, next) => {
         for (const user of affectedUsers.rows) await recomputeUserScore(user.user_id);
 
         res.json({ ...achievementResult, usersRescored: affectedUsers.rows.length });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Undo for the merge above, one platform entry at a time (see #169).
+matchingRouter.post("/games/:gameId/split", requireAuth, async (req, res, next) => {
+    try {
+        const { gamePlatformLinkId } = req.body ?? {};
+        if (!gamePlatformLinkId || typeof gamePlatformLinkId !== "string") {
+            return res.status(400).json({ error: "gamePlatformLinkId is required" });
+        }
+        const { gameId } = req.params;
+
+        const owned = await pool.query(
+            `select 1 from user_owned_games uog
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where upa.user_id = $1 and uog.game_id = $2
+             limit 1`,
+            [req.user!.id, gameId]
+        );
+        if (owned.rows.length === 0) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+
+        let result;
+        try {
+            result = await splitPlatformLink(gameId, gamePlatformLinkId);
+        } catch (err) {
+            if (err instanceof GameSplitError) return res.status(400).json({ error: err.message });
+            throw err;
+        }
+
+        // Splitting only takes achievements apart, so there's nothing new to
+        // match - but both halves have a different set to tier rarity over.
+        await normalizeRarityTiersForGame(gameId);
+        await normalizeRarityTiersForGame(result.newGameId);
+
+        const affectedUsers = await pool.query(
+            `select distinct upa.user_id from user_owned_games uog
+             join user_platform_accounts upa on upa.id = uog.user_platform_account_id
+             where uog.game_id in ($1, $2)`,
+            [gameId, result.newGameId]
+        );
+        for (const user of affectedUsers.rows) await recomputeUserScore(user.user_id);
+
+        res.json({ ...result, usersRescored: affectedUsers.rows.length });
     } catch (err) {
         next(err);
     }
