@@ -344,6 +344,11 @@
     .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
     .toolbar h2 { font-size: 17px; color: var(--text); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
     .toolbar > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .games-actions { column-gap: 16px; }
+    .games-actions .button-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    /* A status line gets its own row instead of stretching into the buttons' row. */
+    .games-actions #match-status { flex-basis: 100%; }
+    .games-actions #match-status:empty { display: none; }
 
     .filter-chip {
         display: none;
@@ -832,15 +837,19 @@
                 <div id="section-your-games">
                     <div class="toolbar" id="section-games">
                         <h2 id="games-heading">Your games</h2>
-                        <div>
+                        <div class="games-actions">
+                            <div class="button-group">
+                                <button type="button" class="secondary" id="review-btn">Review matches</button>
+                                <button type="button" class="secondary" id="review-games-btn">Review game merges</button>
+                                <button type="button" class="secondary" id="match-btn">Find matches</button>
+                                <button type="button" class="secondary" id="link-games-btn">Link games</button>
+                                <button type="button" class="secondary" id="hidden-games-btn">Hidden games</button>
+                            </div>
+                            <div class="button-group">
+                                <button type="button" class="secondary" id="export-json-btn">Export JSON</button>
+                                <button type="button" class="secondary" id="export-csv-btn">Export CSV</button>
+                            </div>
                             <span class="platform-note" id="match-status"></span>
-                            <button type="button" class="secondary" id="review-btn">Review matches</button>
-                            <button type="button" class="secondary" id="review-games-btn">Review game merges</button>
-                            <button type="button" class="secondary" id="match-btn">Find matches</button>
-                            <button type="button" class="secondary" id="link-games-btn">Link games</button>
-                            <button type="button" class="secondary" id="hidden-games-btn">Hidden games</button>
-                            <button type="button" class="secondary" id="export-json-btn">Export JSON</button>
-                            <button type="button" class="secondary" id="export-csv-btn">Export CSV</button>
                         </div>
                     </div>
 
