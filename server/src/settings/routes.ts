@@ -1,11 +1,30 @@
 import { Router } from "express";
+import { pool } from "../db";
 import { getCsrfToken } from "../middleware/csrf";
 import { requireAuth } from "../middleware/requireAuth";
 import { isValidSteamApiKey, saveSteamApiKey, steamApiKeySource } from "./steamApiKey";
 import { getSteamGridDbApiKey, isValidSteamGridDbApiKey, removeSteamGridDbApiKey, saveSteamGridDbApiKey } from "./steamGridDbKey";
+import { getDiscordPresenceEnabled, setDiscordPresenceEnabled } from "./discordPresence";
 
 export const setupRouter = Router();
 export const settingsRouter = Router();
+
+settingsRouter.get("/discord-rich-presence", requireAuth, async (_req, res, next) => {
+    try {
+        res.json({ enabled: await getDiscordPresenceEnabled() });
+    } catch (err) {
+        next(err);
+    }
+});
+
+settingsRouter.put("/discord-rich-presence", requireAuth, async (req, res, next) => {
+    try {
+        await setDiscordPresenceEnabled(Boolean(req.body?.enabled));
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+});
 
 settingsRouter.get("/steamgriddb-api-key", requireAuth, async (_req, res, next) => {
     try {
@@ -52,6 +71,39 @@ setupRouter.get("/status", (req, res) => {
         steamApiKeyEditable: source !== "env",
         csrfToken: getCsrfToken(req),
     });
+});
+
+// Unauthenticated like /status above - this is read by the Electron main
+// process (desktop/src/discordPresence.ts, see #195), not the browser
+// dashboard, and the main process has no session cookie of its own. Safe
+// only because the server is bound to 127.0.0.1 (see server/src/config.ts) -
+// this is a single-user local app, so "the" user's score is whoever's
+// user_scores row was computed most recently.
+setupRouter.get("/discord-presence-data", async (_req, res, next) => {
+    try {
+        res.setHeader("Cache-Control", "no-store");
+        const enabled = await getDiscordPresenceEnabled();
+        if (!enabled) {
+            res.json({ enabled: false });
+            return;
+        }
+        const result = await pool.query(
+            `select u.username, s.level, s.total_points
+             from user_scores s
+             join users u on u.id = s.user_id
+             order by s.computed_at desc
+             limit 1`
+        );
+        const row = result.rows[0];
+        res.json({
+            enabled: true,
+            username: row?.username ?? null,
+            level: row ? Number(row.level) : null,
+            totalPoints: row ? Number(row.total_points) : null,
+        });
+    } catch (err) {
+        next(err);
+    }
 });
 
 setupRouter.put("/steam-api-key", async (req, res, next) => {

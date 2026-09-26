@@ -923,6 +923,19 @@
                     </div>
                 </div>
 
+                <h3 class="settings-heading">Discord</h3>
+                <div class="platforms">
+                    <div class="platform-row" id="discord-presence-row">
+                        <span class="platform-name">Discord Rich Presence</span>
+                        <span class="platform-note">Shows your level and points on your Discord profile while the app is open (needs a local Discord client running).</span>
+                        <div class="platform-actions">
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                                <input type="checkbox" id="discord-presence-toggle" /> On
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <h3 class="settings-heading">Account</h3>
                 <div class="platforms">
                     <div class="platform-row danger-row" id="delete-account-row">
@@ -2682,6 +2695,30 @@ async function initSteamGridDbKeyRow() {
     });
 }
 
+// See #195. Reads the saved setting on load and saves on every toggle -
+// no separate "Save" button, matching how the dashboard-customize checkboxes
+// (see #143) apply immediately.
+async function initDiscordPresenceRow() {
+    const toggle = document.getElementById("discord-presence-toggle");
+    try {
+        toggle.checked = (await api("/api/settings/discord-rich-presence")).enabled;
+    } catch {
+        toggle.checked = true; // on by default - matches the server's own default.
+    }
+    toggle.addEventListener("change", async () => {
+        try {
+            await api("/api/settings/discord-rich-presence", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled: toggle.checked }),
+            });
+        } catch (err) {
+            toggle.checked = !toggle.checked;
+            alert(err.message || "Couldn't update Discord Rich Presence.");
+        }
+    });
+}
+
 function initAccountDeletion() {
     const button = document.getElementById("delete-account-btn");
     button.addEventListener("click", async () => {
@@ -2796,6 +2833,7 @@ async function init() {
     });
     initSteamKeyRow(setup);
     initSteamGridDbKeyRow();
+    initDiscordPresenceRow();
     initAccountDeletion();
     initSidebarNav();
     document.getElementById("game-view-back-btn").addEventListener("click", () => history.back());
