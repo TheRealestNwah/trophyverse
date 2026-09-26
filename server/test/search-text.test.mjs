@@ -29,3 +29,24 @@ describe("game title search", () => {
         expect(titleMatchesSearch("Halo 4", " ® ")).toBe(true);
     });
 });
+
+describe("acronym search (#194)", () => {
+    it("expands a known built-in acronym to match its franchise", () => {
+        expect(titleMatchesSearch("Grand Theft Auto V", "GTA")).toBe(true);
+        expect(titleMatchesSearch("Metal Gear Solid V: The Phantom Pain", "mgs")).toBe(true);
+        expect(titleMatchesSearch("Assassin's Creed Valhalla", "AC")).toBe(true);
+    });
+
+    it("doesn't expand a partial/longer query, only the whole normalized query", () => {
+        expect(titleMatchesSearch("Grand Theft Auto V", "gta 5")).toBe(false);
+    });
+
+    it("still matches a plain literal substring, acronym or not", () => {
+        expect(titleMatchesSearch("Metal Gear Solid V", "solid")).toBe(true);
+    });
+
+    it("accepts a custom acronym map, overriding/extending the built-in set", () => {
+        expect(titleMatchesSearch("Baldur's Gate 3", "bg3", { bg3: "baldur's gate" })).toBe(true);
+        expect(titleMatchesSearch("Grand Theft Auto V", "gta", {})).toBe(false);
+    });
+});

@@ -936,6 +936,15 @@
                     </div>
                 </div>
 
+                <h3 class="settings-heading">Search acronyms</h3>
+                <p class="settings-subnote">Typing an acronym in the games filter also matches its franchise (e.g. "GTA" finds Grand Theft Auto). Add your own on top of the built-in list.</p>
+                <div class="platforms" id="search-acronyms-list"></div>
+                <form class="platform-row" id="search-acronym-form">
+                    <input type="text" id="search-acronym-input" placeholder="Acronym (e.g. bg3)" autocomplete="off" spellcheck="false" style="max-width: 140px;" />
+                    <input type="text" id="search-acronym-expansion-input" placeholder="Expands to (e.g. baldur's gate)" autocomplete="off" spellcheck="false" />
+                    <button type="submit">Add</button>
+                </form>
+
                 <h3 class="settings-heading">Account</h3>
                 <div class="platforms">
                     <div class="platform-row danger-row" id="delete-account-row">
@@ -988,7 +997,7 @@
 <script src="/image-controls.js"></script>
 <script src="/search-text.js"></script>
 <script>
-const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null };
+const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null, searchAcronyms: SearchText.DEFAULT_ACRONYMS };
 
 // In-page replacement for window.prompt(), which the desktop app's Electron
 // shell doesn't implement. Resolves to the entered text, or null on cancel.
@@ -1659,7 +1668,7 @@ function renderGames(games) {
     const filterText = document.getElementById("games-filter").value;
     const sortMode = document.getElementById("games-sort").value;
     const visible = games
-        .filter((g) => SearchText.titleMatchesSearch(g.title, filterText))
+        .filter((g) => SearchText.titleMatchesSearch(g.title, filterText, state.searchAcronyms))
         .filter(presetMatches)
         .sort(gameSorters[sortMode] || gameSorters["unlocked-desc"]);
 
@@ -2719,6 +2728,82 @@ async function initDiscordPresenceRow() {
     });
 }
 
+// Merges custom acronyms on top of the built-in list (see #194) - a custom
+// entry with the same acronym as a built-in one wins, so a user can
+// override "ac" to mean something else for them.
+function applySearchAcronyms(customAcronyms) {
+    const merged = { ...SearchText.DEFAULT_ACRONYMS };
+    for (const { acronym, expansion } of customAcronyms) merged[SearchText.normalizeSearchText(acronym)] = expansion;
+    state.searchAcronyms = merged;
+    state.customSearchAcronyms = customAcronyms;
+}
+
+function renderSearchAcronymsList(customAcronyms) {
+    const list = document.getElementById("search-acronyms-list");
+    if (customAcronyms.length === 0) {
+        list.innerHTML = `<div class="loading-note">No custom acronyms yet - the built-in list still applies.</div>`;
+        return;
+    }
+    list.innerHTML = customAcronyms
+        .map(
+            (a, i) => `
+        <div class="platform-row" data-index="${i}">
+            <span class="platform-name">${escapeHtml(a.acronym)}</span>
+            <span class="platform-note">${escapeHtml(a.expansion)}</span>
+            <div class="platform-actions">
+                <button type="button" class="secondary slot-2 remove-acronym-btn">Remove</button>
+            </div>
+        </div>
+    `
+        )
+        .join("");
+    list.querySelectorAll(".remove-acronym-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const index = Number(btn.closest(".platform-row").dataset.index);
+            const next = state.customSearchAcronyms.filter((_, i) => i !== index);
+            await saveSearchAcronyms(next);
+        });
+    });
+}
+
+async function saveSearchAcronyms(customAcronyms) {
+    await api("/api/settings/search-acronyms", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(customAcronyms),
+    });
+    applySearchAcronyms(customAcronyms);
+    renderSearchAcronymsList(customAcronyms);
+    renderGames(state.games);
+}
+
+async function initSearchAcronymsRow() {
+    let customAcronyms = [];
+    try {
+        customAcronyms = await api("/api/settings/search-acronyms");
+    } catch {
+        // Falls back to just the built-in list.
+    }
+    applySearchAcronyms(customAcronyms);
+    renderSearchAcronymsList(customAcronyms);
+
+    document.getElementById("search-acronym-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const acronymInput = document.getElementById("search-acronym-input");
+        const expansionInput = document.getElementById("search-acronym-expansion-input");
+        const acronym = acronymInput.value.trim();
+        const expansion = expansionInput.value.trim();
+        if (!acronym || !expansion) return;
+        try {
+            await saveSearchAcronyms([...state.customSearchAcronyms, { acronym, expansion }]);
+            acronymInput.value = "";
+            expansionInput.value = "";
+        } catch (err) {
+            alert(err.message || "Couldn't save that acronym.");
+        }
+    });
+}
+
 function initAccountDeletion() {
     const button = document.getElementById("delete-account-btn");
     button.addEventListener("click", async () => {
@@ -2834,6 +2919,7 @@ async function init() {
     initSteamKeyRow(setup);
     initSteamGridDbKeyRow();
     initDiscordPresenceRow();
+    initSearchAcronymsRow();
     initAccountDeletion();
     initSidebarNav();
     document.getElementById("game-view-back-btn").addEventListener("click", () => history.back());
