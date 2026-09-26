@@ -1365,6 +1365,7 @@ function showGameContextMenu(x, y, game) {
     menu.className = "image-action-menu";
     menu.innerHTML = `
         <button type="button" data-action="rename">Change display name&hellip;</button>
+        <button type="button" data-action="link">Link games&hellip;</button>
         <button type="button" data-action="hide">Hide (keep in score)</button>
         <button type="button" data-action="exclude">Exclude (remove from score)</button>
     `;
@@ -1389,6 +1390,11 @@ function showGameContextMenu(x, y, game) {
         e.stopPropagation();
         close();
         changeGameDisplayName(game);
+    });
+    menu.querySelector('[data-action="link"]')?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        close();
+        enterLinkMode(game);
     });
     menu.querySelector('[data-action="hide"]')?.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1807,6 +1813,19 @@ function renderGames(games) {
         });
         list.appendChild(el);
     }
+}
+
+// Enters link-selection mode, optionally pre-selecting `game` as the one to
+// keep - lets the right-click menu jump straight to "now pick the other
+// entry" instead of forcing a scroll back up to the toolbar button first.
+function enterLinkMode(game) {
+    state.linkMode = true;
+    state.linkSelection = game?.id ?? null;
+    document.getElementById("link-games-btn").textContent = "Cancel linking";
+    document.getElementById("match-status").textContent = game
+        ? `Selected "${game.title}" - now click the other entry to merge into it.`
+        : "Pick a game to keep, then the duplicate to merge into it.";
+    renderGames(state.games);
 }
 
 async function handleLinkClick(game) {
@@ -3075,13 +3094,15 @@ async function init() {
         window.location.href = "/api/me/export?format=csv";
     });
     document.getElementById("link-games-btn").addEventListener("click", (e) => {
-        state.linkMode = !state.linkMode;
-        state.linkSelection = null;
-        e.target.textContent = state.linkMode ? "Cancel linking" : "Link games";
-        document.getElementById("match-status").textContent = state.linkMode
-            ? "Pick a game to keep, then the duplicate to merge into it."
-            : "";
-        renderGames(state.games);
+        if (state.linkMode) {
+            state.linkMode = false;
+            state.linkSelection = null;
+            e.target.textContent = "Link games";
+            document.getElementById("match-status").textContent = "";
+            renderGames(state.games);
+        } else {
+            enterLinkMode();
+        }
     });
 
     await refreshPlatforms();
