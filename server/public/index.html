@@ -544,7 +544,42 @@
         cursor: pointer;
     }
     .dashboard-customize-menu label:hover { background: var(--card-hover); }
-    .dashboard-customize-menu input[type="checkbox"] { cursor: pointer; }
+
+    /* macOS-style toggle switch, standing in for every checkbox in the app -
+       a plain <input type="checkbox"> restyled with appearance:none rather
+       than a separate widget, so existing :checked/change-event code needs
+       no changes. */
+    input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 36px;
+        height: 21px;
+        min-width: 36px;
+        border-radius: 999px;
+        background: var(--ring-bg);
+        border: 1px solid var(--border);
+        position: relative;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background-color .15s ease, border-color .15s ease;
+    }
+    input[type="checkbox"]::before {
+        content: "";
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        transition: transform .15s ease;
+    }
+    input[type="checkbox"]:checked {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+    input[type="checkbox"]:checked::before { transform: translateX(17px); }
     .game-title { flex: 1; font-weight: 600; }
     .game-title-link {
         color: inherit;
