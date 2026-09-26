@@ -19,6 +19,7 @@ import {
     GridFilters,
     SteamGridDbError,
     downloadGridImage,
+    getGame,
     gridsForGame,
     gridsForSteamApp,
     isSteamGridDbImageUrl,
@@ -204,6 +205,31 @@ gamesRouter.put("/games/:gameId/title", requireAuth, async (req, res, next) => {
         }
         res.json({ title: result.rows[0].title });
     } catch (err) {
+        next(err);
+    }
+});
+
+// Renames a game to a SteamGridDB game's name, offered after picking that
+// game's cover (see #214). The client sends the SteamGridDB game ID, not the
+// name, so the title still comes from a known source rather than free text.
+gamesRouter.put("/games/:gameId/title/steamgriddb", requireAuth, async (req, res, next) => {
+    try {
+        const sgdbGameId = Number(req.body?.sgdbGameId);
+        if (!Number.isInteger(sgdbGameId) || sgdbGameId <= 0) {
+            return res.status(400).json({ error: "sgdbGameId is required" });
+        }
+        const apiKey = await getSteamGridDbApiKey();
+        if (!apiKey) return res.status(409).json({ error: "Add a SteamGridDB API key in settings first." });
+        if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+        const sgdbGame = await getGame(sgdbGameId, apiKey);
+        const name = sgdbGame?.name.trim();
+        if (!name) return res.status(404).json({ error: "SteamGridDB has no game with that ID" });
+        const result = await pool.query("update games set title = $2 where id = $1 returning title", [req.params.gameId, name]);
+        res.json({ title: result.rows[0].title });
+    } catch (err) {
+        if (err instanceof SteamGridDbError) return res.status(err.status === 401 || err.status === 403 ? 400 : 502).json({ error: err.message });
         next(err);
     }
 });
