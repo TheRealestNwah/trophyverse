@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { format } from "util";
 import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
+import { startDiscordPresence, stopDiscordPresence } from "./discordPresence";
 
 interface RunningApp {
     url: string;
@@ -172,6 +173,10 @@ async function start(): Promise<void> {
     console.log(`Server ready at ${running.url}`);
     await mainWindow?.loadURL(running.url);
 
+    // Skipped during the smoke test (see #195) - it boots and quits in
+    // seconds, not worth spinning up an IPC connection attempt for.
+    if (process.env.UAM_SMOKE_TEST !== "1") startDiscordPresence(running.url);
+
     // CI launches the packaged app with this set to prove it boots end to end.
     if (process.env.UAM_SMOKE_TEST === "1") {
         const ready = await fetch(`${running.url}/readyz`);
@@ -183,7 +188,9 @@ async function start(): Promise<void> {
 }
 
 function stopServer(): Promise<void> {
-    shutdown ??= (running ? running.stop() : Promise.resolve()).catch((err) => console.error("Shutdown failed:", err));
+    shutdown ??= Promise.all([stopDiscordPresence(), running ? running.stop() : Promise.resolve()])
+        .then(() => undefined)
+        .catch((err) => console.error("Shutdown failed:", err));
     return shutdown;
 }
 

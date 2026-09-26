@@ -81,5 +81,8 @@
       "include": "build/installer.nsh",
       "shortcutName": "Unified Achievement Manager"
     }
+  },
+  "dependencies": {
+    "@xhayper/discord-rpc": "^1.5.1"
   }
 }
