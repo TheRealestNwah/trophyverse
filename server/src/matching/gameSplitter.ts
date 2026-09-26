@@ -95,7 +95,7 @@ export async function splitPlatformLink(gameId: string, gamePlatformLinkId: stri
             // anyone else gets ownership back on their next sync.
             await client.query(
                 `insert into user_owned_games (user_platform_account_id, game_id)
-                 select distinct uau.user_platform_account_id, $1
+                 select distinct uau.user_platform_account_id, $1::uuid
                  from user_achievement_unlocks uau
                  join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
                  where apl.platform_id = $2 and apl.platform_game_id = $3
