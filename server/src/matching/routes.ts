@@ -183,9 +183,15 @@ matchingRouter.get("/game-candidates", requireAuth, async (_req, res, next) => {
                 gmc.confidence,
                 gmc.reason,
                 a.title as game_a_title,
-                (select array_agg(distinct platform_id) from game_platform_links where game_id = a.id) as game_a_platforms,
+                -- Includes console_variant (e.g. "psn (PS4)"), not just the bare
+                -- platform_id, so an exact-title-platform-collision candidate
+                -- (see #196) - where both sides are on the same platform but
+                -- different consoles - doesn't show two identical badges.
+                (select array_agg(distinct platform_id || coalesce(' (' || console_variant || ')', ''))
+                 from game_platform_links where game_id = a.id) as game_a_platforms,
                 b.title as game_b_title,
-                (select array_agg(distinct platform_id) from game_platform_links where game_id = b.id) as game_b_platforms
+                (select array_agg(distinct platform_id || coalesce(' (' || console_variant || ')', ''))
+                 from game_platform_links where game_id = b.id) as game_b_platforms
             from game_merge_candidates gmc
             join games a on a.id = gmc.game_a_id
             join games b on b.id = gmc.game_b_id
