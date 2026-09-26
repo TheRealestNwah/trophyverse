@@ -62,6 +62,12 @@ export async function getGamesForUser(userId: string) {
              join user_platform_accounts upa on upa.id = uog.user_platform_account_id
              where upa.user_id = $1 and uog.game_id = g.id
          )
+         -- A game the user hid or excluded (see #192) is left out of the
+         -- library view entirely, whichever mode - the distinction between
+         -- the two only matters for scoring (recomputeUserScore below).
+         and not exists (
+             select 1 from user_game_visibility ugv where ugv.user_id = $1 and ugv.game_id = g.id
+         )
          group by g.id, g.title, g.cover_image_url
          order by unlocked_achievements desc, g.title`,
         [userId]
@@ -117,6 +123,14 @@ export async function getGameCompletionCountsForUser(userId: string): Promise<Ga
              select 1 from user_owned_games uog
              join user_platform_accounts upa on upa.id = uog.user_platform_account_id
              where upa.user_id = $1 and uog.game_id = g.id
+         )
+         -- Only "excluded" games drop out of scoring (see #192) - a merely
+         -- "hidden" game still counts toward the synthetic completion-
+         -- platinum bonus here, matching its achievements still counting in
+         -- recomputeUserScore's own points sum.
+         and not exists (
+             select 1 from user_game_visibility ugv
+             where ugv.user_id = $1 and ugv.game_id = g.id and ugv.mode = 'excluded'
          )
          group by g.id`,
         [userId]

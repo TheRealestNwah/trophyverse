@@ -208,6 +208,67 @@ gamesRouter.put("/games/:gameId/title", requireAuth, async (req, res, next) => {
     }
 });
 
+// Hide a game from the library view, optionally also excluding its points
+// from the user's score (see #192, user_game_visibility). "hidden" leaves
+// the score untouched; "excluded" subtracts it, per recomputeUserScore.
+gamesRouter.put("/games/:gameId/visibility", requireAuth, async (req, res, next) => {
+    try {
+        const { mode } = req.body ?? {};
+        if (mode !== "hidden" && mode !== "excluded") {
+            return res.status(400).json({ error: "mode must be 'hidden' or 'excluded'" });
+        }
+        if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+        await pool.query(
+            `insert into user_game_visibility (user_id, game_id, mode)
+             values ($1, $2, $3)
+             on conflict (user_id, game_id) do update set mode = excluded.mode`,
+            [req.user!.id, req.params.gameId, mode]
+        );
+        const score = await recomputeUserScore(req.user!.id);
+        res.json({ score });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Un-hides/un-excludes a game (see #192).
+gamesRouter.delete("/games/:gameId/visibility", requireAuth, async (req, res, next) => {
+    try {
+        if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+            return res.status(404).json({ error: "Game not found in your library" });
+        }
+        await pool.query("delete from user_game_visibility where user_id = $1 and game_id = $2", [
+            req.user!.id,
+            req.params.gameId,
+        ]);
+        const score = await recomputeUserScore(req.user!.id);
+        res.json({ score });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Games this user has hidden or excluded (see #192), for a "manage hidden
+// games" list - otherwise a hidden game disappears from the dashboard with
+// no way back short of re-syncing.
+gamesRouter.get("/games/hidden", requireAuth, async (req, res, next) => {
+    try {
+        const result = await pool.query(
+            `select g.id, g.title, ugv.mode
+             from user_game_visibility ugv
+             join games g on g.id = ugv.game_id
+             where ugv.user_id = $1
+             order by g.title`,
+            [req.user!.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        next(err);
+    }
+});
+
 // Only checks that the URL is well-formed http(s) - deliberately doesn't
 // fetch it server-side to validate content-type, which would let a pasted
 // URL make the server issue requests to arbitrary (including internal)

@@ -879,6 +879,7 @@
                             <button type="button" class="secondary" id="review-games-btn">Review game merges</button>
                             <button type="button" class="secondary" id="match-btn">Find matches</button>
                             <button type="button" class="secondary" id="link-games-btn">Link games</button>
+                            <button type="button" class="secondary" id="hidden-games-btn">Hidden games</button>
                             <button type="button" class="secondary" id="export-json-btn">Export JSON</button>
                             <button type="button" class="secondary" id="export-csv-btn">Export CSV</button>
                         </div>
@@ -886,6 +887,7 @@
 
                     <div id="review-panel" class="hidden"></div>
                     <div id="review-games-panel" class="hidden"></div>
+                    <div id="hidden-games-panel" class="hidden"></div>
 
                     <div class="filter-chip" id="preset-filter-chip">
                         <span id="preset-filter-label"></span>
@@ -1291,6 +1293,105 @@ function showImageActionMenu(anchorEl, { onUpload, onPaste, onSteamGridDb }) {
     setTimeout(() => document.addEventListener("click", onDocClick, true), 0);
 }
 
+// Right-click menu on a game row to hide it from the library (still counts
+// toward score) or exclude it entirely (also deducts its points) - see #192.
+// Reuses .image-action-menu's styling since it's the same anchored-popover
+// shape, just positioned at the cursor instead of under an element.
+function showGameContextMenu(x, y, game) {
+    document.querySelectorAll(".image-action-menu").forEach((m) => m.remove());
+
+    const menu = document.createElement("div");
+    menu.className = "image-action-menu";
+    menu.innerHTML = `
+        <button type="button" data-action="hide">Hide (keep in score)</button>
+        <button type="button" data-action="exclude">Exclude (remove from score)</button>
+    `;
+    document.body.appendChild(menu);
+
+    const menuRect = menu.getBoundingClientRect();
+    let left = x;
+    if (left + menuRect.width > window.innerWidth) left = window.innerWidth - menuRect.width - 8;
+    let top = y;
+    if (top + menuRect.height > window.innerHeight) top = window.innerHeight - menuRect.height - 8;
+    menu.style.left = `${Math.max(4, left)}px`;
+    menu.style.top = `${Math.max(4, top)}px`;
+
+    const close = () => {
+        menu.remove();
+        document.removeEventListener("click", onDocClick, true);
+    };
+    function onDocClick(e) {
+        if (!menu.contains(e.target)) close();
+    }
+    menu.querySelector('[data-action="hide"]')?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        close();
+        setGameVisibility(game.id, "hidden");
+    });
+    menu.querySelector('[data-action="exclude"]')?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        close();
+        setGameVisibility(game.id, "excluded");
+    });
+    setTimeout(() => document.addEventListener("click", onDocClick, true), 0);
+}
+
+async function setGameVisibility(gameId, mode) {
+    const status = document.getElementById("match-status");
+    try {
+        await api(`/api/me/games/${gameId}/visibility`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode }),
+        });
+        status.textContent = mode === "excluded" ? "Game excluded from your score." : "Game hidden.";
+        await refreshGamesAndScore();
+    } catch (err) {
+        status.textContent = `Couldn't update visibility: ${err.message}`;
+    }
+}
+
+// Lists games hidden/excluded via the right-click menu (#192), each with a
+// way back - otherwise a hidden game disappears from the dashboard with no
+// way to undo it short of re-syncing.
+function renderHiddenGamesPanel(games) {
+    const panel = document.getElementById("hidden-games-panel");
+    if (games.length === 0) {
+        panel.innerHTML = `<div class="loading-note">No hidden or excluded games.</div>`;
+        return;
+    }
+    panel.innerHTML = games
+        .map(
+            (g) => `
+        <div class="review-row" data-id="${g.id}">
+            <span class="review-compare">${escapeHtml(g.title)}</span>
+            <span class="review-confidence">${g.mode}</span>
+            <span class="review-actions">
+                <button class="confirm">Unhide</button>
+            </span>
+        </div>
+    `
+        )
+        .join("");
+    panel.querySelectorAll(".review-row").forEach((row) => {
+        row.querySelector(".confirm").addEventListener("click", async () => {
+            await clearGameVisibility(row.dataset.id);
+            renderHiddenGamesPanel(await api("/api/me/games/hidden"));
+        });
+    });
+}
+
+async function clearGameVisibility(gameId) {
+    const status = document.getElementById("match-status");
+    try {
+        await api(`/api/me/games/${gameId}/visibility`, { method: "DELETE" });
+        status.textContent = "Game unhidden.";
+        await refreshGamesAndScore();
+    } catch (err) {
+        status.textContent = `Couldn't update visibility: ${err.message}`;
+    }
+}
+
 // Searches run on submit or filter change, never per keystroke, since
 // SteamGridDB doesn't publish rate limits. Author names and titles come from
 // SteamGridDB, so results are built with DOM APIs rather than innerHTML.
@@ -1580,6 +1681,11 @@ function renderGames(games) {
                 onPaste: () => setCoverArt(game.id),
                 onSteamGridDb: () => openSteamGridDbPicker(game),
             });
+        });
+        row.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showGameContextMenu(e.clientX, e.clientY, game);
         });
         list.appendChild(el);
     }
@@ -2677,6 +2783,17 @@ async function init() {
         panel.className = "review-list";
         panel.innerHTML = `<div class="loading-note">Loading...</div>`;
         renderGameReviewPanel(await api("/api/matching/game-candidates"));
+    });
+    document.getElementById("hidden-games-btn").addEventListener("click", async () => {
+        const panel = document.getElementById("hidden-games-panel");
+        if (!panel.classList.contains("hidden")) {
+            panel.classList.add("hidden");
+            return;
+        }
+        panel.classList.remove("hidden");
+        panel.className = "review-list";
+        panel.innerHTML = `<div class="loading-note">Loading...</div>`;
+        renderHiddenGamesPanel(await api("/api/me/games/hidden"));
     });
     document.getElementById("games-filter").addEventListener("input", () => renderGames(state.games));
     document.getElementById("games-sort").addEventListener("change", () => renderGames(state.games));

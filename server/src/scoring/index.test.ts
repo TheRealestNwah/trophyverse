@@ -71,4 +71,17 @@ describe("recomputeUserScore", () => {
         const score = await recomputeUserScore("user-1");
         expect(score.totalPoints).toBe(250);
     });
+
+    it("excludes a user-excluded game's points from the achievement-points sum (see #192)", async () => {
+        const { recomputeUserScore } = await import("./index");
+
+        getGameCompletionCountsForUserMock.mockResolvedValue([]);
+        queueQueryResults([{ total: "100" }], [{ level: 1 }], [], [{ points_required: 0 }], [{ points_required: 400 }]);
+
+        await recomputeUserScore("user-1");
+
+        const pointsSumCall = queryMock.mock.calls[0];
+        expect(pointsSumCall[0]).toContain("user_game_visibility");
+        expect(pointsSumCall[0]).toContain("mode = 'excluded'");
+    });
 });

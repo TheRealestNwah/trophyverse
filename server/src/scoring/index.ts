@@ -22,7 +22,15 @@ export async function recomputeUserScore(userId: string): Promise<UserScore> {
          join user_platform_accounts upa on upa.id = uau.user_platform_account_id
          join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
          join canonical_achievements ca on ca.id = apl.canonical_achievement_id
-         where upa.user_id = $1`,
+         where upa.user_id = $1
+           -- A game the user excluded (see #192, user_game_visibility) has
+           -- its points subtracted from the user's score - unlike a merely
+           -- "hidden" game, which is left out of the library view but still
+           -- counts here.
+           and not exists (
+               select 1 from user_game_visibility ugv
+               where ugv.user_id = $1 and ugv.game_id = ca.game_id and ugv.mode = 'excluded'
+           )`,
         [userId]
     );
     const achievementPoints = Number(totalResult.rows[0].total);
