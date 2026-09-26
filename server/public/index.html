@@ -340,6 +340,7 @@
     .level-ring .n .lbl { font-size: 8px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
     .score-info { flex: 1; min-width: 0; }
     .score-info .points { font-family: var(--font-mono); font-size: 14px; color: var(--text-dim); }
+    #level-tier-counts { margin-top: 8px; }
 
     .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
     .toolbar h2 { font-size: 17px; color: var(--text); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
@@ -810,6 +811,7 @@
                     </div>
                     <div class="score-info">
                         <div class="points" id="points-text">-</div>
+                        <div class="tier-pips" id="level-tier-counts"></div>
                     </div>
                 </div>
 
@@ -1996,7 +1998,34 @@ async function refreshGamesAndScore() {
     const [score, games] = await Promise.all([api("/api/me/score"), api("/api/me/games")]);
     state.games = games;
     renderScore(score);
+    renderLevelTierCounts(games);
     renderGames(games);
+}
+
+// Achievements earned per tier, alongside the level ring (see #189) -
+// summed from each game's own tier counts, the same numbers already shown
+// as pips on each game row.
+function renderLevelTierCounts(games) {
+    const totals = games.reduce(
+        (sum, g) => {
+            sum.platinum += Number(g.platinum_unlocked);
+            sum.gold += Number(g.gold_unlocked);
+            sum.silver += Number(g.silver_unlocked);
+            sum.bronze += Number(g.bronze_unlocked);
+            return sum;
+        },
+        { platinum: 0, gold: 0, silver: 0, bronze: 0 }
+    );
+    const pips = [
+        ["platinum", totals.platinum],
+        ["gold", totals.gold],
+        ["silver", totals.silver],
+        ["bronze", totals.bronze],
+    ];
+    document.getElementById("level-tier-counts").innerHTML = pips
+        .filter(([, count]) => count > 0)
+        .map(([tier, count]) => `<span class="pip"><span class="dot ${tier}"></span>${count}</span>`)
+        .join("");
 }
 
 async function refreshReviewCount() {
