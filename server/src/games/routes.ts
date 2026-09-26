@@ -180,15 +180,28 @@ gamesRouter.get("/games/:gameId/platforms", requireAuth, async (req, res, next) 
     }
 });
 
-// Picks which platform's own title a merged game shows (see #170). Limited to
-// the titles the game's platform entries already carry rather than free
-// text, since games are shared canonical rows. Sync never overwrites
+const MAX_GAME_TITLE_LENGTH = 200;
+
+// Sets the name a game shows: either one of its platform entries' own titles
+// (see #170) or text the user typed (see #221). Sync never overwrites
 // games.title for an existing game, so the choice sticks.
 gamesRouter.put("/games/:gameId/title", requireAuth, async (req, res, next) => {
     try {
-        const { gamePlatformLinkId } = req.body ?? {};
+        const { gamePlatformLinkId, title } = req.body ?? {};
+        if (typeof title === "string") {
+            const trimmed = title.trim();
+            if (!trimmed) return res.status(400).json({ error: "The name can't be empty" });
+            if (trimmed.length > MAX_GAME_TITLE_LENGTH) {
+                return res.status(400).json({ error: `The name can be at most ${MAX_GAME_TITLE_LENGTH} characters` });
+            }
+            if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
+                return res.status(404).json({ error: "Game not found in your library" });
+            }
+            const result = await pool.query("update games set title = $2 where id = $1 returning title", [req.params.gameId, trimmed]);
+            return res.json({ title: result.rows[0].title });
+        }
         if (!gamePlatformLinkId || typeof gamePlatformLinkId !== "string") {
-            return res.status(400).json({ error: "gamePlatformLinkId is required" });
+            return res.status(400).json({ error: "gamePlatformLinkId or title is required" });
         }
         if (!(await userOwnsGame(req.user!.id, req.params.gameId))) {
             return res.status(404).json({ error: "Game not found in your library" });

@@ -1011,7 +1011,7 @@ const state = { games: [], linkMode: false, linkSelection: null, completionPrese
 // In-page replacements for window.prompt/confirm/alert. The desktop app's
 // Electron shell doesn't implement prompt(), and after a native confirm() or
 // showMessage() closes on Windows, text inputs can't be focused again (see #208).
-function openPromptDialog(message, { okLabel = "OK", withInput = false, withCancel = true } = {}) {
+function openPromptDialog(message, { okLabel = "OK", withInput = false, withCancel = true, initialValue = "" } = {}) {
     const dialog = document.getElementById("text-prompt");
     const form = document.getElementById("text-prompt-form");
     const input = document.getElementById("text-prompt-input");
@@ -1021,7 +1021,7 @@ function openPromptDialog(message, { okLabel = "OK", withInput = false, withCanc
     okBtn.textContent = okLabel;
     input.classList.toggle("hidden", !withInput);
     cancelBtn.classList.toggle("hidden", !withCancel);
-    input.value = "";
+    input.value = initialValue;
     return new Promise((resolve) => {
         const finish = (value) => {
             form.removeEventListener("submit", onSubmit);
@@ -1047,8 +1047,8 @@ function openPromptDialog(message, { okLabel = "OK", withInput = false, withCanc
 }
 
 // Resolves to the entered text, or null on cancel.
-function askText(message, { okLabel = "OK" } = {}) {
-    return openPromptDialog(message, { okLabel, withInput: true });
+function askText(message, { okLabel = "OK", initialValue = "" } = {}) {
+    return openPromptDialog(message, { okLabel, withInput: true, initialValue });
 }
 
 function askConfirm(message, { okLabel = "OK" } = {}) {
@@ -1364,6 +1364,7 @@ function showGameContextMenu(x, y, game) {
     const menu = document.createElement("div");
     menu.className = "image-action-menu";
     menu.innerHTML = `
+        <button type="button" data-action="rename">Change display name&hellip;</button>
         <button type="button" data-action="hide">Hide (keep in score)</button>
         <button type="button" data-action="exclude">Exclude (remove from score)</button>
     `;
@@ -1384,6 +1385,11 @@ function showGameContextMenu(x, y, game) {
     function onDocClick(e) {
         if (!menu.contains(e.target)) close();
     }
+    menu.querySelector('[data-action="rename"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        close();
+        changeGameDisplayName(game);
+    });
     menu.querySelector('[data-action="hide"]')?.addEventListener("click", (e) => {
         e.stopPropagation();
         close();
@@ -1395,6 +1401,22 @@ function showGameContextMenu(x, y, game) {
         setGameVisibility(game.id, "excluded");
     });
     setTimeout(() => document.addEventListener("click", onDocClick, true), 0);
+}
+
+async function changeGameDisplayName(game) {
+    const entered = await askText(`Display name for "${game.title}":`, { okLabel: "Save", initialValue: game.title });
+    const title = entered?.trim();
+    if (!title || title === game.title) return;
+    try {
+        await api(`/api/me/games/${game.id}/title`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title }),
+        });
+        await refreshGamesAndScore();
+    } catch (err) {
+        await showMessage(`Couldn't rename the game: ${err.message}`);
+    }
 }
 
 async function setGameVisibility(gameId, mode) {
@@ -1750,7 +1772,7 @@ function renderGames(games) {
         el.innerHTML = `
             <div class="game-row" data-game-id="${game.id}">
                 ${ImageControls.gameCoverMarkup(game.cover_image_url)}
-                <div class="game-title">${game.title}</div>
+                <div class="game-title">${escapeHtml(game.title)}</div>
                 ${platformBadges(game)}
                 <div class="tier-pips">${tierDots(game)}</div>
                 <div class="game-progress-text">${game.unlocked_achievements}/${game.total_achievements}</div>
@@ -2250,7 +2272,7 @@ function renderReviewPanel(candidates) {
         .map(
             (c) => `
         <div class="review-row" data-id="${c.id}">
-            <span class="review-game">${c.game_title}</span>
+            <span class="review-game">${escapeHtml(c.game_title)}</span>
             <span class="review-compare">
                 <span class="platform-badge">${c.candidate_platform}</span> ${c.candidate_name}
                 <span class="arrow">vs</span>
