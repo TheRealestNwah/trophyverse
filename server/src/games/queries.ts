@@ -166,7 +166,7 @@ const UNLOCK_TIMESTAMP_FLOOR = "2000-01-01";
 
 export async function getFunStats(userId: string) {
     const rarest = await pool.query(
-        `select ca.name, g.title as game_title, apl.platform_id, apl.global_unlock_rarity
+        `select ca.name, g.id as game_id, g.title as game_title, apl.platform_id, apl.global_unlock_rarity
          from user_achievement_unlocks uau
          join user_platform_accounts upa on upa.id = uau.user_platform_account_id
          join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id
@@ -203,7 +203,7 @@ export async function getFunStats(userId: string) {
     );
 
     const oldest = await pool.query(
-        `select ca.name, g.title as game_title, apl.platform_id, uau.unlocked_at
+        `select ca.name, g.id as game_id, g.title as game_title, apl.platform_id, uau.unlocked_at
          from user_achievement_unlocks uau
          join user_platform_accounts upa on upa.id = uau.user_platform_account_id
          join achievement_platform_links apl on apl.id = uau.achievement_platform_link_id

@@ -541,6 +541,21 @@
     .dashboard-customize-menu label:hover { background: var(--card-hover); }
     .dashboard-customize-menu input[type="checkbox"] { cursor: pointer; }
     .game-title { flex: 1; font-weight: 600; }
+    .game-title-link {
+        color: inherit;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .game-title-link:hover { text-decoration: underline; }
+    #game-view-back-btn { margin-bottom: 16px; }
+    .game-view-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    .game-view-header .game-cover-wrap { pointer-events: none; }
+    .game-view-header-info h2 { font-size: 20px; margin: 0 0 6px; }
     .game-progress-text { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); width: 90px; text-align: right; }
     .tier-pips { display: flex; gap: 6px; font-size: 12px; }
     .pip { display: flex; align-items: center; gap: 3px; }
@@ -901,6 +916,18 @@
                     <div id="games-list"></div>
                 </div>
             </section>
+
+            <section id="game-view" class="hidden">
+                <button type="button" class="secondary" id="game-view-back-btn">&larr; Back</button>
+                <div class="game-view-header">
+                    <div id="game-view-cover"></div>
+                    <div class="game-view-header-info">
+                        <h2 id="game-view-title"></h2>
+                        <div id="game-view-progress" class="game-progress-text"></div>
+                    </div>
+                </div>
+                <div id="game-view-achievements"></div>
+            </section>
         </main>
     </div>
 </div>
@@ -1090,17 +1117,34 @@ function renderActivity(items) {
             <span class="tier-tag ${a.tier}">${a.tier}</span>
             <div class="activity-body">
                 <div class="activity-name">${a.name}</div>
-                <div class="activity-meta">${a.game_title} <span class="platform-badge">${a.platform_id}</span></div>
+                <div class="activity-meta">${gameTitleLink(a.game_id, a.game_title)} <span class="platform-badge">${a.platform_id}</span></div>
             </div>
             <div class="activity-time">${relativeTime(a.unlocked_at)}</div>
         </div>
     `
         )
         .join("");
+    bindGameTitleLinks(panel);
 }
 
 async function refreshActivity() {
     renderActivity(await api("/api/me/activity"));
+}
+
+// A game title that opens that game's own achievements page (see #186).
+// Delegated on the panel rather than bound per-link, since activity/stats
+// panels re-render wholesale on every refresh.
+function gameTitleLink(gameId, title) {
+    return `<a href="#" class="game-title-link" data-game-link="${gameId}">${escapeHtml(title)}</a>`;
+}
+
+function bindGameTitleLinks(container) {
+    container.querySelectorAll("[data-game-link]").forEach((el) => {
+        el.addEventListener("click", (e) => {
+            e.preventDefault();
+            showGameView(el.dataset.gameLink);
+        });
+    });
 }
 
 function statCard(label, value, sub) {
@@ -1123,7 +1167,7 @@ function renderStats(stats) {
             statCard(
                 "Rarest achievement owned",
                 r.name,
-                `${r.game_title} (${r.platform_id}) — ${Number(r.global_unlock_rarity).toFixed(2)}% of players`
+                `${gameTitleLink(r.game_id, r.game_title)} (${r.platform_id}) — ${Number(r.global_unlock_rarity).toFixed(2)}% of players`
             )
         );
     }
@@ -1150,7 +1194,7 @@ function renderStats(stats) {
             statCard(
                 "Oldest unlock still tracked",
                 stats.oldestUnlock.name,
-                `${stats.oldestUnlock.game_title} — ${new Date(stats.oldestUnlock.unlocked_at).toLocaleDateString()}`
+                `${gameTitleLink(stats.oldestUnlock.game_id, stats.oldestUnlock.game_title)} — ${new Date(stats.oldestUnlock.unlocked_at).toLocaleDateString()}`
             )
         );
     }
@@ -1170,6 +1214,7 @@ function renderStats(stats) {
     cards.push(statCard("Bronzes earned", `${stats.totalBronze}`));
 
     grid.innerHTML = cards.length > 0 ? cards.join("") : `<div class="loading-note">Not enough data yet.</div>`;
+    bindGameTitleLinks(grid);
 }
 
 async function refreshStats() {
@@ -1432,7 +1477,7 @@ function uploadCoverArt(gameId) {
     pickAndUploadImage(`/api/me/games/${gameId}/cover/upload`, () => refreshGamesAndScore());
 }
 
-async function setAchievementIcon(achievementId, gameEl, gameId) {
+async function setAchievementIcon(achievementId, reload) {
     const url = await askText(
         "Paste an image URL to use as this achievement's icon.\nLeave blank to remove your override and use the auto-detected one."
     );
@@ -1447,18 +1492,14 @@ async function setAchievementIcon(achievementId, gameEl, gameId) {
                 body: JSON.stringify({ url: url.trim() }),
             });
         }
-        gameEl.querySelector(".achievements")?.remove();
-        await toggleAchievements(gameEl, gameId);
+        await reload();
     } catch (err) {
         alert(`Couldn't update achievement icon: ${err.message}`);
     }
 }
 
-function uploadAchievementIcon(achievementId, gameEl, gameId) {
-    pickAndUploadImage(`/api/me/achievements/${achievementId}/icon/upload`, async () => {
-        gameEl.querySelector(".achievements")?.remove();
-        await toggleAchievements(gameEl, gameId);
-    });
+function uploadAchievementIcon(achievementId, reload) {
+    pickAndUploadImage(`/api/me/achievements/${achievementId}/icon/upload`, reload);
 }
 
 // Presets set from the sidebar's "In Progress"/"Completed" smart views -
@@ -1722,6 +1763,27 @@ function escapeHtml(value) {
         .replaceAll(">", "&gt;");
 }
 
+// A dedicated page for one game's own achievements, opened by clicking its
+// title on an achievement (Recent activity, Fun stats) - see #186. Reuses
+// the same per-platform section renderer as the expanded game row.
+async function showGameView(gameId, { pushState = true } = {}) {
+    const game = state.games.find((g) => g.id === gameId);
+    document.getElementById("dashboard-view").classList.add("hidden");
+    document.getElementById("game-view").classList.remove("hidden");
+    document.getElementById("game-view-title").textContent = game?.title ?? "Loading...";
+    document.getElementById("game-view-progress").textContent = game
+        ? `${game.unlocked_achievements}/${game.total_achievements}`
+        : "";
+    document.getElementById("game-view-cover").innerHTML = game ? ImageControls.gameCoverMarkup(game.cover_image_url) : "";
+    if (pushState) history.pushState({ gameView: gameId }, "");
+    await loadAchievementsPanel(document.getElementById("game-view-achievements"), gameId);
+}
+
+function hideGameView() {
+    document.getElementById("game-view").classList.add("hidden");
+    document.getElementById("dashboard-view").classList.remove("hidden");
+}
+
 async function toggleAchievements(gameEl, gameId) {
     const existing = gameEl.querySelector(".achievements");
     if (existing) {
@@ -1730,8 +1792,15 @@ async function toggleAchievements(gameEl, gameId) {
     }
     const panel = document.createElement("div");
     panel.className = "achievements";
-    panel.innerHTML = `<div class="loading-note">Loading achievements...</div>`;
     gameEl.appendChild(panel);
+    await loadAchievementsPanel(panel, gameId);
+}
+
+// Fills a panel with a game's achievements, one section per trophy list.
+// Shared by the expanded game row and the game's own page (see #186).
+async function loadAchievementsPanel(panel, gameId) {
+    panel.innerHTML = `<div class="loading-note">Loading achievements...</div>`;
+    const reload = () => loadAchievementsPanel(panel, gameId);
 
     const [achievements, platformLinks] = await Promise.all([
         api(`/api/me/games/${gameId}/achievements`),
@@ -1831,8 +1900,8 @@ async function toggleAchievements(gameEl, gameId) {
         wrap.addEventListener("click", (e) => {
             e.stopPropagation();
             showImageActionMenu(e.currentTarget, {
-                onUpload: () => uploadAchievementIcon(achievementId, gameEl, gameId),
-                onPaste: () => setAchievementIcon(achievementId, gameEl, gameId),
+                onUpload: () => uploadAchievementIcon(achievementId, reload),
+                onPaste: () => setAchievementIcon(achievementId, reload),
             });
         });
     });
@@ -2561,6 +2630,11 @@ async function init() {
     initSteamGridDbKeyRow();
     initAccountDeletion();
     initSidebarNav();
+    document.getElementById("game-view-back-btn").addEventListener("click", () => history.back());
+    window.addEventListener("popstate", (e) => {
+        if (e.state?.gameView) showGameView(e.state.gameView, { pushState: false });
+        else hideGameView();
+    });
     initDashboardCustomization();
     document.getElementById("sync-all-btn").addEventListener("click", (e) => {
         syncAllPlatforms(e.target, document.getElementById("sync-all-status"));
