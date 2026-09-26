@@ -40,7 +40,6 @@
         color-scheme: light;
         --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
         --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-        --font-display: "Helvetica Neue", Helvetica, Arial, sans-serif;
     }
     @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) {
@@ -125,7 +124,7 @@
         flex-shrink: 0;
     }
     .sidebar-brand span {
-        font-family: var(--font-display);
+        font-family: var(--font-ui);
         font-size: 14px;
         font-weight: 700;
         letter-spacing: -0.01em;
@@ -336,7 +335,7 @@
         justify-content: center;
         gap: 1px;
     }
-    .level-ring .n .num { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+    .level-ring .n .num { font-family: var(--font-ui); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
     .level-ring .n .lbl { font-size: 8px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
     .score-info { flex: 1; min-width: 0; }
     .score-info .points { font-family: var(--font-mono); font-size: 14px; color: var(--text-dim); }
@@ -599,7 +598,7 @@
         padding: 16px 18px;
     }
     .stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .stat-value { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+    .stat-value { font-family: var(--font-ui); font-size: 17px; font-weight: 700; }
     .stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 
     .achievements { border-top: 1px solid var(--border); padding: 8px 18px; }
