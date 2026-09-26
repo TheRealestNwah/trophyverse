@@ -229,6 +229,19 @@ create table if not exists game_absence_streaks (
     primary key (user_platform_account_id, game_id)
 );
 
+-- A per-user preference for hiding a game from their library view (see
+-- #192). "hidden" removes it from the games list but it still counts
+-- toward the user's score; "excluded" removes it from the list *and* its
+-- points are subtracted from the user's score (see recomputeUserScore).
+-- Per-user, like the overrides below - one user hiding a game must never
+-- affect what a different user who owns the same shared game row sees.
+create table if not exists user_game_visibility (
+    user_id uuid not null references users(id) on delete cascade,
+    game_id uuid not null references games(id) on delete cascade,
+    mode    text not null check (mode in ('hidden', 'excluded')),
+    primary key (user_id, game_id)
+);
+
 -- Lets a user paste their own cover art / achievement icon (see #32),
 -- scoped to that user only - games/canonical_achievements are shared,
 -- deduplicated rows across every user (see docs/data-model.md), so this is
