@@ -1,10 +1,10 @@
 import { Client } from "@xhayper/discord-rpc";
 
-// Set by the user after creating their own app at discord.com/developers/
-// applications (see #195) - there's no way to ship a working client ID in
-// this repo, since it identifies a specific Discord application the user
-// registers themselves. Presence quietly does nothing until it's set.
-const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || "";
+// The Trophyverse Discord application's client ID (see #195) - a client ID
+// identifies which app is asking, not a credential, so it's fine to commit
+// (same as it appearing in any invite link or RPC handshake). Overridable
+// via env var for local testing against a different Discord application.
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || "1553232989842833438";
 
 const UPDATE_INTERVAL_MS = 15_000;
 
