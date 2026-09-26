@@ -12,31 +12,76 @@ interface GameRow {
     id: string;
     title: string;
     platforms: string[];
+    hasLegacySignal: boolean;
 }
 
 // Matches platforms.id in schema.sql - not the short "retro" name used
 // elsewhere in comments/prose, which isn't the real stored value.
 const RETRO_PLATFORM_ID = "retroachievements";
 
+// A platform link that's known to be an older-hardware-only release of a
+// title, same risk category as RetroAchievements (see #225): a modern
+// remake/remaster can legitimately share its exact title with one of these,
+// so an exact-title cross-platform match involving one goes to human review
+// rather than auto-merging. console_variant is set once per link and never
+// overwritten (see canonicalStore.ts), so this reads what sync originally
+// observed, not a live lookup.
+//
+// - psn: trophyTitlePlatform is a comma-joined list (see psn/client.ts) -
+//   "PS3" alone or "PS3,PSVITA" is legacy-only, but "PS3,PS4" is a genuine
+//   cross-gen release of the SAME game and must not trip this.
+// - xbox: sync only ever sets this to the literal "Xbox 360" (see
+//   xbox/sync.ts) when the modern achievements endpoint had nothing and the
+//   legacy 360 endpoint did - already an unambiguous legacy-only signal.
+// - steam: no generation concept - a Steam listing is never treated as legacy.
+export function isLegacyOnlyLink(platformId: string, consoleVariant: string | null): boolean {
+    if (!consoleVariant) return false;
+    if (platformId === "xbox") return consoleVariant === "Xbox 360";
+    if (platformId === "psn") {
+        const variants = consoleVariant.split(",");
+        return !variants.includes("PS4") && !variants.includes("PS5");
+    }
+    return false;
+}
+
 async function fetchGamesWithPlatforms(): Promise<GameRow[]> {
     const rows = await pool.query(`
-        select g.id, g.title, array_agg(distinct gpl.platform_id) as platforms
+        select
+            g.id,
+            g.title,
+            array_agg(distinct gpl.platform_id) as platforms,
+            array_agg(distinct gpl.platform_id || ':' || coalesce(gpl.console_variant, '')) as platform_variants
         from games g
         join game_platform_links gpl on gpl.game_id = g.id
         group by g.id, g.title
     `);
-    return rows.rows;
+    return rows.rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        platforms: row.platforms,
+        hasLegacySignal:
+            row.platforms.includes(RETRO_PLATFORM_ID) ||
+            row.platform_variants.some((entry: string) => {
+                const sep = entry.indexOf(":");
+                const platformId = entry.slice(0, sep);
+                const consoleVariant = entry.slice(sep + 1) || null;
+                return isLegacyOnlyLink(platformId, consoleVariant);
+            }),
+    }));
 }
 
 // Cross-platform game matching, in two passes:
 //
 // 1. Exact match on normalized title (case, punctuation, trademark symbols
-//    stripped) auto-merges, same as before - except when RetroAchievements
-//    is one of the platforms involved. RA only covers older/classic-system
-//    titles, so an exact-title match that includes it carries a real,
-//    structural risk a same-generation match doesn't: a modern remake or
-//    remaster sharing its original's exact name (Resident Evil 2 1998 vs.
-//    the 2019 remake, both just "Resident Evil 2" - see #73). Those go to
+//    stripped) auto-merges, same as before - except when a platform link with
+//    a legacy-generation signal (isLegacyOnlyLink above: RetroAchievements,
+//    or a PSN/Xbox link known to be an older-hardware-only release) is
+//    involved. Those only cover older/classic-system titles, so an
+//    exact-title match that includes one carries a real, structural risk a
+//    same-generation match doesn't: a modern remake or remaster sharing its
+//    original's exact name (Resident Evil 2 1998 vs. the 2019 remake, both
+//    just "Resident Evil 2" - see #73; RE4 2023 on Steam vs. an RE4 PS3
+//    classic PSN trophy list, both "Resident Evil 4" - see #225). Those go to
 //    the review queue instead, while any other exact-title platforms in the
 //    same group still merge automatically as before. Exact-title groups that
 //    contain multiple canonical games on one platform also go to review:
@@ -100,15 +145,15 @@ export async function matchGames(): Promise<GameMatchResult> {
             continue;
         }
 
-        const retroGames = group.filter((g) => g.platforms.includes(RETRO_PLATFORM_ID));
-        const safeGames = group.filter((g) => !g.platforms.includes(RETRO_PLATFORM_ID));
+        const legacyGames = group.filter((g) => g.hasLegacySignal);
+        const safeGames = group.filter((g) => !g.hasLegacySignal);
 
         let winner: GameRow;
         if (safeGames.length > 0) {
             winner = safeGames[0];
             for (const loser of safeGames.slice(1)) {
                 // An exact title match isn't always the same game even
-                // without RetroAchievements involved - a human can already
+                // without a legacy platform involved - a human can already
                 // have rejected this exact pair (e.g. a manually-discovered
                 // case like #73's "skate." 2025 vs. Skate 2007, sharing an
                 // exact title across Steam/PSN and a since-split-out Xbox
@@ -121,14 +166,21 @@ export async function matchGames(): Promise<GameMatchResult> {
             }
             if (safeGames.length > 1) groupsMerged++;
         } else {
-            winner = retroGames[0];
+            winner = legacyGames[0];
         }
 
         // Everything else sharing this exact title with the (now-merged)
-        // winner that involves retro: winner itself if it's a retro game.
-        const retroToReview = safeGames.length > 0 ? retroGames : retroGames.slice(1);
-        for (const retroGame of retroToReview) {
-            const created = await recordGameCandidate(winner.id, retroGame.id, 0.99, "exact-title-retro");
+        // winner that has a legacy-generation signal: winner itself if it's
+        // one of those. RetroAchievements games keep the older, more
+        // specific reason string; other legacy-only platform links (see
+        // isLegacyOnlyLink - #225, RE4 2023 Steam auto-merging with an RE4
+        // PS3 classic PSN trophy list) get a new one.
+        const legacyToReview = safeGames.length > 0 ? legacyGames : legacyGames.slice(1);
+        for (const legacyGame of legacyToReview) {
+            const reason = legacyGame.platforms.includes(RETRO_PLATFORM_ID)
+                ? "exact-title-retro"
+                : "exact-title-legacy-platform";
+            const created = await recordGameCandidate(winner.id, legacyGame.id, 0.99, reason);
             if (created) candidatesRecorded++;
         }
     }
