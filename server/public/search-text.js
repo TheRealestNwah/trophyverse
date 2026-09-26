@@ -43,17 +43,49 @@
         nfs: "need for speed",
     };
 
+    const ROMAN_NUMERALS = ["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x",
+        "xi", "xii", "xiii", "xiv", "xv", "xvi", "xvii", "xviii", "xix", "xx"];
+
+    // Titles number sequels either way ("Grand Theft Auto V", "Resident Evil
+    // 5"), so a numeric suffix after an acronym also tries its roman form.
+    function numberVariants(rest) {
+        const variants = [rest];
+        if (/^\d+$/.test(rest) && ROMAN_NUMERALS[Number(rest)]) variants.push(ROMAN_NUMERALS[Number(rest)]);
+        return variants;
+    }
+
+    // Word-aligned at the start; a trailing number must also end a word, so
+    // "re5" finds "Resident Evil 5" but not "Resident Evil 50", and "gta5"
+    // finds "Grand Theft Auto V" but not "Grand Theft Auto Vice City".
+    function titleContainsExpansion(normalizedTitle, expansion, rest) {
+        const padded = ` ${normalizedTitle} `;
+        const head = normalizeSearchText(expansion);
+        if (rest === "") return padded.includes(` ${head}`);
+        const numeric = /^\d+$/.test(rest);
+        return numberVariants(rest).some((variant) =>
+            padded.includes(` ${head} ${variant}${numeric ? " " : ""}`));
+    }
+
     // acronyms maps a normalized acronym ("gta") to the text it expands to
-    // ("grand theft auto"). Only the whole (normalized) query is looked up -
-    // "gta 5" doesn't expand - keeping the match predictable rather than
-    // guessing which word in a longer query is the acronym.
+    // ("grand theft auto"). The acronym has to lead the query, optionally
+    // followed by more words ("ac unity") or a sequel number, spaced or not
+    // ("re 5", "re5" - see #216).
     function titleMatchesSearch(title, query, acronyms = DEFAULT_ACRONYMS) {
         const needle = normalizeSearchText(query);
         if (needle === "") return true;
         const normalizedTitle = normalizeSearchText(title);
         if (normalizedTitle.includes(needle)) return true;
-        const expansion = acronyms[needle];
-        return expansion ? normalizedTitle.includes(normalizeSearchText(expansion)) : false;
+        if (acronyms[needle]) return titleContainsExpansion(normalizedTitle, acronyms[needle], "");
+
+        const spaceAt = needle.indexOf(" ");
+        if (spaceAt > 0) {
+            const expansion = acronyms[needle.slice(0, spaceAt)];
+            if (expansion && titleContainsExpansion(normalizedTitle, expansion, needle.slice(spaceAt + 1))) return true;
+        }
+
+        const glued = /^(\p{L}+)(\d+)$/u.exec(needle);
+        if (glued && acronyms[glued[1]]) return titleContainsExpansion(normalizedTitle, acronyms[glued[1]], glued[2]);
+        return false;
     }
 
     return { normalizeSearchText, titleMatchesSearch, DEFAULT_ACRONYMS };
