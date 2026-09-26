@@ -999,15 +999,19 @@
 <script>
 const state = { games: [], linkMode: false, linkSelection: null, completionPreset: null, searchAcronyms: SearchText.DEFAULT_ACRONYMS };
 
-// In-page replacement for window.prompt(), which the desktop app's Electron
-// shell doesn't implement. Resolves to the entered text, or null on cancel.
-function askText(message, { okLabel = "OK" } = {}) {
+// In-page replacements for window.prompt/confirm/alert. The desktop app's
+// Electron shell doesn't implement prompt(), and after a native confirm() or
+// showMessage() closes on Windows, text inputs can't be focused again (see #208).
+function openPromptDialog(message, { okLabel = "OK", withInput = false, withCancel = true } = {}) {
     const dialog = document.getElementById("text-prompt");
     const form = document.getElementById("text-prompt-form");
     const input = document.getElementById("text-prompt-input");
     const cancelBtn = document.getElementById("text-prompt-cancel");
+    const okBtn = document.getElementById("text-prompt-ok");
     document.getElementById("text-prompt-message").textContent = message;
-    document.getElementById("text-prompt-ok").textContent = okLabel;
+    okBtn.textContent = okLabel;
+    input.classList.toggle("hidden", !withInput);
+    cancelBtn.classList.toggle("hidden", !withCancel);
     input.value = "";
     return new Promise((resolve) => {
         const finish = (value) => {
@@ -1019,18 +1023,31 @@ function askText(message, { okLabel = "OK" } = {}) {
         };
         const onSubmit = (e) => {
             e.preventDefault();
-            finish(input.value);
+            finish(withInput ? input.value : true);
         };
         const onCancel = (e) => {
             e.preventDefault();
-            finish(null);
+            finish(withInput ? null : false);
         };
         form.addEventListener("submit", onSubmit);
         cancelBtn.addEventListener("click", onCancel);
         dialog.addEventListener("cancel", onCancel);
         dialog.showModal();
-        input.focus();
+        (withInput ? input : okBtn).focus();
     });
+}
+
+// Resolves to the entered text, or null on cancel.
+function askText(message, { okLabel = "OK" } = {}) {
+    return openPromptDialog(message, { okLabel, withInput: true });
+}
+
+function askConfirm(message, { okLabel = "OK" } = {}) {
+    return openPromptDialog(message, { okLabel });
+}
+
+function showMessage(message) {
+    return openPromptDialog(message, { withCancel: false });
 }
 
 const THEME_KEY = "uam-theme";
@@ -1580,7 +1597,7 @@ function pickAndUploadImage(uploadUrl, onSuccess) {
             const result = await api(uploadUrl, { method: "POST", body: formData });
             await onSuccess(result);
         } catch (err) {
-            alert(`Couldn't upload image: ${err.message}`);
+            showMessage(`Couldn't upload image: ${err.message}`);
         }
     });
     input.click();
@@ -1603,7 +1620,7 @@ async function setCoverArt(gameId) {
         }
         await refreshGamesAndScore();
     } catch (err) {
-        alert(`Couldn't update cover art: ${err.message}`);
+        showMessage(`Couldn't update cover art: ${err.message}`);
     }
 }
 
@@ -1628,7 +1645,7 @@ async function setAchievementIcon(achievementId, reload) {
         }
         await reload();
     } catch (err) {
-        alert(`Couldn't update achievement icon: ${err.message}`);
+        showMessage(`Couldn't update achievement icon: ${err.message}`);
     }
 }
 
@@ -2118,7 +2135,7 @@ async function useGameTitleFrom(gameId, link, button) {
 }
 
 async function splitPlatformLink(gameId, link, button) {
-    if (!confirm(`Split "${link.platform_title}" (${link.platform_id}) back out into its own game? Your unlocks stay as they are.`)) return;
+    if (!await askConfirm(`Split "${link.platform_title}" (${link.platform_id}) back out into its own game? Your unlocks stay as they are.`)) return;
     const status = document.getElementById("match-status");
     button.disabled = true;
     try {
@@ -2380,14 +2397,14 @@ async function syncPlatform(platformId, button, noteEl) {
 }
 
 async function disconnectPlatform(platformId, label) {
-    if (!confirm(`Disconnect ${label}? This removes its synced games and achievements from your library.`)) return;
+    if (!await askConfirm(`Disconnect ${label}? This removes its synced games and achievements from your library.`)) return;
     try {
         const result = await api(`/api/me/accounts/${platformId}`, { method: "DELETE" });
         renderScore(result.score);
         await refreshPlatforms();
         await refreshGamesAndScore();
     } catch (err) {
-        alert(err.message || `Couldn't disconnect ${label}.`);
+        showMessage(err.message || `Couldn't disconnect ${label}.`);
         console.error(err);
     }
 }
@@ -2482,7 +2499,7 @@ function renderPlatforms(accounts) {
                 });
                 await refreshPlatforms();
             } catch (err) {
-                alert("Couldn't connect that Xbox account. Double check the API key.");
+                showMessage("Couldn't connect that Xbox account. Double check the API key.");
                 console.error(err);
             } finally {
                 btn.disabled = false;
@@ -2517,7 +2534,7 @@ function renderPlatforms(accounts) {
                 });
                 await refreshPlatforms();
             } catch (err) {
-                alert(err.message || "Couldn't connect that PlayStation account.");
+                showMessage(err.message || "Couldn't connect that PlayStation account.");
                 console.error(err);
             } finally {
                 btn.disabled = false;
@@ -2554,7 +2571,7 @@ function renderPlatforms(accounts) {
                 });
                 await refreshPlatforms();
             } catch (err) {
-                alert(err.message || "Couldn't connect that RetroAchievements account.");
+                showMessage(err.message || "Couldn't connect that RetroAchievements account.");
                 console.error(err);
             } finally {
                 btn.disabled = false;
@@ -2580,7 +2597,7 @@ function renderPlatforms(accounts) {
                 const { url } = await api("/api/gog/login-url");
                 window.open(url, "_blank", "noopener");
             } catch (err) {
-                alert("Couldn't get the GOG login link.");
+                showMessage("Couldn't get the GOG login link.");
                 console.error(err);
             }
         });
@@ -2596,7 +2613,7 @@ function renderPlatforms(accounts) {
                 });
                 await refreshPlatforms();
             } catch (err) {
-                alert(err.message || "Couldn't connect that GOG account. The code may have expired - try logging in again.");
+                showMessage(err.message || "Couldn't connect that GOG account. The code may have expired - try logging in again.");
                 console.error(err);
             } finally {
                 btn.disabled = false;
@@ -2648,9 +2665,9 @@ function initSteamKeyRow(setup) {
         btn.disabled = true;
         try {
             await saveSteamApiKey(apiKey.trim());
-            alert("Steam Web API key updated.");
+            showMessage("Steam Web API key updated.");
         } catch (err) {
-            alert(err.message || "Couldn't update the Steam Web API key.");
+            showMessage(err.message || "Couldn't update the Steam Web API key.");
         } finally {
             btn.disabled = false;
         }
@@ -2682,22 +2699,22 @@ async function initSteamGridDbKeyRow() {
                 body: JSON.stringify({ apiKey: apiKey.trim() }),
             });
             showConfigured(true);
-            alert("SteamGridDB API key saved.");
+            showMessage("SteamGridDB API key saved.");
         } catch (err) {
-            alert(err.message || "Couldn't save the SteamGridDB API key.");
+            showMessage(err.message || "Couldn't save the SteamGridDB API key.");
         } finally {
             setBtn.disabled = false;
         }
     });
 
     removeBtn.addEventListener("click", async () => {
-        if (!confirm("Remove your SteamGridDB API key? Covers you already picked stay as they are.")) return;
+        if (!await askConfirm("Remove your SteamGridDB API key? Covers you already picked stay as they are.")) return;
         removeBtn.disabled = true;
         try {
             await api("/api/settings/steamgriddb-api-key", { method: "DELETE" });
             showConfigured(false);
         } catch (err) {
-            alert(err.message || "Couldn't remove the SteamGridDB API key.");
+            showMessage(err.message || "Couldn't remove the SteamGridDB API key.");
         } finally {
             removeBtn.disabled = false;
         }
@@ -2723,7 +2740,7 @@ async function initDiscordPresenceRow() {
             });
         } catch (err) {
             toggle.checked = !toggle.checked;
-            alert(err.message || "Couldn't update Discord Rich Presence.");
+            showMessage(err.message || "Couldn't update Discord Rich Presence.");
         }
     });
 }
@@ -2799,7 +2816,7 @@ async function initSearchAcronymsRow() {
             acronymInput.value = "";
             expansionInput.value = "";
         } catch (err) {
-            alert(err.message || "Couldn't save that acronym.");
+            showMessage(err.message || "Couldn't save that acronym.");
         }
     });
 }
@@ -2819,10 +2836,10 @@ function initAccountDeletion() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ confirmation }),
             });
-            if (result?.message) alert(result.message);
+            if (result?.message) await showMessage(result.message);
             location.href = "/";
         } catch (err) {
-            alert(err.message || "Couldn't delete your account. Please try again.");
+            showMessage(err.message || "Couldn't delete your account. Please try again.");
             button.disabled = false;
         }
     });
