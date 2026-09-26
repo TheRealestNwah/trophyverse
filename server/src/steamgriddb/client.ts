@@ -98,6 +98,11 @@ export async function searchGames(term: string, apiKey: string): Promise<SteamGr
     return (data ?? []).map(({ id, name }) => ({ id, name }));
 }
 
+export async function getGame(gameId: number, apiKey: string): Promise<SteamGridDbGame | null> {
+    const data = await get<SteamGridDbGame>(`/games/id/${gameId}`, apiKey);
+    return data ? { id: data.id, name: data.name } : null;
+}
+
 // The select endpoint downloads a URL the client sent, so it only accepts
 // SteamGridDB's own image CDN - anything else would let a request make the
 // app fetch arbitrary (including local-network) addresses.

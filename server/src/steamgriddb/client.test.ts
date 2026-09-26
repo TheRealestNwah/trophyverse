@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../db", () => ({ pool: { query: vi.fn() } }));
 
-import { SteamGridDbError, downloadGridImage, gridsForSteamApp, isSteamGridDbImageUrl, searchGames } from "./client";
+import { SteamGridDbError, downloadGridImage, getGame, gridsForSteamApp, isSteamGridDbImageUrl, searchGames } from "./client";
 
 const fetchMock = vi.fn();
 
@@ -81,6 +81,19 @@ describe("SteamGridDB grid lookups", () => {
 
         await expect(searchGames("Halo: Reach / MCC", "key")).resolves.toEqual([{ id: 5, name: "Halo: Reach" }]);
         expect(String(fetchMock.mock.calls[0][0])).toContain("/search/autocomplete/Halo%3A%20Reach%20%2F%20MCC");
+    });
+});
+
+describe("SteamGridDB game lookup by ID", () => {
+    it("returns the game's id and name", async () => {
+        fetchMock.mockResolvedValueOnce(Response.json({ success: true, data: { id: 42, name: "Resident Evil 5", verified: true } }));
+        await expect(getGame(42, "key")).resolves.toEqual({ id: 42, name: "Resident Evil 5" });
+        expect(requested().url.pathname).toMatch(/\/games\/id\/42$/);
+    });
+
+    it("returns null for an unknown game", async () => {
+        fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
+        await expect(getGame(999, "key")).resolves.toBeNull();
     });
 });
 

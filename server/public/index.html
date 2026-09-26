@@ -1442,6 +1442,31 @@ async function clearGameVisibility(gameId) {
     }
 }
 
+// Picking a cover from a differently named SteamGridDB game (see #214) offers
+// to rename the game to match. Formatting-only differences ("Creed®" vs
+// "Creed") don't count.
+async function offerSteamGridDbRename(game, sgdbGame) {
+    if (SearchText.normalizeSearchText(sgdbGame.name) === SearchText.normalizeSearchText(game.title)) return;
+    const rename = await askConfirm(
+        `Rename this game to match the SteamGridDB game you picked?
+
+Current name: ${game.title}
+New name: ${sgdbGame.name}`,
+        { okLabel: "Rename" }
+    );
+    if (!rename) return;
+    try {
+        await api(`/api/me/games/${game.id}/title/steamgriddb`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sgdbGameId: sgdbGame.id }),
+        });
+        await refreshGamesAndScore();
+    } catch (err) {
+        await showMessage(`Couldn't rename the game: ${err.message}`);
+    }
+}
+
 // Searches run on submit or filter change, never per keystroke, since
 // SteamGridDB doesn't publish rate limits. Author names and titles come from
 // SteamGridDB, so results are built with DOM APIs rather than innerHTML.
@@ -1458,6 +1483,9 @@ function openSteamGridDbPicker(game) {
 
     let requestId = 0;
     let sgdbGameId = null;
+    // The SteamGridDB game the shown covers belong to, or null when they came
+    // from the Steam app ID lookup (no game picked in the window).
+    let shownSgdbGame = null;
     termInput.value = "";
     matchSelect.classList.add("hidden");
     results.replaceChildren();
@@ -1487,10 +1515,15 @@ function openSteamGridDbPicker(game) {
                     })
                 );
                 matchSelect.value = data.selectedGameId ?? "";
-                matchSelect.classList.toggle("hidden", data.matches.length < 2);
+                matchSelect.classList.toggle("hidden", data.matches.length === 0);
                 sgdbGameId = data.selectedGameId;
+                shownSgdbGame = data.matches.find((m) => m.id === data.selectedGameId) ?? null;
+            } else if (data.source === "game") {
+                const option = matchSelect.selectedOptions[0];
+                shownSgdbGame = option ? { id: Number(option.value), name: option.textContent } : null;
             } else if (data.source === "steam") {
                 matchSelect.classList.add("hidden");
+                shownSgdbGame = null;
             }
             renderResults(data.grids);
             status.textContent = data.grids.length
@@ -1537,8 +1570,10 @@ function openSteamGridDbPicker(game) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ url: grid.url }),
             });
+            const pickedGame = shownSgdbGame;
             finish();
             await refreshGamesAndScore();
+            if (pickedGame) await offerSteamGridDbRename(game, pickedGame);
         } catch (err) {
             status.textContent = `Couldn't use that cover: ${err.message}`;
             results.removeAttribute("aria-busy");
