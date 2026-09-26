@@ -119,6 +119,36 @@ integration("splitPlatformLink", () => {
         expect(games.rows).toHaveLength(2);
     });
 
+    // Two lists on one platform under one game, like the MGS2 and MGS3 PS3
+    // trophy lists under "METAL GEAR SOLID HD: 2 & 3" (see #207).
+    it("splits one of two lists on the same platform, keeping ownership for accounts with unlocks", async () => {
+        const secondGameId = await canonicalStore.getOrCreateCanonicalGame("steam", "split-steam-second", "Split Game Two");
+        await canonicalStore.recordOwnership(steamAccountId, secondGameId);
+        const unlockedLinkId = await canonicalStore.getOrCreateAchievementLink(
+            secondGameId,
+            "steam",
+            "split-steam-second",
+            "T1",
+            "Second list",
+            "only on the second list",
+            50
+        );
+        await canonicalStore.recordUnlock(steamAccountId, unlockedLinkId, new Date("2026-01-02T00:00:00Z"));
+        await gameMatcher.mergeGames(steamGameId, secondGameId);
+        const secondLink = await pool.query("select id from game_platform_links where platform_game_id = 'split-steam-second'");
+
+        const result = await splitter.splitPlatformLink(steamGameId, secondLink.rows[0].id);
+
+        const owners = await pool.query("select game_id from user_owned_games where user_platform_account_id = $1", [steamAccountId]);
+        expect(owners.rows.map((r) => r.game_id).sort()).toEqual([steamGameId, result.newGameId].sort());
+        const moved = await pool.query(
+            `select ca.game_id from achievement_platform_links apl
+             join canonical_achievements ca on ca.id = apl.canonical_achievement_id where apl.id = $1`,
+            [unlockedLinkId]
+        );
+        expect(moved.rows[0].game_id).toBe(result.newGameId);
+    });
+
     it("refuses to split a game's only platform entry", async () => {
         await expect(splitter.splitPlatformLink(steamGameId, xboxLinkId)).rejects.toBeInstanceOf(splitter.GameSplitError);
         const steamLink = await pool.query("select id from game_platform_links where platform_id = 'steam'");
