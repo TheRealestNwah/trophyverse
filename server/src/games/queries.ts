@@ -33,8 +33,12 @@ export async function getGamesForUser(userId: string) {
             -- #75, so this combines every distinct variant per platform
             -- rather than collapsing to whichever row jsonb_object_agg
             -- happens to keep on a duplicate key.
+            -- Array of variants per platform (was a comma-joined string; see
+            -- #193) so a merged game's linked entries render as one badge
+            -- each (e.g. "psn (PS3)" and "psn (PS4)") instead of one combined
+            -- "psn (PS3, PS4)" badge.
             (select jsonb_object_agg(platform_id, variants) from (
-                select platform_id, string_agg(distinct console_variant, ', ' order by console_variant) as variants
+                select platform_id, jsonb_agg(distinct console_variant order by console_variant) as variants
                 from game_platform_links
                 where game_id = g.id and console_variant is not null
                 group by platform_id
