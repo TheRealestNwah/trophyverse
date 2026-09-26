@@ -42,7 +42,7 @@ async function updateActivity(serverUrl: string): Promise<void> {
     await client.user
         ?.setActivity({
             details: data.username ? `Tracking ${data.username}'s achievements` : "Tracking achievements",
-            state: data.level != null ? `Level ${data.level} · ${(data.totalPoints ?? 0).toLocaleString()} points` : undefined,
+            state: data.level != null ? `Level ${data.level} · ${(data.totalPoints ?? 0).toLocaleString()} XP` : undefined,
             startTimestamp,
             instance: false,
         })

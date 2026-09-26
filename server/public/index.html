@@ -927,7 +927,7 @@
                 <div class="platforms">
                     <div class="platform-row" id="discord-presence-row">
                         <span class="platform-name">Discord Rich Presence</span>
-                        <span class="platform-note">Shows your level and points on your Discord profile while the app is open (needs a local Discord client running).</span>
+                        <span class="platform-note">Shows your level and XP on your Discord profile while the app is open (needs a local Discord client running).</span>
                         <div class="platform-actions">
                             <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
                                 <input type="checkbox" id="discord-presence-toggle" /> On
@@ -1116,9 +1116,9 @@ const LEVEL_RING_CIRCUMFERENCE = 289.03;
 function renderScore(score) {
     document.getElementById("level-number").textContent = score.level;
     document.getElementById("points-text").textContent =
-        `${score.totalPoints.toLocaleString()} points` +
+        `${score.totalPoints.toLocaleString()} XP` +
         (score.pointsForNextLevel != null
-            ? ` — ${(score.pointsForNextLevel - score.totalPoints).toLocaleString()} to level ${score.level + 1}`
+            ? ` — ${(score.pointsForNextLevel - score.totalPoints).toLocaleString()} XP to level ${score.level + 1}`
             : " — max level");
 
     const span = score.pointsForNextLevel != null ? score.pointsForNextLevel - score.pointsForCurrentLevel : 1;
@@ -1221,8 +1221,8 @@ function renderStats(stats) {
     if (stats.busiestPointsDay) {
         cards.push(
             statCard(
-                "Best day (points)",
-                `${Number(stats.busiestPointsDay.points).toLocaleString()} points`,
+                "Best day (XP)",
+                `${Number(stats.busiestPointsDay.points).toLocaleString()} XP`,
                 new Date(stats.busiestPointsDay.day).toLocaleDateString()
             )
         );
@@ -2025,7 +2025,7 @@ async function loadAchievementsPanel(panel, gameId) {
                     <span class="tier-tag ${a.tier}">${a.tier}</span>
                     <div class="achievement-body">
                         <div class="achievement-name">${a.name}${
-                            a.unlocked && a.points != null ? ` <span class="achievement-points">+${a.points} pts</span>` : ""
+                            a.unlocked && a.points != null ? ` <span class="achievement-points">+${a.points} XP</span>` : ""
                         }${
                             tagRows ? ` <span class="platform-badge achievement-platform-tag">${safeLabel}</span>` : ""
                         }</div>
