@@ -670,6 +670,7 @@
     .achievement-platform-tag { margin-left: 6px; vertical-align: 1px; }
     .achievement-desc { font-size: 12px; color: var(--text-dim); }
     .achievement-rarity { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+    .achievement-points { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
 
     .loading-note { color: var(--text-dim); font-size: 13px; padding: 16px; }
 
@@ -1865,6 +1866,8 @@ async function loadAchievementsPanel(panel, gameId) {
                     <span class="tier-tag ${a.tier}">${a.tier}</span>
                     <div class="achievement-body">
                         <div class="achievement-name">${a.name}${
+                            a.unlocked && a.points != null ? ` <span class="achievement-points">+${a.points} pts</span>` : ""
+                        }${
                             tagRows ? ` <span class="platform-badge achievement-platform-tag">${safeLabel}</span>` : ""
                         }</div>
                         ${a.description ? `<div class="achievement-desc">${a.description}</div>` : ""}
