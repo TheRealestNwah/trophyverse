@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import { isValidSteamApiKey, saveSteamApiKey, steamApiKeySource } from "./steamApiKey";
 import { getSteamGridDbApiKey, isValidSteamGridDbApiKey, removeSteamGridDbApiKey, saveSteamGridDbApiKey } from "./steamGridDbKey";
 import { getDiscordPresenceEnabled, setDiscordPresenceEnabled } from "./discordPresence";
+import { getSearchAcronyms, saveSearchAcronyms, type SearchAcronym } from "./searchAcronyms";
 
 export const setupRouter = Router();
 export const settingsRouter = Router();
@@ -20,6 +21,41 @@ settingsRouter.get("/discord-rich-presence", requireAuth, async (_req, res, next
 settingsRouter.put("/discord-rich-presence", requireAuth, async (req, res, next) => {
     try {
         await setDiscordPresenceEnabled(Boolean(req.body?.enabled));
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Backs the user-defined acronym list in Settings (see #194) - a normalized
+// acronym/expansion pair merged client-side with the built-in list in
+// public/search-text.js.
+settingsRouter.get("/search-acronyms", requireAuth, async (_req, res, next) => {
+    try {
+        res.json(await getSearchAcronyms());
+    } catch (err) {
+        next(err);
+    }
+});
+
+settingsRouter.put("/search-acronyms", requireAuth, async (req, res, next) => {
+    try {
+        const body = req.body;
+        if (!Array.isArray(body)) {
+            res.status(400).json({ error: "Expected an array of { acronym, expansion }." });
+            return;
+        }
+        const acronyms: SearchAcronym[] = [];
+        for (const entry of body) {
+            const acronym = typeof entry?.acronym === "string" ? entry.acronym.trim() : "";
+            const expansion = typeof entry?.expansion === "string" ? entry.expansion.trim() : "";
+            if (!acronym || !expansion) {
+                res.status(400).json({ error: "Each entry needs a non-empty acronym and expansion." });
+                return;
+            }
+            acronyms.push({ acronym, expansion });
+        }
+        await saveSearchAcronyms(acronyms);
         res.status(204).end();
     } catch (err) {
         next(err);
