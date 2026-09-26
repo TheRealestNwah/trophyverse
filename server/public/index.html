@@ -735,8 +735,8 @@
                 <span class="nav-item-label">Overview</span>
             </button>
             <button type="button" class="nav-item" data-nav="platforms">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
-                <span class="nav-item-label">Platforms</span>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M8 2.3v1.6M8 12.1v1.6M13.7 8h-1.6M3.9 8H2.3M12.2 3.8l-1.1 1.1M4.9 11.1l-1.1 1.1M12.2 12.2l-1.1-1.1M4.9 4.9 3.8 3.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                <span class="nav-item-label">Settings</span>
             </button>
             <button type="button" class="nav-item" data-nav="games">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2" y="2.5" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="7" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="11.5" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>
@@ -829,49 +829,6 @@
                     </div>
                 </div>
 
-                <div class="toolbar" id="section-platforms">
-                    <h2>Platforms</h2>
-                    <div>
-                        <span class="platform-note" id="sync-all-status"></span>
-                        <button type="button" id="sync-all-btn">Sync all</button>
-                    </div>
-                </div>
-                <div class="platforms" id="platforms-list"></div>
-
-                <h3 class="settings-heading">API keys</h3>
-                <p class="settings-subnote">Stored encrypted on this computer.</p>
-                <div class="platforms">
-                    <div class="platform-row hidden" id="steam-key-row">
-                        <span class="platform-name">Steam Web API</span>
-                        <span class="platform-note">Used to read your Steam library.</span>
-                        <div class="platform-actions">
-                            <button type="button" class="secondary slot-2" id="steam-key-change-btn">Change</button>
-                        </div>
-                    </div>
-                    <div class="platform-row" id="steamgriddb-key-row">
-                        <span class="platform-name">SteamGridDB</span>
-                        <span class="platform-note" id="steamgriddb-key-status">
-                            Optional, for picking cover art. Get a free key from
-                            <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank">SteamGridDB</a>.
-                        </span>
-                        <div class="platform-actions">
-                            <button type="button" class="secondary slot-2" id="steamgriddb-key-set-btn">Add</button>
-                            <button type="button" class="secondary slot-1 hidden" id="steamgriddb-key-remove-btn">Remove</button>
-                        </div>
-                    </div>
-                </div>
-
-                <h3 class="settings-heading">Account</h3>
-                <div class="platforms">
-                    <div class="platform-row danger-row" id="delete-account-row">
-                        <span class="platform-name">Delete account</span>
-                        <span class="platform-note">Permanently removes your account, linked data, and private overrides. Your SteamGridDB key is kept.</span>
-                        <div class="platform-actions">
-                            <button type="button" class="secondary danger-btn slot-2" id="delete-account-btn">Delete account</button>
-                        </div>
-                    </div>
-                </div>
-
                 <div id="section-your-games">
                     <div class="toolbar" id="section-games">
                         <h2 id="games-heading">Your games</h2>
@@ -931,6 +888,51 @@
                     </div>
                 </div>
                 <div id="game-view-achievements"></div>
+            </section>
+
+            <section id="settings-view" class="hidden">
+                <div class="toolbar" id="section-platforms">
+                    <h2>Platforms</h2>
+                    <div>
+                        <span class="platform-note" id="sync-all-status"></span>
+                        <button type="button" id="sync-all-btn">Sync all</button>
+                    </div>
+                </div>
+                <div class="platforms" id="platforms-list"></div>
+
+                <h3 class="settings-heading">API keys</h3>
+                <p class="settings-subnote">Stored encrypted on this computer.</p>
+                <div class="platforms">
+                    <div class="platform-row hidden" id="steam-key-row">
+                        <span class="platform-name">Steam Web API</span>
+                        <span class="platform-note">Used to read your Steam library.</span>
+                        <div class="platform-actions">
+                            <button type="button" class="secondary slot-2" id="steam-key-change-btn">Change</button>
+                        </div>
+                    </div>
+                    <div class="platform-row" id="steamgriddb-key-row">
+                        <span class="platform-name">SteamGridDB</span>
+                        <span class="platform-note" id="steamgriddb-key-status">
+                            Optional, for picking cover art. Get a free key from
+                            <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank">SteamGridDB</a>.
+                        </span>
+                        <div class="platform-actions">
+                            <button type="button" class="secondary slot-2" id="steamgriddb-key-set-btn">Add</button>
+                            <button type="button" class="secondary slot-1 hidden" id="steamgriddb-key-remove-btn">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="settings-heading">Account</h3>
+                <div class="platforms">
+                    <div class="platform-row danger-row" id="delete-account-row">
+                        <span class="platform-name">Delete account</span>
+                        <span class="platform-note">Permanently removes your account, linked data, and private overrides. Your SteamGridDB key is kept.</span>
+                        <div class="platform-actions">
+                            <button type="button" class="secondary danger-btn slot-2" id="delete-account-btn">Delete account</button>
+                        </div>
+                    </div>
+                </div>
             </section>
         </main>
     </div>
@@ -1771,8 +1773,9 @@ function toggleCollapsedPlatform(platformId, collapsed) {
 }
 
 // Which optional dashboard sections the user has hidden from their own
-// view (see #143). Platforms (#section-platforms) always stays visible
-// since it's needed for setup/onboarding, so it's not in this list.
+// view (see #143). Platforms/API keys/Account moved to their own Settings
+// page (#191) and are no longer part of the dashboard at all, so they were
+// never candidates for this list.
 // Reordering/moving sections elsewhere is out of scope here - hide/show
 // only - since drag-and-drop is a much bigger UI lift the issue didn't
 // require. This is a plain per-viewer preference, so like the
@@ -1884,6 +1887,7 @@ function escapeHtml(value) {
 async function showGameView(gameId, { pushState = true } = {}) {
     const game = state.games.find((g) => g.id === gameId);
     document.getElementById("dashboard-view").classList.add("hidden");
+    document.getElementById("settings-view").classList.add("hidden");
     document.getElementById("game-view").classList.remove("hidden");
     document.getElementById("game-view-title").textContent = game?.title ?? "Loading...";
     document.getElementById("game-view-progress").textContent = game
@@ -2709,14 +2713,13 @@ function initAccountDeletion() {
 // scroll-spy, since a click always has one unambiguous target.
 const NAV_SECTIONS = {
     overview: "section-overview",
-    platforms: "section-platforms",
     games: "section-games",
     "in-progress": "section-games",
     completed: "section-games",
 };
 const NAV_TITLES = {
     overview: "Overview",
-    platforms: "Platforms",
+    platforms: "Settings",
     games: "All Games",
     "in-progress": "In Progress",
     completed: "Completed",
@@ -2729,12 +2732,33 @@ function setActiveNav(key) {
     document.getElementById("topbar-title").textContent = NAV_TITLES[key] || "Overview";
 }
 
+// Settings (Platforms, API keys, Account - see #191) is its own page rather
+// than a dashboard section, since it's account/app-level config, not part
+// of the games library. Shares the dashboard-view/game-view show-one-at-a-
+// time pattern from #186.
+function showSettingsView() {
+    document.getElementById("dashboard-view").classList.add("hidden");
+    document.getElementById("game-view").classList.add("hidden");
+    document.getElementById("settings-view").classList.remove("hidden");
+}
+
+function hideSettingsView() {
+    document.getElementById("settings-view").classList.add("hidden");
+    document.getElementById("game-view").classList.add("hidden");
+    document.getElementById("dashboard-view").classList.remove("hidden");
+}
+
 function initSidebarNav() {
     document.querySelectorAll(".nav-item").forEach((btn) => {
         btn.addEventListener("click", () => {
             const key = btn.dataset.nav;
-            state.completionPreset = key === "in-progress" || key === "completed" ? key : null;
             setActiveNav(key);
+            if (key === "platforms") {
+                showSettingsView();
+                return;
+            }
+            hideSettingsView();
+            state.completionPreset = key === "in-progress" || key === "completed" ? key : null;
             document.getElementById(NAV_SECTIONS[key])?.scrollIntoView({ behavior: "smooth", block: "start" });
             renderGames(state.games);
         });
